@@ -1,0 +1,78 @@
+Post-Login Onboarding Modal
+Restaurant AI Dashboard — First-Time User Experience
+
+Overview
+After a user logs in, display a fullscreen overlay with a sliding onboarding card. The goal is to quickly communicate the platform's key value props and drive the user to take their first action — no friction, no lengthy setup.
+
+Behavior
+
+Trigger: Show on every login, unless the user has previously clicked "Don't show again"
+Overlay: semi-transparent dark background (rgba black ~55% opacity) covering the full viewport
+Card: centered, max-width ~520px, white background, rounded corners, slides horizontally between screens
+Close: "✕" button top-right — closes for this session only
+"Don't show again" text button bottom-left — closes AND sets a persistent flag (localStorage or DB field) so it never shows again for this user
+Dot indicators bottom-right showing current slide position (3 dots total)
+Supports swipe gesture on mobile
+
+
+Slide 1 — Your AI Team
+Label (pill badge): YOUR AI TEAM
+Headline: "Hire the right AI agents. Run your restaurant on autopilot."
+Subheadline: "Flexibly deploy specialized agents for every function — they work together, 24/7, so you don't have to."
+Agent grid (2 rows × 3 cols) — use a relevant icon from your icon library (e.g. Lucide or Heroicons) next to each label:
+
+Chef Agent — use a cooking/utensils icon
+Operations Agent — use a settings/sliders icon
+Marketing Agent — use a megaphone/speakerphone icon
+Customer Service Agent — use a chat-bubble/headset icon
+Finance Agent — use a chart/coin icon
+Legal & HR Agent — use a shield/document icon
+
+Metrics grid (2×2) — large number + label, each tile with a distinct light-tinted accent background:
+
++18% / Order growth — green
+3.1× / Delivery ROAS — blue
+4.8★ / Avg rating — amber
+24/7 / Autonomous execution — purple
+
+CTA button (full width, dark fill): "Explore your AI team →" — advances to Slide 2
+
+Slide 2 — Task Market
+Label (pill badge): TASK MARKET
+Headline: "The fastest way to try an AI agent."
+Subheadline: "Browse ready-to-run tasks. Pick one, let AI handle it — no setup required."
+Task list (3 rows) — each row: icon block + title + description + agent tag badge on the right. Use a relevant icon from your icon library per task:
+
+Icon: clipboard/list — Generate this week's menu — "Recommends dishes based on inventory and season" — tag: Chef
+Icon: megaphone/ad — Write delivery platform ad copy — "Boosts click-through and conversion rate" — tag: Marketing
+Icon: chat/reply — Auto-reply to negative reviews — "Detects bad reviews and drafts professional responses" — tag: Customer Service
+
+CTA button (full width, dark fill): "Go to Task Market →" — closes modal and navigates to /task-market
+
+Slide 3
+Leave blank for now. Show a simple centered placeholder: "More coming soon". We will provide content in a future update.
+
+Persistence Logic
+
+Use localStorage key: onboarding_dismissed = "true", or a DB field user.onboarding_dismissed: boolean
+On every login, check this flag before rendering the modal
+"Don't show again" sets the flag; "✕" closes for this session only and does NOT set the flag
+
+
+Design Notes
+
+Card padding: 28–32px horizontal, 28–32px top
+Agent grid cells: soft gray background, rounded corners, icon above label, centered
+Metric tiles: light-tinted background per accent color (green/blue/amber/purple), large bold number, small muted label below
+Slide transition: smooth horizontal CSS transform, ~350ms ease-in-out
+Dot indicators: filled dark = active, light gray = inactive
+Typography: sentence case throughout; pill labels in small uppercase with letter-spacing
+Mobile: card fills full width with 16px margins on each side
+Flat design — no heavy drop shadows
+
+
+Out of Scope (for now)
+
+No animated number counters on metrics
+No analytics tracking for modal impressions
+Slide 3 content TBD

@@ -1,0 +1,209 @@
+Please redesign the individual agent pages to reduce text density and make them more visual.
+
+Current problem:
+The agent pages rely too heavily on long text sections.
+They explain the agents clearly, but the pages feel too text-heavy and not visual enough.
+
+Goal:
+Make each agent page feel more like a product experience and less like a long-form services page.
+
+New direction:
+Use a better mix of:
+- short text
+- structured cards
+- visual previews
+- supporting images
+- metric blocks
+- example outputs
+
+Important:
+Do not remove the content meaning.
+Instead, convert part of the explanation into visual components.
+
+What to improve on every agent page:
+
+1. Reduce long text blocks
+- Shorten paragraphs where possible
+- Replace long bullet sections with cards, tags, or grouped modules
+- Keep only the most important intro copy
+
+2. Add more visual cards
+Use cards to represent:
+- key responsibilities
+- example outputs
+- business signals
+- recommendations
+- workflows
+- capability groups
+
+Instead of showing everything as long bullet lists, break content into smaller visual units.
+
+3. Add relevant supporting images or previews
+Each agent page should include visuals that fit the agent’s role.
+These do not have to be heavy decorative images.
+They can be:
+- UI-style preview cards
+- mock screenshots
+- food thumbnails
+- content thumbnails
+- rating / review cards
+- mini charts
+- promotion previews
+- creator profile previews
+
+4. Use a richer page structure
+Each agent page should feel more layered, for example:
+- hero/introduction
+- capability cards
+- expectation/results cards
+- visual examples
+- small dashboard snippets
+- CTA / learn more / start chat section
+
+AGENT-SPECIFIC VISUAL DIRECTION
+
+Operation Agent
+This page should feel analytical and business-oriented.
+Add visual elements such as:
+- KPI cards
+- trend charts
+- Uber Eats vs DoorDash comparison cards
+- promotion performance cards
+- budget recommendation card
+- weekly priorities card
+
+Possible visual modules:
+- Orders trend mini chart
+- Revenue trend mini chart
+- Budget cap recommendation card
+- Platform comparison table/card
+- Promotion mix cards (BOGO, discount, combo, threshold)
+
+Chef Agent
+This page should feel product/menu-focused and more visual.
+Add:
+- food images or dish thumbnails
+- “new dish idea” cards
+- before/after item description cards
+- menu photo improvement examples
+- hero dish spotlight cards
+- seasonal suggestion cards
+
+Possible visual modules:
+- New dish recommendation cards
+- Menu photo review cards
+- Description upgrade examples
+- Seasonal menu idea board
+- Hero item recommendation panel
+
+Social Media Agent
+This page should feel like a content and creator workspace.
+Add:
+- social post thumbnails
+- short-form video preview cards
+- engagement metric cards
+- content theme cards
+- creator/influencer profile cards
+- campaign suggestion cards
+
+Possible visual modules:
+- Best-performing post card
+- Next content idea cards
+- Audience insight cards
+- Influencer opportunity cards
+- Weekly content performance snapshot
+
+Customer Service Agent
+This page should feel reputation- and retention-focused.
+Add:
+- review summary cards
+- star rating visual blocks
+- Google / Yelp rating cards
+- complaint category cards
+- issue tracking cards
+- retention / win-back campaign cards
+
+Possible visual modules:
+- Review trend cards
+- Complaint theme cards
+- Follow-up status cards
+- Win-back campaign cards
+- Retention performance snapshot
+
+5. Turn “What this agent handles” into card-based layout
+Do not present this section as a long wall of bullets.
+Instead, group capabilities into 3–5 cards or clusters.
+
+For example:
+Operation Agent:
+- Growth Monitoring
+- Delivery Optimization
+- Budget Strategy
+- Promotion Planning
+
+Chef Agent:
+- New Dish Ideas
+- Menu Improvement
+- Photo Optimization
+- Description Upgrades
+
+Social Media Agent:
+- Content Planning
+- Performance Insights
+- Creator Collaboration
+- Campaign Ideas
+
+Customer Service Agent:
+- Review Monitoring
+- Complaint Follow-Up
+- Reputation Improvement
+- Retention Support
+
+6. Turn “What you can expect from this agent” into metric / output cards
+Instead of plain text bullets, use visual cards for expected outputs.
+
+For example:
+Operation Agent:
+- Order Growth Trend
+- Revenue Snapshot
+- Platform Comparison
+- Budget Recommendation
+- Promotion Performance
+
+Chef Agent:
+- New Dish Suggestions
+- Seasonal Product Ideas
+- Photo Update Priorities
+- Description Improvements
+- Hero Product Picks
+
+Social Media Agent:
+- Posting Summary
+- Engagement Insights
+- Best Content Themes
+- Creator Opportunities
+- Content Priorities
+
+Customer Service Agent:
+- Rating Trends
+- Review Sentiment
+- Complaint Tracking
+- Follow-Up Status
+- Retention Suggestions
+
+7. Keep the pages practical, not decorative
+The visuals should support understanding and reduce text fatigue.
+Do not add random stock images just to fill space.
+Use visuals that feel connected to the work each agent does.
+
+8. UX goal
+Each agent page should feel:
+- easier to scan
+- more visual
+- more product-like
+- more AI-native
+- less like a long explanation page
+
+Important:
+The goal is not just to make the page prettier.
+The goal is to replace some of the text with useful visual structure so users can understand each agent faster.

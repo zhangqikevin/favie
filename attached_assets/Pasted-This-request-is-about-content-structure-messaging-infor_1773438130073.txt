@@ -1,0 +1,137 @@
+This request is about content structure, messaging, information architecture, and front-end website planning.
+4
+5I am building a full-featured website step by step.
+6For now, only focus on the customer-facing front-end website.
+7The admin backend will be built later in phases.
+8
+9Business context:
+10This website is for a restaurant growth service business.
+11We help restaurants improve growth across traffic, conversion, order value, reputation, and repeat purchase.
+12
+13Confirmed service lines:
+141. Delivery advertising and storefront optimization
+152. Menu, bundle, and upsell optimization
+163. Social media management
+174. Short-form video scripting and content generation
+185. KOL / KOC collaboration
+196. Reviews, engagement, and reputation management
+207. Member reactivation and repeat purchase
+21
+22Your task:
+23Help me build the front-end website structure and content system for this business.
+24Do not treat this as a simple landing page.
+25Treat it as the first phase of a complete website that will later connect to backend/admin capabilities.
+26
+27Core objective:
+28Create a scalable front-end website with strong messaging, clear service presentation, and a logical page structure that can support future expansion.
+29
+30What I need from you:
+31
+321. Define the recommended front-end sitemap
+33Propose a practical website structure for phase 1, including the most important public-facing pages.
+34
+35Suggested direction:
+36- Home
+37- Services overview
+38- Individual service pages
+39- Industries / who we serve
+40- About
+41- Case studies or results framework
+42- FAQ
+43- Contact / consultation page
+44
+45If you think other pages are necessary, include them.
+46
+472. Define the role of each page
+48For each recommended page, explain:
+49- its purpose
+50- its target audience
+51- the key message
+52- the primary CTA
+53- the content blocks it should contain
+54
+553. Write the content strategy for the site
+56Help structure the messaging so the website communicates:
+57- We are a growth partner for restaurants
+58- We improve the full growth funnel, not just content production
+59- We connect acquisition, conversion, brand presence, reputation, and retention
+60- We are execution-oriented, not just strategy-only
+61
+624. Turn the 7 service lines into website-ready service content
+63For each service, provide:
+64- service page title
+65- short positioning statement
+66- what problem it solves
+67- what we do
+68- expected business impact
+69- CTA direction
+70
+71The 7 service lines are:
+72
+73A. Delivery Advertising & Storefront Optimization
+74B. Menu, Bundle & Upsell Optimization
+75C. Social Media Management
+76D. Short-Form Video Scripts & Content Generation
+77E. KOL / KOC Collaboration
+78F. Reviews, Engagement & Reputation Management
+79G. Member Reactivation & Repeat Purchase
+80
+815. Recommend homepage content structure
+82The homepage should not try to explain everything equally.
+83It should guide visitors into the right understanding of the business.
+84
+85Please define:
+86- hero message
+87- supporting value proposition
+88- service summary section
+89- business outcomes section
+90- process / methodology section
+91- social proof or credibility section
+92- CTA flow
+93
+946. Build a clear “outcomes-first” messaging system
+95I do not want the site to sound like a generic marketing agency.
+96The content should emphasize business outcomes such as:
+97- more visibility
+98- better conversion
+99- higher average order value
+100- stronger reputation
+101- better repeat purchase
+102- more efficient growth execution
+103
+1047. Define target customer segments
+105Recommend how the site should speak to different restaurant customer types, such as:
+106- independent restaurants
+107- multi-location brands
+108- fast casual concepts
+109- new restaurant launches
+110- operators with weak delivery performance
+111- brands that need stronger content and retention systems
+112
+1138. Plan future scalability
+114Because this website will eventually expand into a full product/business website with backend functionality, structure the front-end in a scalable way.
+115That means:
+116- content architecture should be modular
+117- services should be easy to expand later
+118- future sections like resources, dashboards, client login, onboarding, or admin access should be easy to add later
+119- avoid a dead-end landing page structure
+120
+121Important constraints:
+122- Focus on content, structure, and business messaging
+123- Do not spend time describing visual design style
+124- Do not frame this as a one-page marketing site
+125- Do not use fake case studies or fake metrics
+126- Keep the tone professional, clear, and commercial
+127- The site is B2B, serving restaurant owners and operators
+128- The website should feel like the front-end foundation of a larger business system
+129
+130Output format:
+131Please give me the following in order:
+132
+1331. Recommended sitemap
+1342. Homepage content structure
+1353. Service architecture
+1364. Page-by-page content recommendations
+1375. Suggested messaging pillars
+1386. Suggested CTAs
+1397. Suggestions for future expansion into backend/admin product flows

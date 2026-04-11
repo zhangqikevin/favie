@@ -1,0 +1,224 @@
+Refactor the current admin dashboard into a chat-first AI console.
+
+Important product direction:
+This product should not feel like a traditional SaaS dashboard where users manually operate tools from many pages.
+It is an AI-agent-powered restaurant growth platform.
+The AI should handle most of the execution.
+The user should mainly interact through chat, review AI-generated insights, and approve or adjust high-level controls when needed.
+
+Core concept:
+Turn the product into a conversational operating system for restaurant growth.
+
+This means:
+- chat is the main interface
+- dashboard information appears inside the chat experience
+- product capabilities like delivery, menu, content, reputation, and retention should be surfaced through AI responses, cards, charts, and approval modules
+- users should not need to manually operate complex workflows
+
+New layout direction:
+Replace the current “traditional dashboard-first” structure with a “chat-first AI console” layout.
+
+Recommended layout:
+- main center area = chat interface
+- optional right-side context panel = supporting cards, charts, and structured information related to the current conversation
+- keep navigation light and minimal
+
+Do not make the UI feel like a classic admin dashboard with lots of pages and manual controls.
+
+Main experience:
+When the user logs in, they should land on a Chat Home / AI Console page.
+
+The first screen should feel like:
+- AI already understands the account
+- AI is proactively summarizing what matters
+- AI is ready to answer questions, make recommendations, and take actions
+
+Example first message from AI:
+“Here’s your latest growth snapshot for Golden Wok. Orders are up this month, repeat customer rate is improving, and Uber Eats is currently outperforming DoorDash. Your delivery budget cap may be limiting peak-hour growth.”
+
+The AI response should be able to include:
+- summary text
+- KPI cards
+- charts
+- recommendation cards
+- approval cards
+- recent activity
+- quick action buttons
+
+Key product principle:
+The user should not navigate to tools in order to operate them manually.
+Instead, the user should ask questions or give goals in chat, and the AI should bring the right UI into the conversation.
+
+Examples:
+- How are we doing this week?
+- Show me delivery performance
+- What promotions are live now?
+- Increase my delivery budget if ROI is still healthy
+- Why did DoorDash orders drop?
+- What should we do next week?
+- Show me recent review issues
+- Update my monthly budget limit to $3,000
+
+Navigation:
+Keep navigation minimal.
+Instead of a heavy sidebar with many operational pages, use a light structure such as:
+- Chat Home
+- Activity
+- Files
+- Connections
+- Settings
+
+Important:
+Delivery, Menu, Social, Content, Reputation, and Retention should no longer feel like separate main pages the user must operate manually.
+They should mainly appear as AI capability areas surfaced inside the chat flow.
+
+Chat Home / AI Console requirements:
+This is the main page and should include:
+
+1. Main chat area
+- conversation thread
+- AI messages
+- user input box
+- suggested prompt chips such as:
+- Show my weekly summary
+- What changed this month?
+- Show delivery performance
+- What needs my approval?
+- What should we optimize next?
+
+2. AI-generated snapshot blocks inside chat
+The AI should be able to render structured blocks such as:
+- KPI summary cards
+- trend charts
+- performance breakdown cards
+- tasks/priorities
+- alerts/opportunities
+- recent activity
+- recommendations
+- approval controls
+
+3. Context panel or embedded side area
+If useful, include a supporting panel that updates based on the current conversation.
+For example:
+- current account summary
+- active plan
+- latest KPIs
+- quick links to current topic
+- current approvals needed
+
+Dashboard logic should be transformed, not removed:
+The old dashboard should become an AI-generated business snapshot inside the chat experience.
+
+For example, when the user opens Chat Home, the AI can automatically show:
+- Total Orders
+- Revenue
+- Avg Order Value
+- Repeat Customer Rate
+- Review Rating
+- Current delivery budget cap
+- Top opportunity
+- This week’s priorities
+
+Use realistic mock data such as:
+- Restaurant: Golden Wok – Downtown
+- Plan: Get Chosen
+- Status: Active Plan
+- Total Orders: 1,284
+- Online Revenue: $28,460
+- Avg Order Value: $22.17
+- Repeat Customer Rate: 31%
+- Review Rating: 4.6
+
+Delivery capability example:
+Do not build a traditional ads management page.
+The delivery experience should be AI-managed.
+The restaurant owner should mainly control one thing:
+- monthly maximum budget limit
+
+The AI should:
+- recommend the budget
+- explain why
+- show Uber Eats and DoorDash performance
+- forecast expected impact if the budget changes
+- show recent promotion actions such as BOGO, discount, combo, storefront refresh
+
+This can appear in chat as a structured response with cards and buttons such as:
+- Use Recommended Budget
+- Why this recommendation?
+- Show full delivery details
+
+Settings philosophy:
+Settings should also feel conversational where possible.
+The user should be able to say things like:
+- Set my monthly delivery budget to $3,000
+- Never run promotions after 9 PM
+- Notify me only when spend exceeds forecast by 15%
+- Require approval before launching new promotions
+
+The system can then show a confirmation card with:
+- current setting
+- proposed new setting
+- expected impact
+- confirm button
+
+You can still keep a Settings page, but it should act as a source-of-truth fallback, not the main interaction pattern.
+
+Activity page:
+Create an Activity page showing:
+- what the AI has done recently
+- what actions were taken
+- what is pending approval
+- what recommendations were accepted or rejected
+
+Files page:
+Create a Files page for assets and records such as:
+- menu assets
+- promotion assets
+- content drafts
+- reports
+- uploaded documents
+
+Connections page:
+Create a Connections page showing integration status for:
+- Uber Eats
+- DoorDash
+- social platforms
+- CRM / email tools
+- analytics tools
+
+Settings page:
+Create a lightweight Settings page with:
+- account
+- restaurant profile
+- team access
+- approval rules
+- notifications
+- billing
+- integrations
+
+UX goals:
+The product should feel:
+- AI-native
+- conversational
+- proactive
+- simple
+- high-trust
+- operator-friendly
+
+Avoid:
+- traditional dashboard overload
+- too many manual settings
+- ad-manager-style complexity
+- page structures that imply the user must do all the work
+
+Focus on:
+- chat as the primary interface
+- cards/charts as supporting evidence
+- approvals as the main control surface
+- AI recommendations and actions
+- minimal but clear navigation
+- a realistic and polished front-end prototype
+
+Use mock data throughout.
+Do not build full backend logic yet.
+The result should feel like an AI operating console for restaurant growth, not a normal admin dashboard.

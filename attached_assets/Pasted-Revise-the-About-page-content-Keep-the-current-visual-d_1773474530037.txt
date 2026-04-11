@@ -1,0 +1,67 @@
+Revise the About page content.
+
+- Keep the current visual direction largely as it is
+- Focus the revision on content and messaging, not a major visual redesign
+
+- Shift the page narrative away from a service-led explanation
+- Reframe the page around AI agents as the core of the product
+- Make the page explain the business from an AI-agent perspective, not a traditional agency/service perspective
+
+- Add clearer content about why the product is built around specialized AI agents
+- Explain the benefits of having multiple agents with different roles
+- Show that restaurant growth requires coordinated, system-wide support rather than isolated one-off services
+
+- Emphasize that growth is not just about one channel
+- Show that sustainable restaurant growth depends on multiple areas working together:
+- delivery performance
+- menu quality and presentation
+- social content and awareness
+- reputation and customer feedback
+- repeat purchase and retention
+
+- Introduce the idea that the agents work together as one system
+- Explain that the value is not only what each agent does individually, but how they coordinate inside one operating model / Boardroom
+- Make it clear that this is a more complete and intelligent growth system than buying separate disconnected services
+
+- Add content about the advantages of the AI-agent model, such as:
+- more consistent monitoring
+- faster insights and recommendations
+- better coordination across growth functions
+- less manual work for restaurant owners
+- continuous support instead of one-time consulting
+- more proactive execution and follow-up
+
+- Add a section explaining why restaurant growth needs full-stack support
+- Explain that restaurants do not grow through a single tactic
+- Make the page communicate that real growth comes from aligning operations, menu, content, reputation, and retention
+
+- Keep some mention of what the business actually helps with, but do not organize the page around the old service list
+- Services should appear as supporting capabilities delivered through the agent system, not as the main narrative structure
+
+- Add stronger content around:
+- why AI agents are better than fragmented tools or disconnected service providers
+- why a coordinated system matters
+- how restaurant owners interact with the system through insights, recommendations, and approvals instead of manual execution
+
+- Make the About page feel more strategic and differentiated
+- It should explain not just what the company does, but why this model is fundamentally better for restaurant growth
+
+- Keep the tone:
+- clear
+- commercial
+- modern
+- operator-friendly
+- credible
+- not too technical
+
+- Avoid:
+- falling back into a generic services-company About page
+- listing services as the main structure
+- making the AI agents sound abstract or gimmicky
+- overexplaining technical AI details
+
+- Focus on:
+- AI-agent-led growth
+- coordinated system support
+- clear business benefits
+- why restaurants need a full growth system, not isolated tactics

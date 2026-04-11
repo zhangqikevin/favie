@@ -1,0 +1,37 @@
+⚖️ Legal & HR（5个）
+任务	价格	用户输入	AI 输出
+Employee Handbook Generator	$19.99	餐厅名称、员工规模、是否有外卖/堂食	一份加州合规的员工手册，含考勤、着装、小费政策等
+Job Description Writer	$2.99	职位名称、工作内容要点、薪资范围	可直接发布的招聘文案，适配 Indeed/Craigslist
+Disciplinary Warning Letter	$3.99	员工姓名、违规行为、此前是否有警告	正式书面警告信，CA 合规，可打印签字
+CA Termination Checklist	$4.99	离职原因（主动/被动）、员工类型	加州解雇合规清单：最后一张工资截止日、COBRA 通知、物品归还等
+New Hire Onboarding Schedule	$4.99	职位、部门（厨房/前厅）、开始日期	两周培训计划表，按天列出每项训练内容和负责人
+💰 Finance（4个）
+任务	价格	用户输入	AI 输出
+Break-Even Calculator	$4.99	月租金、人工成本、食材成本占比、客单价	盈亏平衡点（每日需多少桌/多少营业额），含图表数据
+Catering Quote Builder	$9.99	活动人数、菜式、餐标预算	完整报价单，含每人成本、利润率、合同条款建议
+Menu Price Increase Letter	$2.99	涨价幅度、原因（通胀/租金/食材）、餐厅风格	给老客户的涨价通知，温和有理，适合发社媒或贴店里
+Dish Cost Card	$6.99	某道菜的所有原材料和用量	每份成本核算、建议售价、当前定价是否合理的判断
+👨‍🍳 Chef（5个）
+任务	价格	用户输入	AI 输出
+Recipe Scaler	$1.99	原配方（份量+食材）、目标份数	按比例换算后的完整配方，含单位换算
+Seasonal Menu Planner	$9.99	菜系、当前季节、大概食材预算	8–12 道新菜建议，含菜名、描述、核心食材、预估食材成本
+Allergen Audit	$4.99	完整菜单（菜名+主要食材）	标注每道菜的八大过敏原，生成合规的过敏原说明文本
+Staff Meal Planner	$2.99	团队人数、常备食材、预算/天	5天员工餐方案，利用边角食材降成本，保持员工满意度
+Menu Description Writer	$4.99	菜名列表（可加简单描述）	为每道菜写有食欲的文案，风格可选（正式/亲切/高端）
+💬 Customer Service（4个）
+任务	价格	用户输入	AI 输出
+FAQ Page Generator	$4.99	餐厅类型、常见问题方向（停车/订位/外卖）	15–20 条 FAQ，适合放在网站或 Google Business
+Complaint Email Response	$1.99	顾客投诉邮件原文、事件经过	专业回复草稿，道歉+解释+补救方案，不卑不亢
+Reservation Policy Writer	$3.99	是否接受订位、最大桌位、爽约处罚	正式的订位与取消政策，可直接发给客人或放官网
+Loyalty Program Designer	$6.99	客单价、回头客目标、愿意给的折扣力度	设计一套积分/集章方案，含奖励门槛、视觉文案建议
+📣 Marketing（4个）
+任务	价格	用户输入	AI 输出
+Google Business Profile Optimizer	$3.99	餐厅简介、特色、地址周边环境	优化后的 Google 商家描述（750字内），含关键词
+Monthly Email Newsletter	$6.99	本月新菜、活动、故事素材	完整邮件正文，含主题行（A/B两版）、内容分区、CTA
+Grand Opening Announcement	$4.99	开业日期、地址、主打卖点	多渠道开业文案包：社媒帖文、门店海报文字、本地媒体新闻稿
+Happy Hour / Promo Designer	$4.99	时间段、目标（引流/去库存/拉回头客）	完整促销方案：折扣设计、文案、适合哪个渠道推、持续时长建议
+⚙️ Operations（3个）
+任务	价格	用户输入	AI 输出
+Opening & Closing Checklist	$4.99	餐厅类型（快餐/正餐）、员工角色	分角色的开店/收档清单，PDF格式，可直接打印上墙
+Health Inspection Prep	$6.99	所在城市、餐厅类型、上次检查的问题点	按检查官实际评分维度列出的备检清单，含高频扣分项和整改说明
+Vendor RFQ Template	$3.99	需要采购的品类（肉类/农产品/酒水）、月用量	可发给供应商的询价单，含规格要求、付款条款、评比标准

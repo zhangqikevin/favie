@@ -1,0 +1,318 @@
+Please update the multi-agent chat-first AI console with richer agent-specific pages and clearer role definitions.
+2
+3Core update:
+4Boardroom should remain the shared multi-agent briefing room.
+5But each individual agent page should also include its own chat-based briefing experience with richer, more detailed cards and reports than the Boardroom view.
+6
+7In other words:
+8- Boardroom = high-level multi-agent summary
+9- Individual agent pages = deeper 1-on-1 working views with more detailed insights, cards, recommendations, and supporting content
+10
+11GENERAL PRODUCT DIRECTION
+12
+13This product is still chat-first and AI-native.
+14Users should feel like they are talking to an AI leadership team for restaurant growth.
+15
+16Each individual agent page should include:
+17- a one-on-one chat interface
+18- an opening briefing from that agent
+19- richer structured cards inside the chat
+20- more detailed reporting than the Boardroom version
+21- suggested prompts relevant to that agent
+22- optional charts, KPI blocks, previews, thumbnails, or recommendation cards where useful
+23
+24Do not make these pages feel like traditional dashboards.
+25They should still feel like conversational AI workspaces, but with more depth than Boardroom.
+26
+27BOARDROOM
+28
+29Keep Boardroom as the main landing page.
+30The page title should remain:
+31- Boardroom
+32
+33Boardroom should still show:
+34- one shared professional group-chat style feed
+35- 4 agents reporting in the same room
+36- Operation Agent gives the overall business summary first
+37- then the other 3 agents give concise updates
+38
+39Important:
+40Boardroom updates should stay concise and executive-style.
+41The richer, deeper detail should live inside each individual agent page.
+42
+43LEFT NAVIGATION
+44
+45The sidebar should include:
+46- Boardroom
+47- Operation Agent
+48- Chef Agent
+49- Social Media Agent
+50- Customer Service Agent
+51- Activity
+52- Files
+53- Connections
+54- Settings
+55
+56INDIVIDUAL AGENT PAGE REQUIREMENTS
+57
+58Each of the 4 agent pages should have:
+591. Page title with agent name
+602. One-on-one chat layout
+613. Intro message from that agent
+624. A few suggested prompt chips
+635. Rich briefing cards/messages already visible in the chat
+646. More detailed information than what appears in Boardroom
+65
+66Now use the following role definitions:
+67
+68--------------------------------------------------
+691. OPERATION AGENT
+70--------------------------------------------------
+71
+72Role:
+73Operation Agent is responsible for business growth performance and operational growth decisions.
+74
+75This agent should emphasize:
+76- overall business growth
+77- key revenue/order metrics
+78- trend lines and performance curves
+79- delivery business performance
+80- ad spend efficiency
+81- promotion mix on delivery platforms
+82- recommendations for budget adjustments
+83- recommendations for platform promotion strategy
+84
+85Important role update:
+86Move delivery advertising cost analysis and delivery platform promotion strategy into Operation Agent.
+87This content should no longer primarily live under Chef Agent.
+88
+89Operation Agent page should include richer content such as:
+90- order trend
+91- online revenue trend
+92- average order value trend
+93- repeat customer trend
+94- Uber Eats performance summary
+95- DoorDash performance summary
+96- ad spend trend
+97- ROAS / efficiency style indicators if useful
+98- AI recommendation for monthly budget cap
+99- AI recommendation for delivery promo mix
+100
+101Promotion strategy examples:
+102- BOGO
+103- percentage discount
+104- combo promotion
+105- spend threshold offers
+106- free item campaigns
+107
+108Operation Agent should explain:
+109- what changed
+110- why it changed
+111- what AI recommends next
+112- expected business impact
+113
+114Example structured cards/messages:
+115- Weekly Growth Snapshot
+116- Delivery Spend vs Return
+117- Uber Eats vs DoorDash Comparison
+118- Recommended Budget Adjustment
+119- Active Promotion Mix
+120- Next 7-Day Priorities
+121
+122Suggested prompts:
+123- How are we growing this week?
+124- Should we increase our delivery budget?
+125- Which platform is performing better?
+126- What promotions should we run next?
+127- Where are we losing efficiency?
+128
+129--------------------------------------------------
+1302. CHEF AGENT
+131--------------------------------------------------
+132
+133Role:
+134Chef Agent should now focus on two areas only:
+135
+1361. New dish recommendation ideas
+1372. Existing dish image and description optimization
+138
+139Chef Agent should NOT focus on bundle/promotion/ad-platform strategy anymore.
+140That belongs to Operation Agent.
+141
+142Chef Agent page should provide recommendations based on:
+143- recent social media trends
+144- seasonal timing
+145- customer interest signals
+146- menu gaps
+147- food trends
+148- local relevance if helpful
+149
+150Chef Agent page should include richer content such as:
+151- suggested new dish ideas
+152- seasonal specials recommendations
+153- dish concept cards
+154- reasoning behind each recommendation
+155- current menu photo quality review
+156- dish description improvement suggestions
+157- menu presentation optimization ideas
+158- before/after style copy suggestions for item descriptions
+159- image refresh recommendations
+160- hero dish recommendations
+161
+162Example content directions:
+163New dish recommendations:
+164- seasonal fruit tea
+165- spicy lunch bowl
+166- limited-time combo dish
+167- trending snack item inspired by current social buzz
+168
+169Image/description optimization:
+170- this item photo is too dark
+171- this product title is too generic
+172- this description does not highlight texture/flavor clearly
+173- recommend adding benefit-oriented food language
+174- recommend updating hero images for top-selling dishes
+175
+176Example structured cards/messages:
+177- New Dish Opportunities
+178- Seasonal Product Suggestions
+179- Menu Photo Review
+180- Item Description Upgrade Suggestions
+181- Hero Product Recommendations
+182
+183If useful, include food thumbnails or mock dish images.
+184
+185Suggested prompts:
+186- What new dishes should we try next?
+187- Which menu photos need updating?
+188- How should we improve this item description?
+189- What seasonal items fit our brand right now?
+190- Which dishes should become hero products?
+191
+192--------------------------------------------------
+1933. SOCIAL MEDIA AGENT
+194--------------------------------------------------
+195
+196Role:
+197Social Media Agent is responsible for:
+198- posting activity
+199- engagement performance
+200- insights from audience interaction
+201- future content suggestions
+202- influencer / KOL / KOC collaboration suggestions
+203- collaboration matchmaking and follow-up related content
+204
+205Social Media Agent page should include richer content such as:
+206- posting frequency summary
+207- recent content performance
+208- engagement metrics
+209- best-performing post or video
+210- audience interaction insights
+211- comments / DM / engagement themes if useful
+212- next content recommendations
+213- short-form content ideas
+214- influencer collaboration opportunities
+215- creator shortlist or suggested partners
+216- campaign concept recommendations
+217
+218This agent should explain:
+219- what content worked
+220- what people responded to
+221- what themes are emerging
+222- what to post next
+223- which creators are worth working with
+224
+225Example structured cards/messages:
+226- Weekly Content Performance
+227- Best Performing Post
+228- Audience Insight Summary
+229- Next Content Ideas
+230- Influencer Opportunities
+231- Collaboration Pipeline
+232
+233Suggested prompts:
+234- What content performed best this week?
+235- What should we post next?
+236- What are people reacting to?
+237- Which creators should we work with?
+238- Show me upcoming content opportunities
+239
+240--------------------------------------------------
+2414. CUSTOMER SERVICE AGENT
+242--------------------------------------------------
+243
+244Role:
+245Customer Service Agent is responsible for three areas:
+246
+2471. Google Maps and Yelp ratings + customer feedback + optimization suggestions
+2482. Delivery platform reviews and complaints + handling status + follow-up recommendations
+2493. Repeat-customer / win-back campaign suggestions + summaries of previous campaign performance
+250
+251Customer Service Agent page should include richer content such as:
+252- Google rating trend
+253- Yelp rating trend
+254- recent review themes
+255- positive vs negative sentiment summary
+256- common complaint categories
+257- response / follow-up status
+258- delivery platform complaint overview
+259- issue resolution tracking
+260- service improvement suggestions
+261- repeat customer campaign ideas
+262- win-back campaign performance summary
+263- recommendations for retention actions
+264
+265This agent should help answer:
+266- what customers are saying
+267- what problems are increasing
+268- what has already been handled
+269- what still needs follow-up
+270- how to improve retention and bring old customers back
+271
+272Example structured cards/messages:
+273- Reputation Snapshot
+274- Google & Yelp Review Trends
+275- Delivery Complaint Tracker
+276- Recent Follow-Up Results
+277- Win-Back Campaign Suggestions
+278- Retention Campaign Performance
+279
+280Suggested prompts:
+281- What are customers complaining about most?
+282- How are our Google and Yelp ratings changing?
+283- What delivery issues still need follow-up?
+284- What should we do to improve reviews?
+285- What win-back campaign should we run next?
+286
+287MOCK CONTENT REQUIREMENT
+288
+289Use realistic mock data and realistic restaurant examples across all pages.
+290If menu items or products are needed, invent believable ones.
+291For example, you can use items such as:
+292- Orange Chicken Bowl
+293- Beef Broccoli Rice Box
+294- Spicy Garlic Wings
+295- Family Combo A
+296- Mango Milk Tea
+297- Crispy Spring Rolls
+298
+299UX GOAL
+300
+301The final experience should feel like:
+302- an AI executive team
+303- chat-first
+304- rich in useful business context
+305- more detailed inside each private agent page
+306- lighter and more summarized inside Boardroom
+307
+308Avoid:
+309- flat empty chat screens
+310- static placeholder-only agent pages
+311- generic dashboard language
+312- unclear role overlap between agents
+313
+314Focus on:
+315- strong role separation
+316- useful briefings inside chat
+317- card-based AI reporting
+318- a polished multi-agent product experience

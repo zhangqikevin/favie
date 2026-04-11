@@ -1,0 +1,166 @@
+Please update the homepage so it includes both:
+21. the new AI-agent-based narrative
+32. the concrete service capabilities those agents provide
+4
+5Important:
+6The homepage should no longer be structured only as a traditional services website.
+7But it also should not become so abstract that visitors cannot clearly see what the AI agents actually do.
+8
+9New homepage direction:
+10The homepage should be agent-first, but service-supported.
+11
+12Core idea:
+13Visitors should understand that they are getting an AI team for restaurant growth.
+14Each AI agent is responsible for specific business areas.
+15Together, these agents cover the full set of restaurant growth services.
+16
+17The 4 agents are:
+18- Operation Agent
+19- Chef Agent
+20- Social Media Agent
+21- Customer Service Agent
+22
+23The homepage should explain both:
+24- who these agents are
+25- what specific services/capabilities they cover
+26
+27Service capabilities that must still appear on the homepage:
+28- Delivery Optimization
+29- Menu Improving
+30- Social Media Operation
+31- Social Influencer Collaboration
+32- Reviews & Reputation Boost
+33- Loyalty Program
+34
+35Important narrative rule:
+36Do not present these 6 items as the primary homepage structure anymore.
+37Instead, present them as capabilities delivered by the AI agents.
+38
+39Mapping of service capabilities to agents:
+40
+41Operation Agent
+42- Delivery Optimization
+43- growth monitoring
+44- budget recommendations
+45- delivery platform performance
+46- promotion strategy
+47
+48Chef Agent
+49- Menu Improving
+50- new dish recommendations
+51- menu image optimization
+52- dish description optimization
+53
+54Social Media Agent
+55- Social Media Operation
+56- Social Influencer Collaboration
+57- content planning
+58- engagement insights
+59- creator collaboration
+60
+61Customer Service Agent
+62- Reviews & Reputation Boost
+63- Loyalty Program
+64- review monitoring
+65- complaint follow-up
+66- customer retention / win-back suggestions
+67
+68Homepage content structure:
+69
+701. Hero section
+71Position the product as an AI team for restaurant growth.
+72Suggested messaging direction:
+73- Your restaurant growth team, powered by AI agents
+74- Four AI agents. One Boardroom. One growth system for restaurants.
+75- Run restaurant growth with AI agents, not more manual work.
+76
+772. Meet Your AI Team
+78Create a section introducing the 4 agents.
+79Each card should explain the agent’s role in simple business language.
+80
+813. Services Powered by the Agents
+82Add a section that clearly shows the actual services the AI team provides.
+83This section should include the 6 core service capabilities:
+84- Delivery Optimization
+85- Menu Improving
+86- Social Media Operation
+87- Social Influencer Collaboration
+88- Reviews & Reputation Boost
+89- Loyalty Program
+90
+91But visually and narratively, this section should feel like:
+92“These are the capabilities delivered by the AI team”
+93not
+94“These are disconnected service packages”
+95
+964. Agent-to-service connection
+97Show clearly which agent covers which capabilities.
+98This can be done through:
+99- grouped service bullets under each agent card
+100- capability tags under each agent
+101- a dedicated section that maps agents to services
+102
+1035. Boardroom / how it works section
+104Explain that the agents work together inside one Boardroom experience.
+105The owner gets:
+106- AI summaries
+107- recommendations
+108- approvals
+109- proactive updates
+110instead of having to manually manage everything
+111
+1126. Value / outcomes section
+113Connect the agents and services to business outcomes such as:
+114- more orders
+115- better conversion
+116- stronger brand presence
+117- better reviews
+118- more repeat customers
+119- less manual coordination
+120
+121Important content goal:
+122A visitor should leave the homepage understanding:
+123- this is an AI-agent-powered restaurant growth system
+124- there are 4 specialized agents
+125- those agents together provide the key restaurant growth services
+126- the product is more than an agency, and more than a dashboard
+127
+128Tone:
+129- clear
+130- commercial
+131- modern
+132- AI-native
+133- operator-friendly
+134
+135Avoid:
+136- making the homepage read like a generic services brochure
+137- making the agents feel too abstract
+138- listing the 6 services without connecting them to the agents
+139- overexplaining technical AI details
+140
+141Focus on:
+142- agent-first storytelling
+143- clear service coverage
+144- a strong sense that the AI agents are actually doing real work for the restaurant
+145
+146Optional implementation suggestion:
+147In the “Meet Your AI Team” section, each agent card can include 2–4 capability tags such as:
+148Operation Agent:
+149- Delivery Optimization
+150- Budget Strategy
+151- Promotion Planning
+152
+153Chef Agent:
+154- Menu Improving
+155- New Dish Ideas
+156- Menu Image & Description Optimization
+157
+158Social Media Agent:
+159- Social Media Operation
+160- Content Planning
+161- Influencer Collaboration
+162
+163Customer Service Agent:
+164- Reviews & Reputation Boost
+165- Complaint Handling
+166- Loyalty & Win-Back Campaigns

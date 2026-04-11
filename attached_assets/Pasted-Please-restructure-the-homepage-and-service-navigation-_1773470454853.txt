@@ -1,0 +1,183 @@
+Please restructure the homepage and service navigation from a service-based model to an agent-based model.
+2
+3Current problem:
+4The homepage still organizes the offering around the original 6 service lines:
+5- Delivery Optimization
+6- Menu Improving
+7- Social Media Operation
+8- Social Influencer Collaboration
+9- Reviews & Reputation Boost
+10- Loyalty Program
+11
+12That structure is no longer correct for the product.
+13
+14New direction:
+15The website should now be organized around AI agents, not around service categories.
+16
+17Core idea:
+18Users are not buying a list of disconnected services.
+19They are getting an AI team for restaurant growth.
+20Each agent covers a specific part of the business, and together the agents deliver the full service capability.
+21
+22What needs to change:
+23
+241. Replace the homepage “services” organization
+25Do not use the old “Our 6 Service Lines” structure as the main organizing framework anymore.
+26
+27Instead, create an agent-led structure built around these 4 agents:
+28- Operation Agent
+29- Chef Agent
+30- Social Media Agent
+31- Customer Service Agent
+32
+332. Keep the original services, but re-map them under agents
+34The 6 original service lines should still exist, but as capabilities covered by the agents.
+35
+36Suggested mapping:
+37
+38Operation Agent
+39Covers:
+40- Delivery Optimization
+41- delivery ads / budget strategy
+42- storefront performance
+43- promotion planning on delivery platforms
+44
+45Chef Agent
+46Covers:
+47- Menu Improving
+48- new dish recommendations
+49- seasonal menu ideas
+50- dish image optimization
+51- dish description optimization
+52
+53Social Media Agent
+54Covers:
+55- Social Media Operation
+56- Social Influencer Collaboration
+57- content planning
+58- engagement insights
+59- creator / KOL / KOC collaboration
+60
+61Customer Service Agent
+62Covers:
+63- Reviews & Reputation Boost
+64- Loyalty Program
+65- review monitoring
+66- complaint follow-up
+67- win-back / retention recommendations
+68
+693. Change homepage narrative
+70The homepage should introduce the business through the 4 agents first.
+71
+72The user should understand:
+73- who the agents are
+74- what each agent is responsible for
+75- what service capabilities each agent covers
+76- how the agents work together as one AI team
+77
+784. Add clickable agent entry points
+79On the homepage, each agent should be presented as its own card/section.
+80Users should be able to click into each agent to view a dedicated detail page.
+81
+825. Create a dedicated detail page for each agent
+83Each agent should have its own detailed page:
+84- /operation-agent
+85- /chef-agent
+86- /social-media-agent
+87- /customer-service-agent
+88
+89These pages should explain that agent in more depth.
+90
+91Each agent page should combine:
+92- the agent’s role
+93- the service capabilities it covers
+94- the kinds of work it does
+95- example outputs / recommendations / reports
+96- how it contributes to restaurant growth
+97
+98Important:
+99These pages should not read like generic service pages.
+100They should feel like “meet this AI specialist and what it handles for your restaurant.”
+101
+1026. Content expectations for each agent page
+103
+104Operation Agent page
+105Should explain:
+106- overall business growth monitoring
+107- delivery performance
+108- ad spend efficiency
+109- budget recommendations
+110- platform promotion strategy
+111- how it improves orders and growth performance
+112
+113Chef Agent page
+114Should explain:
+115- new dish recommendations
+116- seasonal product ideas
+117- menu improvement
+118- image optimization
+119- description optimization
+120- how it helps improve menu appeal and product performance
+121
+122Social Media Agent page
+123Should explain:
+124- posting operations
+125- engagement insights
+126- content suggestions
+127- short-form content direction
+128- influencer / creator collaboration
+129- how it helps expand reach and social visibility
+130
+131Customer Service Agent page
+132Should explain:
+133- Google Maps / Yelp reviews
+134- delivery platform complaints and feedback
+135- reputation optimization
+136- retention / win-back recommendations
+137- how it protects reputation and improves repeat business
+138
+1397. Homepage section update
+140Replace the old “Our 6 Service Lines” section with something closer to:
+141- Meet Your AI Team
+142or
+143- Four Agents Behind Restaurant Growth
+144
+145Each agent card should include:
+146- agent name
+147- short role description
+148- 3–5 capability tags or bullets
+149- link to “Learn More”
+150
+1518. Optional supporting section
+152If needed, add a secondary section such as:
+153- Services Powered by the Agents
+154This section can briefly show the original 6 service capabilities, but only as supporting proof of what the agents cover.
+155It should not become the main homepage structure again.
+156
+1579. UX / messaging goal
+158The new structure should make it clear that:
+159- this is an AI-agent-powered system
+160- the agents are the primary way the product is understood
+161- the services are still there, but now explained through the agents
+162- each agent has a clear business role and clear service coverage
+163
+16410. Tone and positioning
+165The website should feel:
+166- AI-native
+167- clear
+168- modern
+169- operator-friendly
+170- commercially credible
+171
+172Avoid:
+173- keeping the old homepage as a generic services grid
+174- making the agents feel abstract or vague
+175- separating “agents” and “services” too much
+176- creating agent pages that are just renamed service pages without a distinct role/personality
+177
+178Focus on:
+179- agent-first structure
+180- service-backed explanation
+181- clear role separation
+182- deeper detail on each agent page
+183- a more differentiated AI-team narrative

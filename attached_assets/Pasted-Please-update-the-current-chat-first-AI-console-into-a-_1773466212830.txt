@@ -1,0 +1,224 @@
+Please update the current chat-first AI console into a more opinionated multi-agent experience.
+2
+3Core change:
+4Rename “Chat Home” to “Boardroom”.
+5
+6Boardroom should become the main landing page after login.
+7It should feel like a leadership briefing room for the restaurant, where multiple AI agents report to the owner in a group-chat-like format.
+8
+9Main concept:
+10This is not a normal dashboard.
+11This is a multi-agent AI operating console for restaurant growth.
+12
+13BOARDROOM PAGE
+14
+151. Rename the main page
+16- Change “Chat Home” to “Boardroom”
+17
+182. Change the Boardroom page style
+19- The page should feel like a group chat / executive briefing room
+20- Multiple AI agents are posting updates in the same shared conversation space
+21- Keep it structured and polished, not casual like a consumer messenger app
+22- Think: a professional AI team reporting into one shared room
+23
+243. Agents in Boardroom
+25There should be 4 AI agents participating in the Boardroom:
+26
+27- Operation Agent
+28- Chef Agent
+29- Social Media Agent
+30- Customer Service Agent
+31
+324. Reporting structure on the Boardroom page
+33Keep the current high-level overall business summary, but make it come from the Operation Agent.
+34
+35Then below that, add briefing cards / update blocks from each of the 4 agents.
+36
+37The flow should be:
+38- Operation Agent posts the overall summary first
+39- Then each agent posts their own concise update
+40- Each update should appear like a message in a shared professional group thread
+41- Each update can include structured briefing cards, KPI snippets, actions, alerts, or visuals
+42
+435. Boardroom content direction by agent
+44
+45Operation Agent
+46Role:
+47- overall business performance
+48- delivery performance
+49- budget recommendations
+50- growth priorities
+51- cross-functional coordination
+52
+53Should include:
+54- high-level business summary
+55- overall KPI snapshot
+56- budget cap recommendation
+57- Uber Eats / DoorDash performance summary
+58- active promotions summary
+59- key priorities for this week
+60
+61Chef Agent
+62Role:
+63- menu performance
+64- bundles / combo strategy
+65- upsell opportunities
+66- item-level performance
+67- offer ideas tied to food/product logic
+68
+69Should include:
+70- best-performing dishes
+71- underperforming items
+72- combo / bundle opportunities
+73- add-on suggestions
+74- promotion suggestions based on menu behavior
+75- optional product photos or food thumbnails if helpful
+76
+77Social Media Agent
+78Role:
+79- social performance
+80- short video content
+81- content pipeline
+82- creator / KOL / KOC collaboration
+83- brand visibility initiatives
+84
+85Should include:
+86- recent content performance
+87- best-performing post/video
+88- upcoming content ideas
+89- creator collaboration status
+90- short video script or campaign suggestions
+91- optional post thumbnails / content previews if helpful
+92
+93Customer Service Agent
+94Role:
+95- review monitoring
+96- reputation management
+97- customer feedback themes
+98- service issue tracking
+99- repeat customer signals
+100
+101Should include:
+102- review rating summary
+103- key complaint themes
+104- recent customer sentiment
+105- response or recovery suggestions
+106- repeat customer / retention insights
+107- alerts if there are service issues affecting reputation
+108
+1096. Visual structure of Boardroom
+110Design it like a professional multi-agent feed:
+111- each agent has its own avatar/icon/name
+112- each agent message appears as a structured chat block
+113- cards inside each message can contain:
+114- KPI snippets
+115- charts
+116- alerts
+117- recommendations
+118- actions
+119- small images/previews where useful
+120- make it feel like a boardroom briefing, not a plain dashboard
+121
+1227. Preserve existing overall summary
+123Do not remove the current overall business summary concept.
+124Keep it at the top of Boardroom, but make it clearly posted by Operation Agent.
+125
+1268. Add mock content
+127Use realistic mock data and briefings for all 4 agents.
+128The updates should reflect this restaurant growth business and the previously defined service areas, including:
+129- delivery ads / storefront
+130- menu / bundles / upsell
+131- social media
+132- short video content
+133- KOL / KOC collaboration
+134- reviews / reputation
+135- customer retention
+136
+137LEFT NAVIGATION UPDATE
+138
+1399. Add 4 new menu items above Activity
+140In the left sidebar, insert 4 new navigation items above “Activity”:
+141
+142- Operation Agent
+143- Chef Agent
+144- Social Media Agent
+145- Customer Service Agent
+146
+14710. Purpose of these 4 agent pages
+148Each of these pages should allow the user to chat one-on-one with that specific agent.
+149
+150This means:
+151- Boardroom = shared multi-agent room
+152- Agent page = direct private chat with one specific agent
+153
+15411. Behavior of each agent page
+155Each agent page should include:
+156- page title with agent name
+157- one-on-one chat layout
+158- intro message from that agent
+159- suggested prompts specific to that agent
+160- optional right-side context panel if useful
+161
+162Suggested prompt examples:
+163
+164Operation Agent:
+165- How are we performing this week?
+166- Should we increase delivery budget?
+167- What needs attention first?
+168
+169Chef Agent:
+170- Which menu items are underperforming?
+171- What bundle should we push next?
+172- How can we improve add-on conversion?
+173
+174Social Media Agent:
+175- What content performed best?
+176- What should we post next week?
+177- Show me current creator opportunities
+178
+179Customer Service Agent:
+180- What are customers complaining about?
+181- How is our rating trending?
+182- What should we fix first?
+183
+18412. Product structure after update
+185The navigation should now feel like this:
+186
+187- Boardroom
+188- Operation Agent
+189- Chef Agent
+190- Social Media Agent
+191- Customer Service Agent
+192- Activity
+193- Files
+194- Connections
+195- Settings
+196
+19713. Overall UX goal
+198The product should now feel like an AI executive team for restaurant growth.
+199
+200It should feel:
+201- chat-first
+202- multi-agent
+203- high-trust
+204- proactive
+205- operational
+206- more AI-native than a traditional dashboard
+207
+208Avoid:
+209- making Boardroom look like a normal analytics homepage
+210- making the agents feel like just labels on static cards
+211- overly complicated manual controls
+212- generic admin dashboard patterns
+213
+214Focus on:
+215- Boardroom as the main AI group briefing room
+216- clear personalities/roles for each agent
+217- concise but useful structured updates
+218- one-on-one agent chat pages
+219- polished multi-agent product experience
+220
+221Implementation note:
+222Use mock data for now.
+223Do not build full backend logic.
+224Focus on layout, interaction model, page structure, and realistic AI-product presentation.

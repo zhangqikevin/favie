@@ -1,0 +1,80 @@
+Please revise the homepage narrative of the website.
+
+Important change:
+The homepage should no longer be structured mainly around service categories.
+Instead, it should be structured around the 4 AI agents that power the product.
+
+Old direction:
+The site explained the business from a service perspective.
+
+New direction:
+The site should explain the business from an agent perspective.
+
+Core concept:
+This is not just a restaurant service business.
+It is an AI-agent-powered restaurant growth platform.
+
+The homepage should present the product as an AI team for restaurant growth, where different agents are responsible for different parts of the business.
+
+The 4 agents are:
+- Operation Agent
+- Chef Agent
+- Social Media Agent
+- Customer Service Agent
+
+What each agent does:
+
+Operation Agent
+- business growth overview
+- delivery performance
+- budget recommendations
+- ad spend efficiency
+- platform promotion strategy
+
+Chef Agent
+- new dish recommendations
+- seasonal menu ideas
+- menu image optimization
+- dish description optimization
+
+Social Media Agent
+- posting performance
+- engagement insights
+- content suggestions
+- influencer / KOL / KOC collaboration
+
+Customer Service Agent
+- Google Maps and Yelp review monitoring
+- delivery platform complaints and follow-up
+- customer feedback insights
+- repeat customer / win-back recommendations
+
+Homepage direction:
+Present the company as an AI team, not a list of disconnected services.
+
+The homepage should communicate:
+- restaurant owners get an AI team, not just agency-style services
+- the agents work together inside one shared Boardroom
+- the owner interacts with the system through chat, insights, and approvals
+- AI handles the day-to-day work across growth, menu, content, reputation, and retention
+
+Suggested homepage structure:
+1. Hero section
+2. Meet Your AI Team section
+3. Boardroom / how the agents work together
+4. What AI handles vs what the owner controls
+5. Business outcomes / value created
+6. CTA section
+
+Suggested messaging direction:
+- Four AI agents. One Boardroom. One growth system for restaurants.
+- Your restaurant growth team, powered by AI agents.
+- Run restaurant growth with AI agents, not more manual work.
+
+For the “Meet Your AI Team” section, create 4 agent cards with clear descriptions.
+Keep the content clear, commercial, and operator-friendly.
+Do not make it sound too technical or too much like a generic AI tool.
+
+Important:
+The homepage should now feel more AI-native, more differentiated, and more aligned with the product experience.
+The old service categories can still appear, but only as supporting capabilities under each agent, not as the main homepage narrative.

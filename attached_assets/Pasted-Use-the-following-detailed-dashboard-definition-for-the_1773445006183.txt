@@ -1,0 +1,318 @@
+Use the following detailed dashboard definition for the admin home page.
+2
+3The Dashboard should feel like a real client operating console for a restaurant growth service platform.
+4It should not look like a generic analytics demo.
+5All labels, sections, and mock data should reflect the needs of restaurant owners and operators.
+6
+7DASHBOARD PAGE SPEC
+8
+9Page title:
+10Dashboard
+11
+12Page subtitle:
+13A live overview of your restaurant’s growth performance across orders, conversion, reputation, content, and retention.
+14
+15Top header area:
+16Include the following elements at the top of the page:
+17- Restaurant selector
+18- Reporting period selector
+19- Plan badge
+20- Account status badge
+21- Primary action button
+22
+23Mock values:
+24- Restaurant: Golden Wok – Downtown
+25- Reporting Period: Last 30 Days
+26- Plan: Get Chosen
+27- Status: Active Plan
+28- Primary button: Book Review Call
+29
+30Optional secondary quick actions:
+31- Export Report
+32- View Tasks
+33
+34SECTION 1: Executive Summary
+35
+36Create a top summary area that gives the operator a fast understanding of performance.
+37
+38Include:
+39- a short summary sentence
+40- 6 KPI cards
+41
+42Example summary sentence:
+43Your restaurant is showing healthy order growth this month, with stronger menu conversion, stable review performance, and improving repeat customer behavior.
+44
+45KPI cards:
+461. Total Orders
+47Value: 1,284
+48Trend: +12.4%
+49Supporting note: vs previous 30 days
+50
+512. Online Revenue
+52Value: $28,460
+53Trend: +9.8%
+54Supporting note: delivery + direct digital channels
+55
+563. Average Order Value
+57Value: $22.17
+58Trend: +6.1%
+59Supporting note: driven by bundle and add-on improvements
+60
+614. Repeat Customer Rate
+62Value: 31%
+63Trend: +4.2%
+64Supporting note: returning customers in selected period
+65
+665. Average Review Rating
+67Value: 4.6
+68Trend: +0.2
+69Supporting note: across major platforms
+70
+716. Campaign Engagement
+72Value: 18.9%
+73Trend: +3.5%
+74Supporting note: social + retention activity engagement
+75
+76SECTION 2: Performance Trends
+77
+78Create a chart section with two main charts and two smaller trend cards.
+79
+80Main chart A:
+81Title: Orders & Revenue Trend
+82Description: Track order volume and digital revenue over time.
+83Visualization:
+84- dual-axis line or area chart
+85- x-axis = weeks or dates
+86- two series = orders and revenue
+87
+88Mock data example:
+89Week 1: Orders 260 / Revenue 5,480
+90Week 2: Orders 292 / Revenue 6,120
+91Week 3: Orders 318 / Revenue 7,020
+92Week 4: Orders 414 / Revenue 9,840
+93
+94Main chart B:
+95Title: Repeat Customer Trend
+96Description: Track returning customer behavior and repeat rate.
+97Visualization:
+98- line chart
+99- series = repeat customer rate
+100
+101Mock data example:
+102Week 1: 24%
+103Week 2: 27%
+104Week 3: 29%
+105Week 4: 31%
+106
+107Small trend card 1:
+108Title: Review Score Trend
+109Value: 4.6 average
+110Trend: improving steadily
+111Mock mini-chart values:
+1124.3 / 4.4 / 4.5 / 4.6
+113
+114Small trend card 2:
+115Title: Content Engagement Trend
+116Value: 18.9%
+117Trend: strongest in short-form video content
+118Mock mini-chart values:
+11911.2 / 13.8 / 16.1 / 18.9
+120
+121SECTION 3: Growth Performance by Area
+122
+123This section should break the business into the main areas the client is paying for.
+124Use five cards or structured panels.
+125
+126Card 1:
+127Title: Delivery Performance
+128Subtitle: Visibility and storefront conversion across delivery channels
+129Fields:
+130- Ad-driven visits: 3,240
+131- Storefront conversion rate: 8.4%
+132- Best-performing platform: Uber Eats
+133- Top campaign: Lunch Rush Promo
+134- Change vs prior period: +11.7%
+135
+136Card 2:
+137Title: Menu Performance
+138Subtitle: Bundle, pricing, and upsell effectiveness
+139Fields:
+140- Best-selling bundle: Family Combo A
+141- Upsell attach rate: 14.2%
+142- Highest-converting category: Rice Bowls
+143- Lowest-converting category: Drinks
+144- Avg ticket change: +5.6%
+145
+146Card 3:
+147Title: Social Performance
+148Subtitle: Content output and audience engagement
+149Fields:
+150- Posts published: 12
+151- Total reach: 24,300
+152- Engagement rate: 6.8%
+153- Best-performing format: Short video
+154- Best-performing topic: Behind-the-scenes kitchen clips
+155
+156Card 4:
+157Title: Reputation Performance
+158Subtitle: Review quality and customer response
+159Fields:
+160- New reviews: 48
+161- Average rating: 4.6
+162- Review response rate: 87%
+163- Positive sentiment trend: improving
+164- Main issue mentioned: delivery delay during dinner rush
+165
+166Card 5:
+167Title: Retention Performance
+168Subtitle: Repeat business and customer reactivation
+169Fields:
+170- Returning customers: 398
+171- Repeat customer rate: 31%
+172- Reactivation campaign CTR: 11.3%
+173- Offer redemption rate: 8.7%
+174- Best-performing offer: Free drink with combo order
+175
+176SECTION 4: This Week’s Priorities
+177
+178This section should feel actionable.
+179Show a task list or priority board with 4–6 items.
+180
+181Title:
+182This Week’s Priorities
+183
+184Description:
+185Recommended actions based on current performance.
+186
+187Mock items:
+1881. Update 2 underperforming drink add-ons to improve attach rate
+1892. Respond to 5 recent 3-star reviews mentioning wait time
+1903. Approve next week’s short video content calendar
+1914. Launch repeat-order lunch campaign for past 30-day customers
+1925. Refresh Uber Eats storefront hero images
+1936. Review creator shortlist for next local promotion push
+194
+195Optional fields per task:
+196- priority label
+197- owner
+198- due date
+199- status
+200
+201Example:
+202Priority: High
+203Owner: Account Team
+204Due: Mar 18
+205Status: In Progress
+206
+207SECTION 5: Recent Activity
+208
+209Create a timeline/feed that shows recent team actions and system updates.
+210
+211Title:
+212Recent Activity
+213
+214Mock items:
+215- 2 hours ago — Menu upsell recommendations were updated
+216- 5 hours ago — 3 new short-form video drafts were generated
+217- Yesterday — Reputation summary report was published
+218- Yesterday — Delivery ad campaign budget allocation was adjusted
+219- 2 days ago — Creator shortlist for local collaboration was prepared
+220- 3 days ago — Repeat customer segment was refreshed for reactivation campaign
+221
+222This section should make the dashboard feel alive and maintained.
+223
+224SECTION 6: Opportunities & Alerts
+225
+226Create a section that highlights key insights.
+227This should feel like lightweight intelligence, not just raw reporting.
+228
+229Title:
+230Opportunities & Alerts
+231
+232Mock insight cards:
+233
+234Card 1:
+235Title: Opportunity
+236Text: Bundle conversion is improving, but drink add-ons are still underperforming. Updating the drink upsell structure could increase average ticket size further.
+237
+238Card 2:
+239Title: Alert
+240Text: Review sentiment remains positive overall, but delivery speed complaints increased during the last 7 days.
+241
+242Card 3:
+243Title: Opportunity
+244Text: Short-form video content is producing the strongest engagement. Consider increasing video frequency next month.
+245
+246Card 4:
+247Title: Opportunity
+248Text: Returning customer rate is rising. A stronger loyalty offer could push repeat sales further.
+249
+250SECTION 7: Quick Access
+251
+252Add shortcut cards or buttons linking to the other admin sections.
+253
+254Title:
+255Quick Access
+256
+257Links:
+258- Open Delivery Ads & Storefront
+259- Open Menu / Bundles / Upsell
+260- Open Social Media
+261- Open Short Video Content
+262- Open KOL / KOC Collaboration
+263- Open Reviews / Reputation
+264- Open Settings
+265
+266SECTION 8: Bottom Summary / Account Snapshot
+267
+268At the bottom of the page, include a compact account summary section.
+269
+270Title:
+271Account Snapshot
+272
+273Fields:
+274- Restaurant Name: Golden Wok – Downtown
+275- Account Owner: Kevin Zhang
+276- Active Plan: Get Chosen
+277- Current Focus: Conversion + Retention
+278- Next Review Call: March 21, 2026
+279- Account Health: Strong
+280- Recommended Next Step: Expand short-form content and improve drink upsell conversion
+281
+282VISUAL / UX GUIDANCE FOR THE DASHBOARD
+283
+284The Dashboard should feel:
+285- operational
+286- executive-friendly
+287- easy to scan
+288- commercial and practical
+289- built for restaurant operators, not marketers only
+290
+291Use:
+292- KPI cards
+293- charts
+294- insight cards
+295- task lists
+296- timeline/activity feed
+297- quick-link modules
+298
+299Avoid:
+300- generic lorem ipsum
+301- fake enterprise jargon
+302- irrelevant analytics
+303- overcomplicated BI patterns
+304- empty whitespace-heavy mockups with no substance
+305
+306IMPORTANT IMPLEMENTATION NOTE
+307
+308All data can be mock data for now, but it should be structured cleanly so it can later be replaced by real API data.
+309Use reusable data objects for:
+310- KPI cards
+311- chart data
+312- performance panels
+313- tasks
+314- activity items
+315- alerts / opportunities
+316- quick links
+317
+318The dashboard should be polished enough to serve as the main product demo screen.

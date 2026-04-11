@@ -1,0 +1,130 @@
+Please redesign the “AI Agents” dropdown / mega menu.
+2
+3Current problem:
+4The dropdown feels too empty.
+5It has too much whitespace and not enough information density for its size.
+6Right now it only shows the 4 agent names with one short line each, so the area feels underused.
+7
+8Goal:
+9Make this dropdown feel like a rich, polished mega menu that helps users quickly understand the AI team and navigate into each agent.
+10
+11New direction:
+12Turn the AI Agents dropdown into a more structured 2-column or 3-column mega menu with stronger content hierarchy.
+13
+14What to improve:
+15
+161. Increase information density
+17Each agent item should include more than just a name and one short sentence.
+18For each agent, show:
+19- agent name
+20- short role description
+21- 2–4 capability tags or bullets
+22- a clearer “learn more” affordance
+23
+24Example:
+25Operation Agent
+26Delivery growth, budget strategy, and promotion planning
+27Tags:
+28- Delivery Optimization
+29- Budget Recommendations
+30- Platform Promotions
+31
+32Chef Agent
+33New dish ideas and menu presentation improvements
+34Tags:
+35- Menu Improving
+36- New Dish Suggestions
+37- Image & Description Optimization
+38
+39Social Media Agent
+40Content, engagement insights, and creator partnerships
+41Tags:
+42- Social Media Operation
+43- Influencer Collaboration
+44- Content Planning
+45
+46Customer Service Agent
+47Reviews, complaints, retention, and win-back actions
+48Tags:
+49- Reviews & Reputation
+50- Complaint Follow-Up
+51- Loyalty Program
+52
+532. Improve layout structure
+54Instead of a simple vertical list in a large empty panel, make the dropdown feel more balanced.
+55
+56Recommended layout options:
+57Option A:
+58- Left column: intro text + short explanation of the AI team / Boardroom concept
+59- Right column: 4 agent cards
+60
+61Option B:
+62- 2x2 grid of agent cards
+63- bottom row with navigation links
+64
+65Option C:
+66- Left side: featured “Meet Your AI Team” block
+67- Right side: stacked agent cards with tags
+68
+693. Add a stronger intro area
+70At the top or left side of the dropdown, include a short framing block such as:
+71
+72Title:
+73Meet Your AI Growth Team
+74
+75Text:
+76Four specialized AI agents work together to help restaurants grow orders, improve menus, strengthen content, and increase customer retention.
+77
+78This will make the dropdown feel more intentional and branded.
+79
+804. Make each agent feel more clickable
+81Each agent block should look like a mini card, not just a plain row.
+82Each card should have:
+83- icon/avatar
+84- title
+85- description
+86- capability tags
+87- hover state
+88- clear click target to the full agent detail page
+89
+905. Improve bottom actions
+91The current footer links are too sparse for the size of the menu.
+92Refine the bottom area.
+93
+94Suggested bottom links:
+95- Explore All Agents
+96- See How the Boardroom Works
+97- View Capabilities
+98
+99Or:
+100- Meet the Team
+101- Compare Agent Roles
+102- See Platform Overview
+103
+1046. Add subtle supporting visuals if useful
+105If it helps balance the space, add:
+106- a small Boardroom preview thumbnail
+107- a chat-style UI preview
+108- a soft background panel
+109- small divider sections
+110But do not make it visually noisy.
+111
+1127. Content goal
+113When a user opens this menu, they should immediately understand:
+114- there are 4 different AI agents
+115- each one has a clear role
+116- together they cover the main restaurant growth functions
+117- each one can be explored in more detail
+118
+1198. UX goal
+120The dropdown should feel:
+121- premium
+122- informative
+123- AI-native
+124- structured
+125- not empty
+126- not like a generic navigation popup
+127
+128Important:
+129Do not just make the panel smaller.
+130Improve the content structure inside it so the space feels purposeful.

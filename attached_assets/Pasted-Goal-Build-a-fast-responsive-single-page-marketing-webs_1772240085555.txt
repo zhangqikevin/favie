@@ -1,0 +1,103 @@
+Goal
+Build a fast, responsive, single‑page marketing website that sells a done‑for‑you, AI‑powered service for US restaurants. This is NOT SaaS; clients don’t operate dashboards. We do the work, they approve and see results.
+
+Tech & Structure
+
+Stack: semantic HTML5 + modern CSS (flex/grid) + vanilla JS for light interactions. No heavy frameworks.
+Files: index.html, styles.css, script.js, assets folder with placeholder images/icons (use Unsplash URLs).
+Mobile‑first, responsive across breakpoints (375/768/1024/1440).
+Accessibility: proper landmarks, alt text for images, keyboard focus styles, color contrast AA.
+SEO: title, meta description, Open Graph/Twitter cards, structured data (Organization + Service).
+Visuals: warm, appetizing palette (e.g., terracotta #C66C3A, sage #87A78B, cream #F7F3EE, charcoal #2A2A2A), generous white space, soft shadows, subtle parallax or scroll‑reveal animations (CSS/JS).
+Typography: Pairing like Inter (UI) + Playfair Display (headlines) from Google Fonts.
+Icons: inline SVG or Feather Icons.
+CTAs: sticky header “Book a 15‑min Intro Call”, secondary “See Sample Posts”.
+Page Sections + Copy (use the exact English copy below; tighten where needed but keep meaning)
+
+Hero
+Headline: AI‑Powered Restaurant Growth, Done For You
+Subhead: We manage your DoorDash/Uber Eats presence and your social media. No dashboards. No extra workload. You send photos—we handle the rest.
+Primary CTA: Book a 15‑min Intro Call
+Secondary CTA: See Sample Posts
+Visual: Full‑bleed hero with a looping dish collage (use 3–5 Unsplash food images), gentle parallax on scroll. Add trust badges placeholder “Loved by neighborhood spots in [Your City]”.
+Problem → Promise
+Headline: More Orders. Better Photos. Real Results.
+Bullets:
+Marketplace Optimization: Clear menus, better photos, smarter titles and descriptions to improve search and clicks on DoorDash and Uber Eats.
+Social Content, Done‑For‑You: Two posts per week minimum—mix of photo carousels and short videos generated from your photos.
+Human‑Tone Engagement: We help handle comments and DMs with friendly, on‑brand replies.
+Simple Approvals: You approve key posts; we publish and track outcomes.
+Supporting visual: before/after card for a menu image and a short auto‑generated video mock.
+What We Do (Two Service Pillars)
+Column A: Delivery Marketplaces (DoorDash / Uber Eats)
+Copy: We refine titles, descriptions, categories, and photos; design basic promotions; monitor reviews and craft thoughtful responses; and deliver a clear monthly recap with next steps.
+Note: No operations coupling—no prep‑time or radius automations.
+Column B: Social Media (AI Content + Engagement)
+Copy: From your weekly photos, we create photo carousels and 15–30s short videos (with tasteful motion, captions, and music). We schedule, publish, and help with replies—always in your brand voice.
+Note: No creators/influencers required.
+How It Works (5 steps with icons)
+Intake: Share your logo, 10–20 featured dishes, reservation or ordering links, and 10+ original‑resolution photos per week.
+Setup: We align on voice, brand colors, and CTA. We build your starter asset kit and hashtag library.
+Weekly Cadence: We propose at least two posts per week—one photo‑led, one photo‑to‑video—aligned to US holidays, seasons, and local moments.
+Publish & Engage: You approve; we publish. We assist with comments/DMs and capture UGC permissions.
+Report & Improve: Monthly recap that covers marketplace clicks, social reach and engagement, and next month’s plan.
+Seasonal & Holiday Content (US‑centric)
+Copy: Your calendar includes U.S. holidays and seasonal anchors (Spring/ Summer/ Fall/ Winter)—from Valentine’s Day and Independence Day to Thanksgiving and New Year’s Eve—plus big game days and neighborhood moments. Always relevant, never generic.
+Visual: A scrolling marquee of sample tiles: Valentine’s Prix Fixe, Summer Patio Nights, Halloween Treats, Thanksgiving Take‑Home, New Year’s Eve Menu.
+Packages (service, not software)
+Starter (Done‑For‑You Essentials)
+2 posts/week (1 photo carousel + 1 photo‑to‑video)
+DoorDash/Uber Eats listing tune‑up (titles, descriptions, categories, images)
+Review reply assistance
+Monthly performance recap
+CTA: Book a Call
+Growth (Most Popular)
+Everything in Starter
+Promotions planning (up to 2 per month) with basic artwork and copy
+Comment & DM assistance during business hours
+Holiday/seasonal calendar alignment and asset prep
+CTA: Book a Call
+Full Service
+Everything in Growth
+Multi‑platform scheduling (TikTok/Instagram/Facebook)
+UGC permission workflow and reuse
+Quarterly creative refresh (templates, captions, visual style)
+CTA: Book a Call
+Note under packages: 100% managed service. No dashboards. Cancel anytime with 30‑day notice.
+Sample Work (Gallery + Lightweight Video)
+Grid: 6–8 tiles mixing dish photos and mock short‑video frames (with play icon). Use Unsplash placeholders titled “Sample Post”.
+On click: Lightbox with caption showing “Photo‑to‑Video example” and a faux timeline UI.
+FAQs (accordion)
+Do we need to shoot videos? No. Send us photos—we turn them into short, dynamic videos with captions and music.
+Is this software? No. It’s a managed service. We do the work; you approve and see results.
+How many posts per week? At least two. We can scale up during holidays or promotions.
+Can you handle comments and DMs? Yes—friendly, on‑brand replies with human oversight.
+What do you need from us weekly? 10+ original photos (3 angles for featured dishes), any specials, and a quick thumbs‑up on drafts.
+How do you measure results? Marketplace clicks/views, social reach/engagement, link clicks, and simple offer codes for in‑store attribution.
+Call to Action Banner
+Headline: Let’s Fill More Seats and Carts
+Subhead: Send us your photos—we’ll turn them into orders.
+Button: Book a 15‑min Intro Call
+Footer
+Links: Services, How It Works, Packages, FAQs, Contact
+Contact: phone/email placeholders
+Copyright, small print: Music and imagery licensed or permissioned. We respect guest privacy and brand standards.
+Social icons (link placeholders)
+Interactions & Polish
+
+Sticky header with shrink‑on‑scroll.
+Smooth scroll to sections; reveal animations on viewport.
+FAQ accordion JS; lightbox for gallery.
+Simple form modal for “Book a Call” (collect name, email, restaurant name, city, preferred platform). Validate, show success state (no backend needed).
+Brand & Imagery Guidelines
+
+Use appetizing, natural‑light dishes; avoid heavy filters.
+Favor warm tones and tactile surfaces (wood, stone, linen).
+Keep captions legible over imagery with scrims and high contrast.
+Analytics Stub
+
+Add a placeholder for analytics (e.g., window.analytics.track) for future wiring.
+Deliverables
+
+Complete, deploy‑ready site with placeholder assets and all copy above pre‑filled.
+Clean, commented code; easy to replace images and CTAs later.

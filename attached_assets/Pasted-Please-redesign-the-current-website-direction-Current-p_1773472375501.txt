@@ -1,0 +1,152 @@
+Please redesign the current website direction.
+
+Current problems:
+1. There are almost no images on the page, which makes the experience feel too abstract and empty.
+2. The visual style feels too “tech product / futuristic SaaS”.
+3. The current direction does not feel grounded in the restaurant industry.
+4. The result feels too AI-tool-like and not enough like a premium restaurant growth brand.
+
+New design direction:
+The website should be redesigned to feel much more restaurant-focused, visual, and brand-driven.
+
+Important:
+This is still an AI-agent-powered product, but the website should not feel cold, overly technical, or futuristic.
+It should feel like a hospitality growth brand powered by AI.
+
+Overall style shift:
+Move away from:
+- overly dark / futuristic / neon / sci-fi UI
+- abstract AI visuals
+- generic tech startup styling
+- empty sections with only text and icons
+
+Move toward:
+- restaurant-centered visuals
+- premium hospitality tone
+- warmer and more human presentation
+- real-world business credibility
+- richer editorial/product storytelling
+
+Visual requirements:
+1. Add many more relevant images throughout the site
+The site needs real visual content, not just text and icons.
+
+Use appropriate restaurant-related imagery such as:
+- food photography
+- restaurant interiors
+- delivery/order moments
+- chefs in action
+- social content creation moments
+- customer dining scenes
+- review/reputation related visual cues
+- creator/influencer collaboration style imagery
+- menu/product close-ups
+
+Important:
+Images should feel curated and premium, not random stock filler.
+
+2. Make each agent section visually grounded
+Each agent section/page should include images or visual assets connected to the kind of work that agent does.
+
+Examples:
+Operation Agent:
+- delivery/order growth visuals
+- promotion examples
+- platform-related visual cards
+- growth dashboard snippets with more natural styling
+
+Chef Agent:
+- food photography
+- menu item imagery
+- dish concept visuals
+- before/after menu image examples
+
+Social Media Agent:
+- social post previews
+- short video content previews
+- creator/influencer style imagery
+- campaign mood visuals
+
+Customer Service Agent:
+- review cards
+- customer interaction visuals
+- hospitality/service moments
+- loyalty / repeat customer themed visuals
+
+3. Reduce the “high-tech AI” feeling
+The site should not feel like an AI infrastructure product.
+It should feel like a restaurant growth company with AI agents working behind the scenes.
+
+That means:
+- less futuristic UI styling
+- less sterile product-demo feeling
+- less emphasis on “technology aesthetics”
+- more emphasis on restaurant outcomes, hospitality context, and visual warmth
+
+4. Use a more hospitality-forward design language
+The site should feel:
+- warm
+- premium
+- modern
+- approachable
+- commercial
+- restaurant-native
+
+It should not feel:
+- cyber / sci-fi
+- ultra-minimal to the point of emptiness
+- overly B2B software-only
+- generic AI startup
+
+5. Increase visual richness on the homepage
+The homepage should have a better balance of:
+- headline copy
+- images
+- cards
+- previews
+- agent sections
+- supporting business visuals
+
+Avoid large empty areas with only text.
+Each major section should have some combination of:
+- photography
+- preview cards
+- agent visuals
+- UI snippets
+- supporting content blocks
+
+6. Agent pages need a full redesign
+The current agent pages should be reworked to feel less text-heavy and less technical.
+They should include:
+- stronger hero visuals
+- more relevant restaurant imagery
+- more visual cards
+- less long-form copy
+- more real-world examples
+- richer layouts that feel like branded service/product pages
+
+7. Tone of the brand
+The brand should feel like:
+- a modern restaurant growth partner
+- powered by specialized AI agents
+- credible to restaurant owners
+- visually aligned with food, hospitality, service, and growth
+
+Important design principle:
+AI is the engine, not the aesthetic.
+The visual identity should be led by restaurant growth and hospitality, not by generic AI-tech styling.
+
+Implementation guidance:
+- Rework the homepage and agent pages with a much stronger use of relevant imagery
+- Keep the AI-agent narrative, but present it in a warmer, more grounded, more visual way
+- Prioritize hospitality-first storytelling over futuristic product styling
+- Make the result feel like a premium restaurant brand platform, not a cold software dashboard
+
+If needed, use a combination of:
+- premium food/lifestyle imagery
+- restaurant environment photography
+- visual content previews
+- softer cards and warmer section compositions
+
+Final goal:
+The website should feel like a premium AI-powered restaurant growth brand, not a futuristic SaaS tool.

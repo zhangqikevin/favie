@@ -1,0 +1,200 @@
+Please update each agent detail page with a richer capability and outcomes structure.
+
+Important change:
+The section should no longer be limited to the original service categories.
+Each agent page should clearly show both:
+1. what this agent can handle
+2. what the restaurant can expect from this agent
+
+New content structure for each agent page:
+
+1. Main capability section
+Use a section title like:
+- What the Operation Agent handles for your restaurant
+- What the Chef Agent handles for your restaurant
+- What the Social Media Agent handles for your restaurant
+- What the Customer Service Agent handles for your restaurant
+
+This section should be broad and capability-based, not restricted to the original service list.
+It should show the full working scope of the agent.
+
+2. Outcomes / expectations section
+Directly after that section, add another section titled:
+- What you can expect from this agent
+
+This section should explain the practical outputs, business visibility, and measurable signals the user gets from that agent.
+
+Important:
+This second section should not be vague.
+It should include at least 4–5 concrete metrics, indicators, reporting points, or expected outputs for each agent.
+
+==================================================
+OPERATION AGENT
+==================================================
+
+Section title:
+What the Operation Agent handles for your restaurant
+
+Intro:
+Operation Agent focuses on business growth, delivery performance, budget efficiency, and platform-level execution. It helps restaurant owners understand what is driving growth, where money is being spent effectively, and what actions should be taken next.
+
+Capabilities:
+- Monitor overall order, revenue, and growth trends
+- Track delivery performance across Uber Eats and DoorDash
+- Analyze ad spend efficiency and budget utilization
+- Recommend monthly budget cap adjustments
+- Identify peak-hour demand opportunities
+- Compare platform performance and traffic quality
+- Recommend promotion mix strategies across delivery platforms
+- Evaluate BOGO, discount, combo, and threshold offers
+- Review storefront conversion performance
+- Highlight underperforming campaigns or wasted spend
+- Summarize weekly business priorities
+- Surface growth risks, missed opportunities, and next-step recommendations
+
+Follow immediately with a second section:
+
+Section title:
+What you can expect from this agent
+
+Content direction:
+Show at least 5 concrete outputs / metrics / reporting signals such as:
+- Order growth trend
+- Online revenue trend
+- Average order value trend
+- Uber Eats vs DoorDash performance comparison
+- Budget efficiency / spend utilization
+- Storefront conversion rate
+- Promotion performance by type
+- Recommended monthly budget cap
+- Weekly growth priorities
+
+Example bullets:
+- Weekly order and revenue summaries
+- Platform-by-platform performance visibility
+- Clear budget recommendations based on current efficiency
+- Promotion performance insights across active offers
+- Early warnings on wasted spend or underperforming campaigns
+- Actionable growth priorities for the next 7 days
+
+==================================================
+CHEF AGENT
+==================================================
+
+Section title:
+What the Chef Agent handles for your restaurant
+
+Intro:
+Chef Agent helps improve what the restaurant sells and how it is presented. It focuses on new dish ideas, seasonal product opportunities, and stronger menu presentation through better images and descriptions.
+
+Capabilities:
+- Recommend new dish ideas based on seasonality and demand signals
+- Suggest limited-time products or seasonal specials
+- Identify menu gaps and product opportunities
+- Recommend hero dishes to feature more prominently
+- Review current dish photos and suggest upgrades
+- Flag low-quality or outdated menu images
+- Improve item names for clarity and appeal
+- Rewrite dish descriptions to better highlight flavor, texture, and value
+- Suggest stronger visual presentation for top-selling items
+- Identify dishes with strong social and promotional potential
+- Recommend which items should be refreshed, replaced, or featured next
+- Help align menu presentation with current customer interest
+
+Then add:
+
+Section title:
+What you can expect from this agent
+
+Include at least 4–5 concrete outputs such as:
+- New dish recommendations each cycle
+- Seasonal product suggestions
+- Menu photo improvement priorities
+- Description rewrite suggestions
+- Hero item recommendations
+- Underperforming item alerts
+- Product refresh opportunities
+
+==================================================
+SOCIAL MEDIA AGENT
+==================================================
+
+Section title:
+What the Social Media Agent handles for your restaurant
+
+Intro:
+Social Media Agent manages content momentum, audience engagement, and creator opportunity. It helps restaurants understand what is working on social, what to post next, and which collaborations are worth pursuing.
+
+Capabilities:
+- Track posting consistency and channel activity
+- Review content performance across recent posts
+- Identify high-performing themes, formats, and topics
+- Suggest upcoming content ideas and posting directions
+- Recommend short-form video concepts and campaign angles
+- Summarize audience engagement patterns and reactions
+- Surface useful insights from comments and interaction behavior
+- Recommend creator / influencer / KOL / KOC opportunities
+- Suggest collaboration directions for local awareness and brand lift
+- Organize creator outreach and partnership pipeline ideas
+- Recommend content priorities for the next 7–30 days
+- Connect content strategy to restaurant growth goals
+
+Then add:
+
+Section title:
+What you can expect from this agent
+
+Include at least 4–5 concrete outputs such as:
+- Weekly posting and engagement summary
+- Best-performing content insights
+- Recommended next content topics
+- Short-form video opportunities
+- Creator collaboration suggestions
+- Audience interaction insights
+- Next 7–30 day content priorities
+
+==================================================
+CUSTOMER SERVICE AGENT
+==================================================
+
+Section title:
+What the Customer Service Agent handles for your restaurant
+
+Intro:
+Customer Service Agent protects reputation, tracks customer feedback, and helps improve retention. It monitors ratings, complaints, review themes, and customer return behavior to help restaurants strengthen both reputation and loyalty.
+
+Capabilities:
+- Monitor Google Maps and Yelp rating trends
+- Summarize review sentiment and recurring feedback themes
+- Track delivery platform complaints and customer issues
+- Highlight unresolved service problems that need attention
+- Suggest response and follow-up priorities
+- Identify patterns in negative reviews and complaint sources
+- Recommend reputation improvement actions
+- Summarize recent customer service performance
+- Track repeat customer signals and retention health
+- Suggest win-back and reactivation campaign ideas
+- Review results from past retention campaigns
+- Recommend next steps to improve customer satisfaction and repeat purchase
+
+Then add:
+
+Section title:
+What you can expect from this agent
+
+Include at least 4–5 concrete outputs such as:
+- Google Maps and Yelp rating trends
+- Review sentiment summaries
+- Complaint category tracking
+- Follow-up and resolution status
+- Reputation improvement priorities
+- Repeat customer / win-back campaign suggestions
+- Retention campaign performance summaries
+
+Design guidance:
+- Place “What you can expect from this agent” directly below the “What the [Agent] handles for your restaurant” section
+- Make both sections feel substantial and useful
+- Do not make the second section generic marketing copy
+- Use concrete, operator-friendly language
+- Show measurable visibility, outputs, and business signals
+- This should help users understand both the scope of the agent and the practical value they get from it

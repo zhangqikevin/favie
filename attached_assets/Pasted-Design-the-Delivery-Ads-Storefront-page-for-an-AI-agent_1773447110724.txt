@@ -1,0 +1,290 @@
+Design the “Delivery Ads & Storefront” page for an AI-agent-powered restaurant growth platform.
+
+Important product logic:
+This is not a traditional ad manager.
+The restaurant owner should not need to manually operate campaigns, adjust bids, configure targeting, or manage complex delivery settings.
+
+This platform is fully AI-agent-driven.
+The AI handles the operational work automatically.
+
+The only main control the restaurant owner should have on this page is:
+- setting the monthly maximum budget limit
+
+The AI should:
+- recommend the budget
+- allocate spend across Uber Eats and DoorDash
+- optimize promotions and storefront activity
+- explain expected impact
+- show performance changes over time
+- guide the owner to adjust the monthly budget limit when needed
+
+Page goal:
+Create a simple, high-trust dashboard page where the restaurant owner can:
+1. understand current delivery performance
+2. set or adjust the monthly maximum spend limit
+3. see AI-recommended budget levels
+4. understand expected outcomes from changing the budget
+5. review recent promotion strategies created by the AI
+
+The page should feel:
+- simple
+- intelligent
+- AI-managed
+- operator-friendly
+- not like a complicated ad platform
+
+Page title:
+Delivery Ads & Storefront
+
+Page subtitle:
+AI manages your delivery growth automatically. You only control the monthly budget limit.
+
+Main page structure:
+
+1. Budget Control Panel
+This is the most important module on the page.
+
+Purpose:
+Let the restaurant owner set the monthly maximum budget cap, while clearly showing the AI-recommended amount.
+
+Include:
+- Current monthly budget limit
+- AI recommended monthly budget
+- Difference between current budget and recommended budget
+- Simple control to adjust budget limit
+- Short explanation of why the AI recommends that number
+
+Example mock data:
+- Current Monthly Budget Limit: $2,500
+- AI Recommended Budget: $3,200
+- Gap: +$700 recommended increase
+
+Example explanation:
+Based on recent conversion trends on Uber Eats and DoorDash, increasing the monthly budget limit to $3,200 could help capture more high-intent traffic during lunch and dinner peaks.
+
+Add a simple CTA such as:
+- Update Budget Limit
+- Use Recommended Budget
+- Keep Current Limit
+
+2. Budget Impact Forecast
+Purpose:
+Show what the owner can expect if they raise or lower the budget.
+
+This should be a simple forecast card or comparison table.
+
+Show 3 scenarios:
+- Current budget
+- Recommended budget
+- Higher growth scenario
+
+Example mock forecast:
+Current Budget: $2,500
+- Estimated monthly clicks: 4,200
+- Estimated orders: 320
+- Estimated revenue influenced: $7,100
+
+Recommended Budget: $3,200
+- Estimated monthly clicks: 5,300
+- Estimated orders: 405
+- Estimated revenue influenced: $9,200
+
+Growth Scenario: $4,000
+- Estimated monthly clicks: 6,100
+- Estimated orders: 470
+- Estimated revenue influenced: $10,600
+
+Add a short note:
+Forecasts are AI-generated estimates based on recent platform performance, conversion trends, and historical promotion results.
+
+3. Channel Performance Overview
+Purpose:
+Show simple performance breakdown across Uber Eats and DoorDash.
+
+This section should compare:
+- spend
+- impressions or visits
+- orders
+- conversion rate
+- revenue impact
+- trend vs prior period
+
+Create two platform cards:
+
+Uber Eats
+- Spend: $1,420
+- Store Visits: 2,840
+- Orders: 196
+- Conversion Rate: 6.9%
+- Revenue Influenced: $4,380
+- Trend: +11.2%
+
+DoorDash
+- Spend: $980
+- Store Visits: 2,060
+- Orders: 124
+- Conversion Rate: 6.0%
+- Revenue Influenced: $2,720
+- Trend: +7.4%
+
+Make this section easy to scan.
+The goal is not deep ad analysis.
+The goal is to reassure the owner that AI is actively managing the channels and generating outcomes.
+
+4. Spend & Performance Trend
+Purpose:
+Show how budget and results changed over time.
+
+Include a trend chart with recent weekly or monthly data.
+
+Suggested chart:
+- Spend trend
+- Orders trend
+- Revenue influenced trend
+
+Example mock data:
+Week 1
+- Spend: $520
+- Orders: 68
+- Revenue: $1,420
+
+Week 2
+- Spend: $610
+- Orders: 79
+- Revenue: $1,760
+
+Week 3
+- Spend: $590
+- Orders: 82
+- Revenue: $1,890
+
+Week 4
+- Spend: $680
+- Orders: 91
+- Revenue: $2,030
+
+The chart should help the owner understand:
+- whether more spend is producing better results
+- whether performance is improving
+- whether AI recommendations are justified
+
+5. Storefront & Promotion Activity
+Purpose:
+Show what the AI has recently launched or optimized.
+
+This should feel like an activity log or campaign cards.
+Focus on AI-generated promotion design and storefront actions.
+
+Include recent promotions such as:
+- BOGO offers
+- percentage discounts
+- combo promotions
+- free item thresholds
+- seasonal storefront refreshes
+
+Example mock items:
+Promotion 1:
+- Type: BOGO
+- Name: Buy 1 Get 1 Free Milk Tea
+- Platform: Uber Eats
+- Goal: Increase afternoon traffic
+- Status: Active
+- Result so far: +18% beverage add-on rate
+
+Promotion 2:
+- Type: Combo
+- Name: Lunch Combo A + Drink
+- Platform: DoorDash
+- Goal: Improve average order value
+- Status: Active
+- Result so far: +11% avg ticket increase
+
+Promotion 3:
+- Type: Discount
+- Name: 15% Off Orders Above $25
+- Platform: Uber Eats + DoorDash
+- Goal: Push larger basket sizes
+- Status: Completed
+- Result: +9% order value during campaign window
+
+Promotion 4:
+- Type: Storefront Refresh
+- Name: New Hero Image + Bestseller Highlights
+- Platform: Uber Eats
+- Goal: Improve conversion from store visit to order
+- Status: Completed
+- Result: +0.8 pt conversion lift
+
+If menu items are needed, invent realistic restaurant items.
+Example restaurant:
+Golden Wok – Downtown
+
+Possible products:
+- Orange Chicken Bowl
+- Beef Broccoli Rice Box
+- Spicy Garlic Wings
+- Family Combo A
+- Milk Tea
+- Crispy Spring Rolls
+
+6. AI Actions & Recommendations
+Purpose:
+Make the AI feel active, useful, and trustworthy.
+
+This section should summarize what the AI has done recently and what it recommends next.
+
+Example actions:
+- Shifted more spend to Uber Eats lunch window based on stronger conversion
+- Reduced low-performing late-night spend on DoorDash
+- Promoted Family Combo A to increase basket size
+- Tested BOGO Milk Tea to improve add-on behavior
+
+Example recommendations:
+- Raise monthly budget limit from $2,500 to $3,200 to capture missed peak-hour demand
+- Expand combo-based promotions because avg order value is trending up
+- Continue beverage-focused offers because add-on conversion is improving
+
+7. Key Takeaways
+Purpose:
+Give the owner a simple summary without making them read charts.
+
+Example summary block:
+- Uber Eats is currently generating the strongest return
+- Combo offers are increasing average order value
+- Beverage promotions are improving add-on behavior
+- Current budget may be limiting growth during peak demand windows
+
+8. Optional small settings area
+Because the owner should have very limited controls, keep settings minimal.
+
+Only include:
+- Monthly budget limit
+- maybe platform enable/disable toggles if needed later
+- everything else should remain AI-managed
+
+Do NOT include:
+- manual targeting controls
+- bid settings
+- keyword controls
+- audience management
+- campaign creation forms
+- ad creative setup complexity
+
+UX guidance:
+This page should feel much simpler than a traditional ad dashboard.
+The owner should feel:
+- “AI is handling this for me”
+- “I understand what is happening”
+- “I can control the budget boundary without dealing with complexity”
+
+Tone:
+- practical
+- confident
+- simple
+- AI-first
+- commercial
+- operator-friendly
+
+Important:
+Do not design this like a traditional Ads Manager.
+Design it like an AI-managed delivery growth page where budget is the only major owner input, and the rest is transparent reporting plus AI recommendations.
