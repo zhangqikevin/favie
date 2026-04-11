@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useLocation, useParams, useSearch } from "wouter";
 import AdminLayout from "@/components/admin-layout";
 import { useAuth } from "@/lib/auth-context";
+import RestaurantSetupFlow from "@/components/restaurant-setup-flow";
+import type { Restaurant } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -964,7 +966,7 @@ function AgentIntroContent({ agentId, agentName, onTaskClick, onHireClick, hired
   const { t: tFn } = useTranslation();
   const t = AGENT_THEMES[agentId];
   const f = useAgentHireFeatures(agentId);
-  const tasks = AGENT_TASKS[agentId];
+  const tasks = useAgentTasks(agentId);
   const price = AGENT_HIRE_PRICES[agentId];
   return (
     <div className="mt-3 space-y-3 w-full">
@@ -1762,6 +1764,19 @@ function useAgentHireFeatures(agentId: AgentId) {
   };
 }
 
+function useAgentTasks(agentId: AgentId) {
+  const { t } = useTranslation();
+  const base = AGENT_TASKS[agentId] ?? [];
+  return base.map((task) => {
+    const key = task.id.replace(/-/g, "_");
+    return {
+      ...task,
+      title: t(`agents_page.task_${key}_title`, { defaultValue: task.title }),
+      shortDesc: t(`agents_page.task_${key}_short`, { defaultValue: task.shortDesc }),
+    };
+  });
+}
+
 function useAgentConfig(agentId: AgentId) {
   const { t } = useTranslation();
 
@@ -1927,6 +1942,13 @@ export default function AgentChatPage() {
   const [paymentTask, setPaymentTask] = useState<PayableTask | null>(null);
   const pendingTaskId = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const queryClient = useQueryClient();
+  const { data: restaurantData, isLoading: restaurantsLoading } = useQuery<{ restaurants: Restaurant[] }>({
+    queryKey: ["/api/restaurants"],
+  });
+  const hasRestaurants = (restaurantData?.restaurants?.length ?? 0) > 0;
+  const showRestaurantGate = !restaurantsLoading && !hasRestaurants && !!user;
 
   const hireTask: PayableTask = { id: `__hire_${agentId}__`, title: t("agents_page.hire_task_title", { name: config.name }), price: AGENT_HIRE_PRICES[agentId] };
 
@@ -2153,6 +2175,32 @@ export default function AgentChatPage() {
   };
 
   if (!user) return null;
+
+  if (showRestaurantGate) {
+    const AgentIcon = config.icon;
+    return (
+      <AdminLayout chatMode>
+        <div className="flex flex-col flex-1 overflow-hidden h-full items-center justify-center">
+          <div className="w-full max-w-md mx-auto px-6 py-12">
+            <div className="bg-card border border-border rounded-2xl p-8 shadow-lg">
+              <div className="mb-6 text-center">
+                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3", config.avatar)}>
+                  <AgentIcon className="w-6 h-6 text-white" />
+                </div>
+                <h2 className="font-serif text-xl font-bold text-foreground">{t("agents_page.setup_gate_title")}</h2>
+                <p className="text-sm text-muted-foreground mt-1">{t("agents_page.setup_gate_desc", { name: config.name })}</p>
+              </div>
+              <RestaurantSetupFlow
+                onComplete={() => {
+                  queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   const avatarClass = AGENT_AVATAR_CLASSES[agentId] ?? "bg-primary";
 
