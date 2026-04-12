@@ -58,7 +58,7 @@ function Slide0Hero() {
 
   return (
     <div
-      className="relative h-[280px] flex-shrink-0 overflow-hidden flex items-center justify-center px-8"
+      className="relative h-[180px] sm:h-[280px] flex-shrink-0 overflow-hidden flex items-center justify-center px-8"
       style={{ background: "linear-gradient(135deg, #060b18 0%, #0e1e36 55%, #08111f 100%)" }}
     >
       {/* Ambient glows */}
@@ -110,25 +110,25 @@ function Slide0Body({ onNext }: { onNext: () => void }) {
     { phrase: t("onboarding.slide0_example3_phrase"), result: t("onboarding.slide0_example3_result") },
   ];
   return (
-    <div className="flex flex-col gap-5 h-full">
-      <span className="self-start text-sm font-bold tracking-widest uppercase bg-foreground/10 text-foreground px-2.5 py-1 rounded-full">
+    <div className="flex flex-col gap-3 sm:gap-5 min-h-full">
+      <span className="self-start text-[11px] sm:text-sm font-bold tracking-widest uppercase bg-foreground/10 text-foreground px-2.5 py-1 rounded-full">
         {t("onboarding.slide0_badge")}
       </span>
       <div>
-        <h2 className="font-serif text-2xl font-bold text-foreground leading-tight">
+        <h2 className="font-serif text-xl sm:text-2xl font-bold text-foreground leading-tight">
           {t("onboarding.slide0_h2")}
         </h2>
-        <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+        <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
           {t("onboarding.slide0_desc")}
         </p>
       </div>
 
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-2">
         {chatExamples.map(({ phrase, result }) => (
-          <div key={phrase} className="flex items-center gap-3 bg-muted/50 rounded-xl px-4 py-3">
+          <div key={phrase} className="flex items-center gap-3 bg-muted/50 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground truncate">{phrase}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">{result}</p>
+              <p className="text-[13px] text-muted-foreground mt-0.5">{result}</p>
             </div>
           </div>
         ))}
@@ -136,7 +136,7 @@ function Slide0Body({ onNext }: { onNext: () => void }) {
 
       <button
         onClick={onNext}
-        className="mt-auto w-full bg-foreground text-background text-sm font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity"
+        className="mt-4 sm:mt-auto w-full bg-foreground text-background text-sm font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity"
         data-testid="button-onboarding-chat-next"
       >
         {t("onboarding.slide0_cta")}
@@ -166,7 +166,7 @@ function Slide1Hero() {
 
   return (
     <div
-      className="relative h-[280px] flex-shrink-0 overflow-hidden flex flex-col items-center justify-center px-8"
+      className="relative h-[180px] sm:h-[280px] flex-shrink-0 overflow-hidden flex flex-col items-center justify-center px-8"
       style={{ background: "linear-gradient(135deg, #0f0f1a 0%, #1a1040 50%, #0f1a2e 100%)" }}
     >
       {/* Glow blobs */}
@@ -235,7 +235,7 @@ function Slide2Hero() {
   ];
   return (
     <div
-      className="relative h-[280px] flex-shrink-0 overflow-hidden flex flex-col justify-center px-8 gap-3"
+      className="relative h-[180px] sm:h-[280px] flex-shrink-0 overflow-hidden flex flex-col justify-center px-8 gap-3"
       style={{ background: "linear-gradient(135deg, #1a0533 0%, #2d1065 50%, #0d1a3a 100%)" }}
     >
       <div className="absolute top-6 right-8 w-32 h-32 rounded-full bg-fuchsia-600/20 blur-3xl pointer-events-none" />
@@ -263,7 +263,7 @@ function Slide3Hero() {
   const { t } = useTranslation();
   return (
     <div
-      className="relative h-[280px] flex-shrink-0 overflow-hidden flex flex-col items-center justify-center gap-4"
+      className="relative h-[180px] sm:h-[280px] flex-shrink-0 overflow-hidden flex flex-col items-center justify-center gap-4"
       style={{ background: "linear-gradient(135deg, #0d1f12 0%, #1a3a2a 50%, #1a1a2e 100%)" }}
     >
       <div className="absolute inset-0 flex items-center justify-center opacity-5">
@@ -291,33 +291,33 @@ function Slide1Body({ onNext }: { onNext: () => void }) {
     { value: "24/7", label: t("onboarding.metric_always_running"), icon: Clock,      bg: "bg-violet-500/20", txt: "text-violet-300" },
   ];
   return (
-    <div className="flex flex-col gap-5 h-full">
-      <span className="self-start text-sm font-bold tracking-widest uppercase bg-foreground/10 text-foreground px-2.5 py-1 rounded-full">
+    <div className="flex flex-col gap-3 sm:gap-5 min-h-full">
+      <span className="self-start text-[11px] sm:text-sm font-bold tracking-widest uppercase bg-foreground/10 text-foreground px-2.5 py-1 rounded-full">
         {t("onboarding.slide1_badge")}
       </span>
       <div>
-        <h2 className="font-serif text-2xl font-bold text-foreground leading-tight">
+        <h2 className="font-serif text-xl sm:text-2xl font-bold text-foreground leading-tight">
           {t("onboarding.slide1_h2")}
         </h2>
-        <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+        <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
           {t("onboarding.slide1_desc")}
         </p>
       </div>
 
       {/* Metrics grid — 2×2 */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {METRICS.map(({ value, label, icon: Icon, bg, txt }) => (
-          <div key={label} className={cn("rounded-xl p-4 flex flex-col items-center gap-2 text-center", bg)}>
-            <Icon className={cn("w-5 h-5", txt)} />
-            <p className={cn("text-2xl font-bold leading-none", txt)}>{value}</p>
-            <p className="text-sm text-muted-foreground leading-tight">{label}</p>
+          <div key={label} className={cn("rounded-xl p-3 sm:p-4 flex flex-col items-center gap-1.5 sm:gap-2 text-center", bg)}>
+            <Icon className={cn("w-4 h-4 sm:w-5 sm:h-5", txt)} />
+            <p className={cn("text-xl sm:text-2xl font-bold leading-none", txt)}>{value}</p>
+            <p className="text-[13px] sm:text-sm text-muted-foreground leading-tight">{label}</p>
           </div>
         ))}
       </div>
 
       <button
         onClick={onNext}
-        className="mt-auto w-full bg-foreground text-background text-sm font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity"
+        className="mt-4 sm:mt-auto w-full bg-foreground text-background text-sm font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity"
         data-testid="button-onboarding-explore-agents"
       >
         {t("onboarding.slide1_cta")}
@@ -359,37 +359,37 @@ function Slide2Body({ onClose }: { onClose: () => void }) {
   ];
 
   return (
-    <div className="flex flex-col gap-5 h-full">
-      <span className="self-start text-sm font-bold tracking-widest uppercase bg-foreground/10 text-foreground px-2.5 py-1 rounded-full">
+    <div className="flex flex-col gap-3 sm:gap-5 min-h-full">
+      <span className="self-start text-[11px] sm:text-sm font-bold tracking-widest uppercase bg-foreground/10 text-foreground px-2.5 py-1 rounded-full">
         {t("onboarding.slide2_badge")}
       </span>
       <div>
-        <h2 className="font-serif text-2xl font-bold text-foreground leading-tight">
+        <h2 className="font-serif text-xl sm:text-2xl font-bold text-foreground leading-tight">
           {t("onboarding.slide2_h2")}
         </h2>
-        <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+        <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
           {t("onboarding.slide2_desc")}
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
         {TASKS_FULL.map(({ icon: Icon, title, desc, tag, tagBg, iconBg }) => (
-          <div key={title} className="flex items-center gap-3 bg-muted/50 rounded-xl px-4 py-3">
-            <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0", iconBg)}>
+          <div key={title} className="flex items-center gap-3 bg-muted/50 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
+            <div className={cn("w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0", iconBg)}>
               <Icon className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground leading-tight">{title}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">{desc}</p>
+              <p className="text-[13px] text-muted-foreground mt-0.5 hidden sm:block">{desc}</p>
             </div>
-            <span className={cn("text-sm font-bold px-2 py-0.5 rounded-full flex-shrink-0", tagBg)}>{tag}</span>
+            <span className={cn("text-[11px] sm:text-sm font-bold px-2 py-0.5 rounded-full flex-shrink-0", tagBg)}>{tag}</span>
           </div>
         ))}
       </div>
 
       <button
         onClick={handle}
-        className="mt-auto w-full bg-foreground text-background text-sm font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity"
+        className="mt-4 sm:mt-auto w-full bg-foreground text-background text-sm font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity"
         data-testid="button-onboarding-go-task-market"
       >
         {t("onboarding.slide2_cta")}
@@ -501,18 +501,18 @@ export default function OnboardingModal({ debugOpen, onDebugClose }: { debugOpen
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-10"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-10"
       style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
       data-testid="onboarding-modal-overlay"
     >
-      <div className="flex items-center gap-3 w-full max-w-[860px]">
+      <div className="flex items-center gap-3 w-full sm:max-w-[860px]">
 
-        {/* Left arrow */}
+        {/* Left arrow — desktop only */}
         <button
           onClick={prev}
           disabled={activeSlide === 0}
           className={cn(
-            "flex-shrink-0 w-10 h-10 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white transition-all",
+            "hidden sm:flex flex-shrink-0 w-10 h-10 rounded-full bg-white/15 backdrop-blur items-center justify-center text-white transition-all",
             activeSlide === 0 ? "opacity-20 cursor-not-allowed" : "hover:bg-white/25"
           )}
           aria-label="Previous slide"
@@ -523,20 +523,20 @@ export default function OnboardingModal({ debugOpen, onDebugClose }: { debugOpen
 
         {/* Card */}
         <div
-          className="relative flex-1 flex flex-col bg-card rounded-2xl overflow-hidden shadow-2xl"
-          style={{ height: 800 }}
+          className="relative flex-1 flex flex-col bg-card sm:rounded-2xl rounded-t-2xl overflow-hidden shadow-2xl"
+          style={{ height: "min(800px, 92vh)" }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           data-testid="onboarding-modal-card"
         >
-          {/* Close */}
+          {/* Close — always sticky at top */}
           <button
             onClick={closeSession}
-            className="absolute top-4 right-4 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 text-white transition-colors"
+            className="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
             aria-label="Close"
             data-testid="button-onboarding-close"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
 
           {/* Slide track — relative container, both panels absolute inside */}
@@ -551,7 +551,7 @@ export default function OnboardingModal({ debugOpen, onDebugClose }: { debugOpen
                 : "translate-x-0"
             )}>
               <CurHero />
-              <div className="flex-1 overflow-hidden px-8 pt-6 pb-4 flex flex-col">
+              <div className="flex-1 overflow-y-auto px-5 sm:px-8 pt-5 pb-4 flex flex-col">
                 <CurBody onNext={() => goTo(slide + 1)} onClose={closeSession} />
               </div>
             </div>
@@ -565,15 +565,15 @@ export default function OnboardingModal({ debugOpen, onDebugClose }: { debugOpen
                   : (transDir === "left" ? "translate-x-full" : "-translate-x-full")
               )}>
                 <InHero />
-                <div className="flex-1 overflow-hidden px-8 pt-6 pb-4 flex flex-col">
+                <div className="flex-1 overflow-y-auto px-5 sm:px-8 pt-5 pb-4 flex flex-col">
                   <InBody onNext={() => goTo(transSlide! + 1)} onClose={closeSession} />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Footer dots — update immediately to target slide */}
-          <div className="flex-shrink-0 flex items-center justify-center px-8 py-4 border-t border-border">
+          {/* Footer dots */}
+          <div className="flex-shrink-0 flex items-center justify-center px-8 py-3 sm:py-4 border-t border-border">
             <div className="flex items-center gap-2">
               {Array.from({ length: TOTAL_SLIDES }).map((_, i) => (
                 <button
@@ -593,12 +593,12 @@ export default function OnboardingModal({ debugOpen, onDebugClose }: { debugOpen
           </div>
         </div>
 
-        {/* Right arrow */}
+        {/* Right arrow — desktop only */}
         <button
           onClick={next}
           disabled={activeSlide === TOTAL_SLIDES - 1}
           className={cn(
-            "flex-shrink-0 w-10 h-10 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white transition-all",
+            "hidden sm:flex flex-shrink-0 w-10 h-10 rounded-full bg-white/15 backdrop-blur items-center justify-center text-white transition-all",
             activeSlide === TOTAL_SLIDES - 1 ? "opacity-20 cursor-not-allowed" : "hover:bg-white/25"
           )}
           aria-label="Next slide"
