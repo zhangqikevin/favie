@@ -189,7 +189,12 @@ Cover these areas in your questions:
 
 Be warm and concise. Do NOT explain what you will do after they answer — just ask. Reply in the same language the user is likely to use based on the restaurant's location.`;
 
-  const ocAgentId = `favie-${userId.slice(0, 8)}-expert`;
+  // Initialize the agent on openclaw (creates it + writes SOUL.md on first use)
+  const ocAgentId = await syncOpencrawAgent(
+    userId, restaurant.id, "expert",
+    restaurant.name, "", systemPrompt, cfg,
+  );
+
   let text: string;
   try {
     text = await callOpenclaw(
