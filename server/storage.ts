@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte } from "drizzle-orm";
 import pg from "pg";
 import {
   users, type User, type InsertUser,
@@ -44,6 +44,8 @@ export interface IStorage {
   updateChannelBindingConfig(id: string, patch: Record<string, string>): Promise<void>;
   deleteChannelBinding(userId: string, restaurantId: string, agentId: string, channelType: string): Promise<void>;
   getAllActiveChannelBindings(agentId: string, userId: string): Promise<ChannelBinding[]>;
+  getAllUsers(): Promise<User[]>;
+  getAllChatHistorySince(userId: string, since: Date): Promise<ChatMessage[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -193,6 +195,18 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(chatMessages)
       .where(and(eq(chatMessages.userId, userId), eq(chatMessages.agentId, agentId)))
+      .orderBy(chatMessages.id);
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users);
+  }
+
+  async getAllChatHistorySince(userId: string, since: Date): Promise<ChatMessage[]> {
+    return db
+      .select()
+      .from(chatMessages)
+      .where(and(eq(chatMessages.userId, userId), gte(chatMessages.createdAt, since)))
       .orderBy(chatMessages.id);
   }
 
