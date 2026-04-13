@@ -17,6 +17,7 @@ import {
 } from "./ubereats-api";
 import { syncOpencrawAgent, callOpenclaw } from "./openclaw";
 import { getChannelHandler } from "./channels/index";
+import cron from "node-cron";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -86,6 +87,84 @@ async function callLLM(
   const data = (await res.json()) as any;
   return data.choices?.[0]?.message?.content ?? "";
 }
+
+// ─── Shared Memory Sync ────────────────────────────────────────────────────────
+
+const ALL_AGENT_IDS: AgentId[] = ["operation", "chef", "social", "customer", "finance", "legal", "expert"];
+
+function buildSummaryPrompt(chatText: string, dateStr: string): string {
+  return `Below are recent chat messages from a restaurant management team across all agents.
+Summarize the key cross-agent insights in concise bullet points (max 200 words).
+Focus on: customer feedback, operational issues, menu problems, financial signals.
+Format your response EXACTLY as:
+
+<!-- SHARED MEMORY ${dateStr} -->
+## Team Insights — ${dateStr}
+- ...
+<!-- /SHARED MEMORY ${dateStr} -->
+
+MESSAGES:
+${chatText}`;
+}
+
+function buildPrependPrompt(block: string): string {
+  return `Prepend the following block to the very top of your MEMORY.md file.
+Do NOT modify, move, or delete any existing content in the file.
+Simply insert this block before everything else, followed by a blank line.
+If MEMORY.md does not exist yet, create it with only this block.
+Reply "Done." after writing.
+
+BLOCK:
+${block}`;
+}
+
+async function runMemorySyncForUser(
+  userId: string,
+  since: Date,
+  cfg: Record<string, string>,
+): Promise<void> {
+  const baseUrl = cfg["openclaw_base_url"] ?? "";
+  const apiKey = cfg["openclaw_api_key"] ?? "";
+  if (!baseUrl || !apiKey) return;
+
+  const msgs = await storage.getAllChatHistorySince(userId, since);
+  if (!msgs.length) return;
+
+  const chatText = msgs
+    .map((m) => `[${m.agentId}/${m.role}]: ${m.text}`)
+    .join("\n");
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const opAgentId = `favie-${userId.slice(0, 8)}-operation`;
+
+  let sharedBlock: string;
+  try {
+    sharedBlock = await callOpenclaw(
+      baseUrl, apiKey, opAgentId, `${userId}-memsync`,
+      buildSummaryPrompt(chatText, dateStr),
+      [{ role: "user", content: "Please summarize the recent cross-agent insights." }],
+      600,
+    );
+  } catch (e: any) {
+    console.warn(`[memsync] summary failed for ${userId}:`, e.message);
+    return;
+  }
+
+  if (!sharedBlock.includes(`<!-- SHARED MEMORY ${dateStr} -->`)) return;
+
+  const prependPrompt = buildPrependPrompt(sharedBlock);
+  await Promise.all(ALL_AGENT_IDS.map(async (agentId) => {
+    const ocAgentId = `favie-${userId.slice(0, 8)}-${agentId}`;
+    callOpenclaw(
+      baseUrl, apiKey, ocAgentId, `${userId}-memsync-write`,
+      prependPrompt,
+      [{ role: "user", content: "Please update your MEMORY.md." }],
+      100,
+    ).catch((e: Error) => console.warn(`[memsync] write failed ${ocAgentId}:`, e.message));
+  }));
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
 
 export async function registerRoutes(
   httpServer: Server,
@@ -1534,6 +1613,44 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       console.log(`[deliver] userId=${userId} agentId=${agentId} delivered to ${bindings.length} channel(s)`);
     } catch (err: any) {
       console.error("[deliver] error:", err.message);
+    }
+  });
+
+  // ─── Dev: manually trigger memory sync for current user ──────────────────────
+  app.get("/api/shared-memory/trigger-sync", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ error: "unauthorized" });
+    const userId = (req.user as any).id as string;
+    const cfg = await storage.getSystemConfig();
+    // Use epoch 0 so all chat history is included in the manual trigger
+    runMemorySyncForUser(userId, new Date(0), cfg)
+      .then(() => console.log(`[memsync] manual trigger done for ${userId}`))
+      .catch((e: Error) => console.warn(`[memsync] manual trigger failed:`, e.message));
+    res.json({ ok: true, message: "Memory sync triggered, running in background." });
+  });
+
+  // ─── Daily cron: 03:30 AM incremental shared memory sync ─────────────────────
+  cron.schedule("30 3 * * *", async () => {
+    console.log("[memsync] Starting incremental memory sync...");
+    try {
+      const cfg = await storage.getSystemConfig();
+      if (!cfg["openclaw_base_url"] || !cfg["openclaw_api_key"]) return;
+
+      const lastRunStr = cfg["memory_sync_last_run"];
+      const since = lastRunStr
+        ? new Date(lastRunStr)
+        : (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+
+      const allUsers = await storage.getAllUsers();
+      await Promise.all(allUsers.map((user) =>
+        runMemorySyncForUser(user.id, since, cfg).catch((e: Error) =>
+          console.warn(`[memsync] failed for ${user.id}:`, e.message)
+        )
+      ));
+
+      await storage.setSystemConfig({ memory_sync_last_run: new Date().toISOString() });
+      console.log("[memsync] Done.");
+    } catch (e: any) {
+      console.warn("[memsync] cron error:", e.message);
     }
   });
 
