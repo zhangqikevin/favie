@@ -164,6 +164,58 @@ async function runMemorySyncForUser(
   }));
 }
 
+// ─── Expert Agent Onboarding ───────────────────────────────────────────────────
+
+async function triggerExpertOnboarding(
+  userId: string,
+  restaurant: { id: string; name: string; address: string; rating: string | null; reviewCount: number | null },
+  cfg: Record<string, string>,
+): Promise<void> {
+  const baseUrl = cfg["openclaw_base_url"] ?? "";
+  const apiKey = cfg["openclaw_api_key"] ?? "";
+  if (!baseUrl || !apiKey) return;
+
+  const ratingLine = restaurant.rating
+    ? `Current rating: ${restaurant.rating}${restaurant.reviewCount ? ` (${restaurant.reviewCount} reviews)` : ""}.`
+    : "No rating data yet.";
+
+  const systemPrompt = `You are the Restaurant Expert for ${restaurant.name}, located at ${restaurant.address}. ${ratingLine}
+You are meeting this restaurant owner for the first time. Your job right now is to briefly introduce yourself (1 sentence) and ask 3-4 short, targeted questions to understand their situation before providing a personalized analysis.
+Cover these areas in your questions:
+1. Main business model — dine-in, delivery, or both?
+2. How long have they been open?
+3. Biggest current pain point — give 3-4 options (e.g. "reviews & reputation / controlling costs / getting more customers / operations & staff")
+4. Approximate scale — daily covers or monthly revenue range
+
+Be warm and concise. Do NOT explain what you will do after they answer — just ask. Reply in the same language the user is likely to use based on the restaurant's location.`;
+
+  const ocAgentId = `favie-${userId.slice(0, 8)}-expert`;
+  let text: string;
+  try {
+    text = await callOpenclaw(
+      baseUrl, apiKey, ocAgentId, `${userId}-expert-onboard`,
+      systemPrompt,
+      [{ role: "user", content: "Start." }],
+      400,
+    );
+  } catch (e: any) {
+    console.warn("[expert-onboard] callOpenclaw failed:", e.message);
+    return;
+  }
+
+  if (!text.trim()) return;
+
+  const now = new Date();
+  const ts = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+  await storage.saveChatMessage({
+    userId,
+    agentId: "expert",
+    role: "ai",
+    text: text.trim(),
+    ts,
+  });
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 
 export async function registerRoutes(
@@ -1318,6 +1370,13 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       await storage.updateUserCurrentRestaurant(req.user.id, restaurant.id);
 
       res.status(201).json({ restaurant });
+
+      // Fire-and-forget: Expert Agent personalized onboarding questions
+      storage.getSystemConfig().then((cfg) => {
+        triggerExpertOnboarding(req.user.id, restaurant, cfg).catch((e: Error) =>
+          console.warn("[expert-onboard] failed:", e.message)
+        );
+      });
     } catch (err: any) {
       if (err?.name === "ZodError")
         return res.status(400).json({ message: err.errors[0]?.message || "Invalid input" });

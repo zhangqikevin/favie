@@ -2004,7 +2004,9 @@ export default function AgentChatPage() {
             text: h.text,
             ts: h.ts,
           }));
-          setMessages([...initMsgs, ...savedMsgs]);
+          // If DB history starts with an AI message, it's a generated opening (e.g. Expert onboarding) — use it directly
+          const startsWithAiGreeting = savedMsgs[0]?.role === "ai";
+          setMessages(startsWithAiGreeting ? savedMsgs : [...initMsgs, ...savedMsgs]);
           setHasSavedHistory(true);
         }
         setHistoryLoaded(true);
@@ -2089,7 +2091,8 @@ export default function AgentChatPage() {
           text: h.text,
           ts: h.ts,
         }));
-        setMessages([...initMsgs, ...savedMsgs]);
+        const startsWithAiGreeting = savedMsgs[0]?.role === "ai";
+        setMessages(startsWithAiGreeting ? savedMsgs : [...initMsgs, ...savedMsgs]);
       })
       .catch(() => {});
   };
