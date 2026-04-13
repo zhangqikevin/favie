@@ -1939,6 +1939,7 @@ export default function AgentChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [hasSavedHistory, setHasSavedHistory] = useState(false);
+  const [awaitingOnboarding, setAwaitingOnboarding] = useState(false);
   const [paymentTask, setPaymentTask] = useState<PayableTask | null>(null);
   const pendingTaskId = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -1992,6 +1993,7 @@ export default function AgentChatPage() {
     setIsLoading(false);
     setHistoryLoaded(false);
     setHasSavedHistory(false);
+    setAwaitingOnboarding(false);
     pendingTaskId.current = null;
 
     fetch(`/api/chat/${agentId}`)
@@ -2008,6 +2010,10 @@ export default function AgentChatPage() {
           const startsWithAiGreeting = savedMsgs[0]?.role === "ai";
           setMessages(startsWithAiGreeting ? savedMsgs : [...initMsgs, ...savedMsgs]);
           setHasSavedHistory(true);
+          setAwaitingOnboarding(false);
+        } else if (agentId === "expert") {
+          // Expert Agent: no history yet — onboarding is being generated, show waiting hint
+          setAwaitingOnboarding(true);
         }
         setHistoryLoaded(true);
       })
@@ -2029,7 +2035,8 @@ export default function AgentChatPage() {
     window.history.replaceState(null, "", window.location.pathname);
   }, [search, agentId]);
 
-  // Poll for new messages from other channels (Telegram, etc.) every 10s
+  // Poll for new messages from other channels (Telegram, etc.)
+  // Polls every 3s while awaiting Expert onboarding, otherwise every 10s
   useEffect(() => {
     if (!historyLoaded) return;
     const interval = setInterval(() => {
@@ -2037,6 +2044,19 @@ export default function AgentChatPage() {
       fetch(`/api/chat/${agentId}`)
         .then((r) => (r.ok ? r.json() : []))
         .then((history: { id: number; role: string; text: string; ts: string }[]) => {
+          // While awaiting onboarding, replace all messages with DB history once it arrives
+          if (awaitingOnboarding && history.length > 0) {
+            const savedMsgs: ChatMsg[] = history.map((h) => ({
+              id: `saved-${h.id}`,
+              role: h.role as "ai" | "user",
+              text: h.text,
+              ts: h.ts,
+            }));
+            setMessages(savedMsgs);
+            setHasSavedHistory(true);
+            setAwaitingOnboarding(false);
+            return;
+          }
           setMessages((current) => {
             const existingIds = new Set(
               current.filter(m => m.id.startsWith("saved-")).map(m => Number(m.id.replace("saved-", "")))
@@ -2053,9 +2073,9 @@ export default function AgentChatPage() {
           });
         })
         .catch(() => {});
-    }, 10000);
+    }, awaitingOnboarding ? 3000 : 10000);
     return () => clearInterval(interval);
-  }, [agentId, historyLoaded, isLoading]);
+  }, [agentId, historyLoaded, isLoading, awaitingOnboarding]);
 
   // Once history has loaded, flush any pending task message
   useEffect(() => {
@@ -2256,6 +2276,24 @@ export default function AgentChatPage() {
               {!historyLoaded && (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {historyLoaded && awaitingOnboarding && (
+                <div className="flex gap-3 w-full">
+                  <div className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5", avatarClass)}>
+                    <config.icon className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 mb-1.5">
+                      <span className="text-sm font-semibold text-foreground">{config.name}</span>
+                    </div>
+                    <div className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-card border border-border text-foreground">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
+                        <span>{t("agents_page.expert_onboarding_generating", { defaultValue: "正在生成餐厅运营诊断，大约需要 10 秒…" })}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
               {messages.map((msg, idx) => (

@@ -978,6 +978,7 @@
     "intro_per_month": "/ 月",
     "setup_gate_title": "請先設定您的餐廳",
     "setup_gate_desc": "{{name}} 需要您的餐廳資訊才能開始工作。",
+    "expert_onboarding_generating": "正在生成餐廳營運診斷，大約需要 10 秒…",
     "task_delivery_ad_report_title": "外送廣告報告",
     "task_delivery_ad_report_short": "包含 ROAS、CPC 和預算建議的完整平台表現報告。",
     "task_revenue_growth_analysis_title": "收入成長分析",

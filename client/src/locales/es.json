@@ -978,6 +978,7 @@
     "intro_per_month": "/ mes",
     "setup_gate_title": "Configura tu restaurante primero",
     "setup_gate_desc": "{{name}} necesita los datos de tu restaurante para comenzar.",
+    "expert_onboarding_generating": "Generando diagnóstico operativo del restaurante, aproximadamente 10 segundos…",
     "task_delivery_ad_report_title": "Informe de Anuncios de Delivery",
     "task_delivery_ad_report_short": "Rendimiento completo de la plataforma con ROAS, CPC y recomendaciones de presupuesto.",
     "task_revenue_growth_analysis_title": "Análisis de Crecimiento de Ingresos",

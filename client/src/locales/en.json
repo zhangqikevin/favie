@@ -978,6 +978,7 @@
     "intro_per_month": "/ month",
     "setup_gate_title": "Set up your restaurant first",
     "setup_gate_desc": "{{name}} needs your restaurant details to get started.",
+    "expert_onboarding_generating": "Generating your restaurant diagnosis, this takes about 10 seconds…",
     "task_delivery_ad_report_title": "Delivery Ad Report",
     "task_delivery_ad_report_short": "Full platform performance with ROAS, CPC, and budget recommendations.",
     "task_revenue_growth_analysis_title": "Revenue Growth Analysis",
