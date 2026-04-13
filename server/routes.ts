@@ -482,8 +482,8 @@ export async function registerRoutes(
       const currentRestaurant = restaurants.find(r => r.id === req.user!.currentRestaurantId) ?? restaurants[0];
       const restaurantId = currentRestaurant?.id ?? "default";
       const restaurant = currentRestaurant
-        ? { name: currentRestaurant.name, cuisine: currentRestaurant.cuisine ?? null }
-        : { name: "your restaurant", cuisine: null as string | null };
+        ? { name: currentRestaurant.name, cuisine: currentRestaurant.cuisine ?? null, address: currentRestaurant.address ?? null, rating: currentRestaurant.rating ?? null, reviewCount: currentRestaurant.reviewCount ?? null }
+        : { name: "your restaurant", cuisine: null as string | null, address: null, rating: null, reviewCount: null };
 
       const cfg = await storage.getSystemConfig();
       if (cfg[`agent_${agentId}_enabled`] === "false") {
@@ -1113,10 +1113,10 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const currentRestaurant = restaurants.find(r => r.id === req.user!.currentRestaurantId) ?? restaurants[0];
       const restaurantId = currentRestaurant?.id ?? "default";
       const restaurantInfo = currentRestaurant
-        ? { name: currentRestaurant.name, cuisine: currentRestaurant.cuisine ?? "" }
-        : { name: "your restaurant", cuisine: "" };
+        ? { name: currentRestaurant.name, cuisine: currentRestaurant.cuisine ?? null, address: currentRestaurant.address ?? null, rating: currentRestaurant.rating ?? null, reviewCount: currentRestaurant.reviewCount ?? null }
+        : { name: "your restaurant", cuisine: null, address: null, rating: null, reviewCount: null };
 
-      const ocId = await syncOpencrawAgent(req.user.id, restaurantId, taskAgentId, restaurantInfo.name, restaurantInfo.cuisine, systemPrompt, cfg);
+      const ocId = await syncOpencrawAgent(req.user.id, restaurantId, taskAgentId, restaurantInfo.name, restaurantInfo.cuisine ?? "", systemPrompt, cfg);
       const enrichedPromptTask = withDeliveryInstructions(systemPrompt, req.user.id, taskAgentId, cfg["app_base_url"] ?? "", cfg["openclaw_api_key"] ?? "");
       const text = await callOpenclaw(
         cfg["openclaw_base_url"] || "",
@@ -1595,8 +1595,8 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const allRestaurants = await storage.getRestaurants(userId);
       const restaurant = allRestaurants.find(r => r.id === restaurantId) ?? allRestaurants[0];
       const restaurantInfo = restaurant
-        ? { name: restaurant.name, cuisine: restaurant.cuisine ?? null }
-        : { name: "your restaurant", cuisine: null };
+        ? { name: restaurant.name, cuisine: restaurant.cuisine ?? null, address: restaurant.address ?? null, rating: restaurant.rating ?? null, reviewCount: restaurant.reviewCount ?? null }
+        : { name: "your restaurant", cuisine: null, address: null, rating: null, reviewCount: null };
 
       // Build system prompt
       const overrides = {

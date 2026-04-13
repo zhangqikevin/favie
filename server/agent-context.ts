@@ -320,7 +320,7 @@ function interpolate(template: string, rName: string, rType: string): string {
 
 export function getAgentSystemPrompt(
   agentId: AgentId,
-  restaurant: { name: string; cuisine?: string | null },
+  restaurant: { name: string; cuisine?: string | null; address?: string | null; rating?: string | null; reviewCount?: number | null },
   overrides?: { role?: string; rules?: string },
 ): string {
   const rName = restaurant.name;
@@ -330,5 +330,13 @@ export function getAgentSystemPrompt(
   const rules = interpolate(overrides?.rules ?? DEFAULT_RULES[agentId], rName, rType);
   const data  = DATA_SECTIONS[agentId];
 
-  return `${role}\n${data}\n\n## Instructions\n${rules}`;
+  const profileLines: string[] = [];
+  if (restaurant.address)     profileLines.push(`Address: ${restaurant.address}`);
+  if (restaurant.cuisine)     profileLines.push(`Cuisine: ${restaurant.cuisine}`);
+  if (restaurant.rating)      profileLines.push(`Rating: ${restaurant.rating}${restaurant.reviewCount ? ` (${restaurant.reviewCount} reviews)` : ""}`);
+  const profile = profileLines.length > 0
+    ? `\n\n## Restaurant Profile\n${profileLines.join("\n")}`
+    : "";
+
+  return `${role}${profile}\n${data}\n\n## Instructions\n${rules}`;
 }
