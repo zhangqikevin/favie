@@ -71,9 +71,9 @@ export async function syncOpencrawAgent(
 ): Promise<string> {
   const ocAgentId = `favie-${userId.slice(0, 8)}-${agentId}`;
 
-  const appBaseUrl = cfg["app_base_url"] ?? "";
+  const appBaseUrl = cfg["app_base_url"] || "https://favieai.replit.app";
   const apiKey = cfg["openclaw_api_key"] ?? "";
-  const baseUrl = cfg["openclaw_base_url"] ?? "";
+  const baseUrl = cfg["openclaw_base_url"] || "https://openclaw.kevinzhang.fun";
 
   // First time we see this agent: write delivery config to SOUL.md so it persists
   // across all sessions including cron-triggered ones. Fire-and-forget.

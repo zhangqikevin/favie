@@ -1555,6 +1555,7 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
   const [wechatQrOpen, setWechatQrOpen] = useState(false);
   const [wechatQrLoading, setWechatQrLoading] = useState(false);
   const [wechatQrError, setWechatQrError] = useState<string | null>(null);
+  const wechatBindingSaved = useRef(false);
 
   const { data: bindings = [], isLoading } = useQuery<ChannelBinding[]>({
     queryKey: [`/api/channel/bindings/${agentId}`],
@@ -1591,10 +1592,11 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
       try {
         const res = await apiRequest("GET", `/api/channel/wechat/login-status/${wechatQr.qrcodeId}`);
         const data = await res.json() as { status: string; botToken?: string; baseurl?: string };
-        if (data.status === "confirmed" && data.botToken) {
-          setWechatQr(prev => prev ? { ...prev, status: "confirmed", botToken: data.botToken, baseurl: data.baseurl } : null);
+        if (data.status === "confirmed" && data.botToken && !wechatBindingSaved.current) {
+          wechatBindingSaved.current = true;
           clearInterval(id);
-          // Auto-save binding
+          setWechatQr(prev => prev ? { ...prev, status: "confirmed", botToken: data.botToken, baseurl: data.baseurl } : null);
+          // Auto-save binding (guarded by ref — fires exactly once)
           connectMutation.mutate({ channelType: "wechat", config: { botToken: data.botToken!, baseurl: data.baseurl ?? "" } });
           setTimeout(() => setWechatQrOpen(false), 1500);
         }
@@ -1604,6 +1606,7 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
   }, [wechatQr?.qrcodeId, wechatQr?.status]);
 
   async function handleWechatConnect() {
+    wechatBindingSaved.current = false;
     setWechatQrLoading(true);
     setWechatQrError(null);
     try {

@@ -18,6 +18,10 @@ import {
 } from "./ubereats-api";
 import { syncOpencrawAgent, callOpenclaw } from "./openclaw";
 import { getChannelHandler } from "./channels/index";
+
+// Default config values (used when system_config entries are not set)
+const DEFAULT_OPENCLAW_BASE_URL = "https://openclaw.kevinzhang.fun";
+const DEFAULT_APP_BASE_URL = "https://favieai.replit.app";
 import * as wechat from "./channels/wechat";
 import { startPolling, stopPolling, restoreAllPollers } from "./wechat-poller";
 import cron from "node-cron";
@@ -87,7 +91,7 @@ async function runMemorySyncForUser(
   since: Date,
   cfg: Record<string, string>,
 ): Promise<void> {
-  const baseUrl = cfg["openclaw_base_url"] ?? "";
+  const baseUrl = cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL;
   const apiKey = cfg["openclaw_api_key"] ?? "";
   if (!baseUrl || !apiKey) return;
 
@@ -135,7 +139,7 @@ async function triggerExpertOnboarding(
   restaurant: { id: string; name: string; address: string; rating: string | null; reviewCount: number | null },
   cfg: Record<string, string>,
 ): Promise<void> {
-  const baseUrl = cfg["openclaw_base_url"] ?? "";
+  const baseUrl = cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL;
   const apiKey = cfg["openclaw_api_key"] ?? "";
   if (!baseUrl || !apiKey) return;
 
@@ -473,9 +477,9 @@ export async function registerRoutes(
       const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides);
 
       const ocId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurant.name, restaurant.cuisine ?? "", systemPrompt, cfg);
-      const enrichedPrompt = withDeliveryInstructions(systemPrompt, userId, agentId, cfg["app_base_url"] ?? "", cfg["openclaw_api_key"] ?? "");
+      const enrichedPrompt = withDeliveryInstructions(systemPrompt, userId, agentId, cfg["app_base_url"] || DEFAULT_APP_BASE_URL, cfg["openclaw_api_key"] ?? "");
       const text = await callOpenclaw(
-        cfg["openclaw_base_url"] || "",
+        cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL,
         cfg["openclaw_api_key"] || "",
         ocId,
         userId,
@@ -1094,9 +1098,9 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         : { name: "your restaurant", cuisine: null, address: null, rating: null, reviewCount: null };
 
       const ocId = await syncOpencrawAgent(req.user.id, restaurantId, taskAgentId, restaurantInfo.name, restaurantInfo.cuisine ?? "", systemPrompt, cfg);
-      const enrichedPromptTask = withDeliveryInstructions(systemPrompt, req.user.id, taskAgentId, cfg["app_base_url"] ?? "", cfg["openclaw_api_key"] ?? "");
+      const enrichedPromptTask = withDeliveryInstructions(systemPrompt, req.user.id, taskAgentId, cfg["app_base_url"] || DEFAULT_APP_BASE_URL, cfg["openclaw_api_key"] ?? "");
       const text = await callOpenclaw(
-        cfg["openclaw_base_url"] || "",
+        cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL,
         cfg["openclaw_api_key"] || "",
         ocId,
         req.user.id,
@@ -1301,7 +1305,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const restaurantId = currentRestaurant?.id ?? "default";
       const ocId = await syncOpencrawAgent(req.user.id, restaurantId, "operation", currentRestaurant?.name ?? "your restaurant", currentRestaurant?.cuisine ?? "", systemPrompt, cfg);
       const text = await callOpenclaw(
-        cfg["openclaw_base_url"] || "",
+        cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL,
         cfg["openclaw_api_key"] || "",
         ocId,
         req.user.id,
@@ -1400,8 +1404,8 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     const cfg = await storage.getSystemConfig();
     // Merge DB values over env defaults so the form always shows effective config
     const effective: Record<string, string> = {
-      app_base_url:      cfg["app_base_url"]       ?? "",
-      openclaw_base_url: cfg["openclaw_base_url"] ?? "",
+      app_base_url:      cfg["app_base_url"]       || DEFAULT_APP_BASE_URL,
+      openclaw_base_url: cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL,
       openclaw_api_key:  cfg["openclaw_api_key"]  ?? "",
     };
     if (effective["openclaw_api_key"]) {
@@ -1622,9 +1626,9 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
 
       // Call openclaw
       const ocId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurantInfo.name, restaurantInfo.cuisine ?? "", systemPrompt, cfg);
-      const enrichedPromptTg = withDeliveryInstructions(systemPrompt, userId, agentId, cfg["app_base_url"] ?? "", cfg["openclaw_api_key"] ?? "");
+      const enrichedPromptTg = withDeliveryInstructions(systemPrompt, userId, agentId, cfg["app_base_url"] || DEFAULT_APP_BASE_URL, cfg["openclaw_api_key"] ?? "");
       const replyText = await callOpenclaw(
-        cfg["openclaw_base_url"] || "",
+        cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL,
         cfg["openclaw_api_key"] || "",
         ocId,
         userId,

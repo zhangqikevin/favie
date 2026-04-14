@@ -28,12 +28,15 @@ async function pollLoop(bindingId: string, signal: AbortSignal): Promise<void> {
 
       if (signal.aborted) break;
 
+      console.log(`[wechat-poll] binding=${bindingId} got ${messages.length} message(s), nextCursor=${nextCursor}`);
+
       if (messages.length > 0) {
         await storage.updateChannelBindingConfig(bindingId, { cursor: nextCursor });
         for (const msg of messages) {
           if (signal.aborted) break;
+          console.log("[wechat-poll] raw msg:", JSON.stringify(msg));
           await processMessage(binding, msg, config).catch((e: Error) =>
-            console.error(`[wechat-poll] processMessage error binding=${bindingId}:`, e.message)
+            console.log("[wechat] getUpdates raw response:", JSON.stringify({ error: e.message }))
           );
         }
       }
@@ -51,7 +54,7 @@ async function processMessage(
   msg: wechat.ILinkMessage,
   config: Record<string, string>,
 ): Promise<void> {
-  const text = msg.item_list.find((i) => i.type === 1)?.text;
+  const text = msg.item_list.find((i) => i.type === 1)?.text_item?.text;
   if (!text?.trim()) return;
 
   const chatId = msg.from_user_id;
@@ -78,10 +81,10 @@ async function processMessage(
   };
   const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides);
 
-  const baseUrl = cfg["openclaw_base_url"] ?? "";
+  const baseUrl = cfg["openclaw_base_url"] || "https://openclaw.kevinzhang.fun";
   const apiKey  = cfg["openclaw_api_key"]  ?? "";
-  if (!baseUrl || !apiKey) {
-    console.warn(`[wechat-poll] openclaw not configured (missing openclaw_base_url / openclaw_api_key in system_config), skipping reply`);
+  if (!apiKey) {
+    console.warn(`[wechat-poll] openclaw not configured (missing openclaw_api_key in system_config), skipping reply`);
     return;
   }
 
