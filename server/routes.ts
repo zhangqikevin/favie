@@ -194,6 +194,19 @@ export async function registerRoutes(
     console.error("Task seed error:", e)
   );
 
+  // Seed default agent role/rules into system_config on startup.
+  // Only writes keys that don't already exist in DB — never overwrites user customizations.
+  storage.getSystemConfig().then(async (cfg) => {
+    const defaults: Record<string, string> = {};
+    for (const id of Object.keys(AGENT_META) as AgentId[]) {
+      if (!cfg[`agent_${id}_role`])  defaults[`agent_${id}_role`]  = DEFAULT_ROLES[id];
+      if (!cfg[`agent_${id}_rules`]) defaults[`agent_${id}_rules`] = DEFAULT_RULES[id];
+    }
+    if (Object.keys(defaults).length > 0) {
+      await storage.setSystemConfig(defaults);
+    }
+  }).catch((e) => console.error("Agent defaults seed error:", e));
+
   // ========== UBEREATS WEBHOOK ROUTES (MUST BE FIRST - Before Vite/Static) ==========
 
   // Webhooks - support ALL methods for testing
