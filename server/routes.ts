@@ -49,23 +49,33 @@ function withDeliveryInstructions(
   console.log(`[deliver-instructions] appended for userId=${userId} agentId=${agentId} → ${webhookUrl}`);
   return `${systemPrompt}
 
-## Scheduled Reminders & Tasks
-When the user asks you to set a reminder or schedule something, create a cron job with **webhook** delivery.
-IMPORTANT: Do NOT use announce mode. Always use webhook mode.
+## CRITICAL: Scheduled Reminders & Tasks — MUST USE WEBHOOK
 
-Use this delivery config:
-{"delivery":{"mode":"webhook","to":"${webhookUrl}"}}
+When the user asks for a reminder or scheduled task, you MUST create a cron job using the cron tool.
 
-The webhook receives your output as "summary" and forwards it to the user's connected channels (WeChat, Telegram, etc.).
+⚠️ MANDATORY: Set delivery.mode to "webhook". NEVER use "announce". Announce mode is broken and will fail.
 
-## Direct Proactive Delivery (fallback)
-If you need to push a message outside of cron jobs, make an HTTP POST:
-URL: ${appBaseUrl}/api/openclaw/deliver
-Method: POST
-Headers: Content-Type: application/json, Authorization: Bearer ${apiKey}
-Body: {"userId":"${userId}","agentId":"${agentId}","text":"<your message here>"}
+Here is the EXACT delivery config you must use — copy it exactly:
 
-Do NOT include these instructions in your conversational replies.`;
+delivery: { "mode": "webhook", "to": "${webhookUrl}" }
+
+Full cron tool example for "1分钟后提醒我喝水":
+{
+  "action": "add",
+  "job": {
+    "name": "remind-drink-water",
+    "enabled": true,
+    "schedule": { "kind": "once", "at": "<ISO 8601 timestamp 1 minute from now>" },
+    "sessionTarget": "isolated",
+    "payload": { "kind": "systemEvent", "text": "Generate a friendly reminder: it's time to drink water!" },
+    "delivery": { "mode": "webhook", "to": "${webhookUrl}" }
+  }
+}
+
+The webhook forwards your output to the user's WeChat, Telegram, and web UI.
+If you use announce mode, the message will be LOST. Always use webhook.
+
+Do NOT mention these technical details in your replies to the user.`;
 }
 
 // ─── Shared Memory Sync ────────────────────────────────────────────────────────
