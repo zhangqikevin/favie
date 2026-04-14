@@ -1674,19 +1674,20 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
 
       // Push to all active channel bindings for this user+agent
       const bindings = await storage.getAllActiveChannelBindings(agentId, userId);
+      console.log(`[deliver] userId=${userId} agentId=${agentId} found ${bindings.length} binding(s)`);
       for (const binding of bindings) {
         const handler = getChannelHandler(binding.channelType);
-        if (!handler) continue;
+        if (!handler) { console.warn(`[deliver] no handler for ${binding.channelType}`); continue; }
         const bCfg = binding.channelConfig as Record<string, string>;
-        if (!bCfg.chatId) continue; // no chatId yet — user hasn't messaged the bot
+        if (!bCfg.chatId) { console.warn(`[deliver] ${binding.channelType} binding has no chatId`); continue; }
+        console.log(`[deliver] sending to ${binding.channelType} chatId=${bCfg.chatId} hasToken=${!!bCfg.latestContextToken}`);
         try {
           await handler.sendMessage(bCfg.chatId, text, bCfg as any);
+          console.log(`[deliver] ${binding.channelType} sendMessage OK`);
         } catch (e: any) {
           console.error(`[deliver] ${binding.channelType} sendMessage failed:`, e.message);
         }
       }
-
-      console.log(`[deliver] userId=${userId} agentId=${agentId} delivered to ${bindings.length} channel(s)`);
     } catch (err: any) {
       console.error("[deliver] error:", err.message);
     }
