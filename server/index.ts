@@ -1,3 +1,4 @@
+import "./log-buffer"; // must be first — patches console.*
 import express, { type Request, Response, NextFunction, Router } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";

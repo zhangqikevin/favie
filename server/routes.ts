@@ -18,6 +18,7 @@ import {
 } from "./ubereats-api";
 import { syncOpencrawAgent, callOpenclaw } from "./openclaw";
 import { getChannelHandler } from "./channels/index";
+import { getLogs } from "./log-buffer";
 
 // Default config values (used when system_config entries are not set)
 const DEFAULT_OPENCLAW_BASE_URL = "https://openclaw.kevinzhang.fun";
@@ -1691,6 +1692,16 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     } catch (err: any) {
       console.error("[deliver] error:", err.message);
     }
+  });
+
+  // ─── Admin: view recent server logs ──────────────────────────────────────────
+  app.get("/api/admin/logs", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    const last = Math.min(Number(req.query.last) || 200, 500);
+    const filter = (req.query.filter as string) || "";
+    let lines = getLogs(last);
+    if (filter) lines = lines.filter(l => l.toLowerCase().includes(filter.toLowerCase()));
+    res.type("text/plain").send(lines.join("\n"));
   });
 
   // ─── Dev: manually trigger memory sync for current user ──────────────────────
