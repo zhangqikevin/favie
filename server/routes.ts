@@ -1696,7 +1696,12 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
 
   // ─── Admin: view recent server logs ──────────────────────────────────────────
   app.get("/api/admin/logs", async (req, res) => {
-    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    // Auth: session OR ?key= matching openclaw_api_key
+    const cfg = await storage.getSystemConfig();
+    const apiKey = cfg["openclaw_api_key"] ?? "";
+    const qKey = req.query.key as string;
+    const authed = (req.isAuthenticated() && req.user) || (apiKey && qKey === apiKey);
+    if (!authed) return res.status(401).json({ message: "Not authenticated" });
     const last = Math.min(Number(req.query.last) || 200, 500);
     const filter = (req.query.filter as string) || "";
     let lines = getLogs(last);
