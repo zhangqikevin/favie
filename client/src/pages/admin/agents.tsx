@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useParams, useSearch } from "wouter";
 import AdminLayout from "@/components/admin-layout";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { SiTelegram } from "react-icons/si";
+import { SiTelegram, SiWechat } from "react-icons/si";
 import {
   Send, ChevronLeft, Briefcase, ChefHat, Megaphone, Headphones,
   ArrowUpRight, ArrowDownRight, Minus, Zap, CheckCircle2, AlertCircle,
@@ -1510,7 +1510,17 @@ interface ChannelBinding {
   active: boolean;
 }
 
-const SUPPORTED_CHANNELS = [
+interface ChannelField { key: string; label: string; placeholder: string; hint?: string }
+interface ChannelDef {
+  type: string;
+  name: string;
+  icon: ComponentType<{ className?: string; style?: Record<string, string> }>;
+  iconColor: string;
+  fields: ChannelField[];
+  useQrFlow?: true;
+}
+
+const SUPPORTED_CHANNELS: ChannelDef[] = [
   {
     type: "telegram",
     name: "Telegram",
@@ -1518,13 +1528,33 @@ const SUPPORTED_CHANNELS = [
     iconColor: "#26A5E4",
     fields: [{ key: "botToken", label: "Bot Token", placeholder: "123456:ABC-...", hint: "Create via @BotFather on Telegram" }],
   },
-] as const;
+  {
+    type: "wechat",
+    name: "WeChat",
+    icon: SiWechat,
+    iconColor: "#07C160",
+    fields: [],
+    useQrFlow: true,
+  },
+];
+
+type WechatQrState = {
+  qrcodeId: string;
+  imgContent: string;
+  status: "pending" | "confirmed" | "error";
+  botToken?: string;
+  baseurl?: string;
+};
 
 function ChannelBindingsPanel({ agentId }: { agentId: string }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [connectingType, setConnectingType] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
+  const [wechatQr, setWechatQr] = useState<WechatQrState | null>(null);
+  const [wechatQrOpen, setWechatQrOpen] = useState(false);
+  const [wechatQrLoading, setWechatQrLoading] = useState(false);
+  const [wechatQrError, setWechatQrError] = useState<string | null>(null);
 
   const { data: bindings = [], isLoading } = useQuery<ChannelBinding[]>({
     queryKey: [`/api/channel/bindings/${agentId}`],
@@ -1554,6 +1584,40 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
     },
   });
 
+  // Poll for WeChat QR scan status
+  useEffect(() => {
+    if (!wechatQr || wechatQr.status !== "pending") return;
+    const id = setInterval(async () => {
+      try {
+        const res = await apiRequest("GET", `/api/channel/wechat/login-status/${wechatQr.qrcodeId}`);
+        const data = await res.json() as { status: string; botToken?: string; baseurl?: string };
+        if (data.status === "confirmed" && data.botToken) {
+          setWechatQr(prev => prev ? { ...prev, status: "confirmed", botToken: data.botToken, baseurl: data.baseurl } : null);
+          clearInterval(id);
+          // Auto-save binding
+          connectMutation.mutate({ channelType: "wechat", config: { botToken: data.botToken!, baseurl: data.baseurl ?? "" } });
+          setTimeout(() => setWechatQrOpen(false), 1500);
+        }
+      } catch { /* ignore poll errors */ }
+    }, 2000);
+    return () => clearInterval(id);
+  }, [wechatQr?.qrcodeId, wechatQr?.status]);
+
+  async function handleWechatConnect() {
+    setWechatQrLoading(true);
+    setWechatQrError(null);
+    try {
+      const res = await apiRequest("POST", "/api/channel/wechat/init-login");
+      const data = await res.json() as { qrcodeId: string; imgContent: string };
+      setWechatQr({ qrcodeId: data.qrcodeId, imgContent: data.imgContent, status: "pending" });
+      setWechatQrOpen(true);
+    } catch (e: any) {
+      setWechatQrError(e.message || "Failed to generate QR code");
+    } finally {
+      setWechatQrLoading(false);
+    }
+  }
+
   return (
     <div className="px-4 py-3 border-t border-border">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t("agents_page.channels_label")}</p>
@@ -1571,6 +1635,14 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
                   <span className="text-sm font-medium text-foreground flex-1">{ch.name}</span>
                   {bound ? (
                     <span className="text-xs font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded">{t("agents_page.channel_connected")}</span>
+                  ) : ch.useQrFlow ? (
+                    <button
+                      onClick={handleWechatConnect}
+                      disabled={wechatQrLoading}
+                      className="text-xs text-primary hover:underline disabled:opacity-50"
+                    >
+                      {wechatQrLoading ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t("agents_page.channel_connect")}
+                    </button>
                   ) : (
                     <button
                       onClick={() => { setConnectingType(isConnecting ? null : ch.type); setFormValues({}); }}
@@ -1584,7 +1656,9 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
                 {bound && (
                   <div className="px-3 pb-2.5 flex items-center justify-between">
                     <span className="text-xs text-muted-foreground font-mono truncate max-w-[110px]">
-                      {bound.channelConfig.botUsername ? `@${bound.channelConfig.botUsername}` : "connected"}
+                      {bound.channelConfig.botUsername && bound.channelConfig.botUsername !== "wechat"
+                        ? `@${bound.channelConfig.botUsername}`
+                        : "connected"}
                     </span>
                     <button
                       onClick={() => disconnectMutation.mutate(ch.type)}
@@ -1596,7 +1670,7 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
                   </div>
                 )}
 
-                {isConnecting && !bound && (
+                {isConnecting && !bound && !ch.useQrFlow && (
                   <div className="px-3 pb-3 space-y-2 border-t border-border pt-2.5">
                     {ch.fields.map((f) => (
                       <div key={f.key}>
@@ -1613,7 +1687,7 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
                     <Button
                       size="sm"
                       className="w-full h-7 text-xs"
-                      disabled={connectMutation.isPending || !formValues[ch.fields[0].key]?.trim()}
+                      disabled={connectMutation.isPending || !formValues[ch.fields[0]?.key]?.trim()}
                       onClick={() => connectMutation.mutate({ channelType: ch.type, config: formValues })}
                     >
                       {connectMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Link2 className="w-3 h-3 mr-1" />{t("agents_page.channel_connect")}</>}
@@ -1623,9 +1697,52 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
                     )}
                   </div>
                 )}
+
+                {wechatQrError && ch.useQrFlow && (
+                  <p className="px-3 pb-2 text-xs text-destructive">{wechatQrError}</p>
+                )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* WeChat QR code dialog */}
+      {wechatQrOpen && wechatQr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-background rounded-xl shadow-xl p-6 w-72 flex flex-col items-center gap-4 relative">
+            <button
+              onClick={() => setWechatQrOpen(false)}
+              className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <p className="text-sm font-semibold text-foreground">绑定微信 / Connect WeChat</p>
+            <p className="text-xs text-muted-foreground text-center leading-relaxed">
+              微信仅可绑定到一个 Agent<br/>
+              <span className="text-muted-foreground/70">Only one agent can be bound at a time</span>
+            </p>
+            {wechatQr.status === "confirmed" ? (
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-green-600" />
+                </div>
+                <p className="text-sm font-medium text-green-600">已连接 / Connected</p>
+              </div>
+            ) : (
+              <>
+                <img
+                  src={`data:image/png;base64,${wechatQr.imgContent}`}
+                  alt="WeChat QR Code"
+                  className="w-44 h-44 rounded-lg border border-border"
+                />
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>等待扫码… / Waiting for scan…</span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1939,6 +2056,7 @@ export default function AgentChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [hasSavedHistory, setHasSavedHistory] = useState(false);
+  const [awaitingOnboarding, setAwaitingOnboarding] = useState(false);
   const [paymentTask, setPaymentTask] = useState<PayableTask | null>(null);
   const pendingTaskId = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -1992,6 +2110,7 @@ export default function AgentChatPage() {
     setIsLoading(false);
     setHistoryLoaded(false);
     setHasSavedHistory(false);
+    setAwaitingOnboarding(false);
     pendingTaskId.current = null;
 
     fetch(`/api/chat/${agentId}`)
@@ -2004,8 +2123,14 @@ export default function AgentChatPage() {
             text: h.text,
             ts: h.ts,
           }));
-          setMessages([...initMsgs, ...savedMsgs]);
+          // If DB history starts with an AI message, it's a generated opening (e.g. Expert onboarding) — use it directly
+          const startsWithAiGreeting = savedMsgs[0]?.role === "ai";
+          setMessages(startsWithAiGreeting ? savedMsgs : [...initMsgs, ...savedMsgs]);
           setHasSavedHistory(true);
+          setAwaitingOnboarding(false);
+        } else if (agentId === "expert") {
+          // Expert Agent: no history yet — onboarding is being generated, show waiting hint
+          setAwaitingOnboarding(true);
         }
         setHistoryLoaded(true);
       })
@@ -2027,7 +2152,8 @@ export default function AgentChatPage() {
     window.history.replaceState(null, "", window.location.pathname);
   }, [search, agentId]);
 
-  // Poll for new messages from other channels (Telegram, etc.) every 10s
+  // Poll for new messages from other channels (Telegram, etc.)
+  // Polls every 3s while awaiting Expert onboarding, otherwise every 10s
   useEffect(() => {
     if (!historyLoaded) return;
     const interval = setInterval(() => {
@@ -2035,6 +2161,19 @@ export default function AgentChatPage() {
       fetch(`/api/chat/${agentId}`)
         .then((r) => (r.ok ? r.json() : []))
         .then((history: { id: number; role: string; text: string; ts: string }[]) => {
+          // While awaiting onboarding, replace all messages with DB history once it arrives
+          if (awaitingOnboarding && history.length > 0) {
+            const savedMsgs: ChatMsg[] = history.map((h) => ({
+              id: `saved-${h.id}`,
+              role: h.role as "ai" | "user",
+              text: h.text,
+              ts: h.ts,
+            }));
+            setMessages(savedMsgs);
+            setHasSavedHistory(true);
+            setAwaitingOnboarding(false);
+            return;
+          }
           setMessages((current) => {
             const existingIds = new Set(
               current.filter(m => m.id.startsWith("saved-")).map(m => Number(m.id.replace("saved-", "")))
@@ -2051,9 +2190,9 @@ export default function AgentChatPage() {
           });
         })
         .catch(() => {});
-    }, 10000);
+    }, awaitingOnboarding ? 3000 : 10000);
     return () => clearInterval(interval);
-  }, [agentId, historyLoaded, isLoading]);
+  }, [agentId, historyLoaded, isLoading, awaitingOnboarding]);
 
   // Once history has loaded, flush any pending task message
   useEffect(() => {
@@ -2089,7 +2228,8 @@ export default function AgentChatPage() {
           text: h.text,
           ts: h.ts,
         }));
-        setMessages([...initMsgs, ...savedMsgs]);
+        const startsWithAiGreeting = savedMsgs[0]?.role === "ai";
+        setMessages(startsWithAiGreeting ? savedMsgs : [...initMsgs, ...savedMsgs]);
       })
       .catch(() => {});
   };
@@ -2193,6 +2333,7 @@ export default function AgentChatPage() {
               <RestaurantSetupFlow
                 onComplete={() => {
                   queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
+                  navigate("/admin/agents/expert");
                 }}
               />
             </div>
@@ -2253,6 +2394,24 @@ export default function AgentChatPage() {
               {!historyLoaded && (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {historyLoaded && awaitingOnboarding && (
+                <div className="flex gap-3 w-full">
+                  <div className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5", avatarClass)}>
+                    <config.icon className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 mb-1.5">
+                      <span className="text-sm font-semibold text-foreground">{config.name}</span>
+                    </div>
+                    <div className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-card border border-border text-foreground">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
+                        <span>{t("agents_page.expert_onboarding_generating", { defaultValue: "正在生成餐厅运营诊断，大约需要 10 秒…" })}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
               {messages.map((msg, idx) => (

@@ -17,6 +17,8 @@ import {
 } from "./ubereats-api";
 import { syncOpencrawAgent, callOpenclaw } from "./openclaw";
 import { getChannelHandler } from "./channels/index";
+import * as wechat from "./channels/wechat";
+import { startPolling, stopPolling, restoreAllPollers } from "./wechat-poller";
 import cron from "node-cron";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -47,45 +49,6 @@ Headers: Content-Type: application/json, Authorization: Bearer ${apiKey}
 Body: {"userId":"${userId}","agentId":"${agentId}","text":"<your message here>"}
 
 Do NOT include this instruction block in your conversational replies. Only use it when you actually need to push a message.`;
-}
-
-async function callLLM(
-  systemPrompt: string,
-  messages: { role: string; content: string }[],
-) {
-  const cfg = await storage.getSystemConfig();
-  const apiKey = cfg["llm_api_key"] || process.env.LITELLM_KEY;
-  const baseUrl = (cfg["llm_base_url"] || "https://litellm.vllm.yesy.dev").replace(/\/$/, "");
-  const model = cfg["llm_model"] || "claude-sonnet-4-6";
-
-  if (!apiKey) throw new Error("LLM API key not configured");
-
-  const doFetch = () =>
-    fetch(`${baseUrl}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-        max_tokens: parseInt(cfg["agent_max_tokens"] || "2048", 10),
-      }),
-    });
-
-  let res = await doFetch();
-  if (!res.ok && (res.status === 429 || res.status >= 500)) {
-    await sleep(1500);
-    res = await doFetch();
-  }
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`AI API error (${res.status}): ${err}`);
-  }
-  const data = (await res.json()) as any;
-  return data.choices?.[0]?.message?.content ?? "";
 }
 
 // ─── Shared Memory Sync ────────────────────────────────────────────────────────
@@ -164,6 +127,63 @@ async function runMemorySyncForUser(
   }));
 }
 
+// ─── Expert Agent Onboarding ───────────────────────────────────────────────────
+
+async function triggerExpertOnboarding(
+  userId: string,
+  restaurant: { id: string; name: string; address: string; rating: string | null; reviewCount: number | null },
+  cfg: Record<string, string>,
+): Promise<void> {
+  const baseUrl = cfg["openclaw_base_url"] ?? "";
+  const apiKey = cfg["openclaw_api_key"] ?? "";
+  if (!baseUrl || !apiKey) return;
+
+  const ratingLine = restaurant.rating
+    ? `Current rating: ${restaurant.rating}${restaurant.reviewCount ? ` (${restaurant.reviewCount} reviews)` : ""}.`
+    : "No rating data yet.";
+
+  const systemPrompt = `You are the Restaurant Expert for ${restaurant.name}, located at ${restaurant.address}. ${ratingLine}
+You are meeting this restaurant owner for the first time. Your job right now is to briefly introduce yourself (1 sentence) and ask 3-4 short, targeted questions to understand their situation before providing a personalized analysis.
+Cover these areas in your questions:
+1. Main business model — dine-in, delivery, or both?
+2. How long have they been open?
+3. Biggest current pain point — give 3-4 options (e.g. "reviews & reputation / controlling costs / getting more customers / operations & staff")
+4. Approximate scale — daily covers or monthly revenue range
+
+Be warm and concise. Do NOT explain what you will do after they answer — just ask. Reply in the same language the user is likely to use based on the restaurant's location.`;
+
+  // Initialize the agent on openclaw (creates it + writes SOUL.md on first use)
+  const ocAgentId = await syncOpencrawAgent(
+    userId, restaurant.id, "expert",
+    restaurant.name, "", systemPrompt, cfg,
+  );
+
+  let text: string;
+  try {
+    text = await callOpenclaw(
+      baseUrl, apiKey, ocAgentId, `${userId}-expert-onboard`,
+      systemPrompt,
+      [{ role: "user", content: "Start." }],
+      400,
+    );
+  } catch (e: any) {
+    console.warn("[expert-onboard] callOpenclaw failed:", e.message);
+    return;
+  }
+
+  if (!text.trim()) return;
+
+  const now = new Date();
+  const ts = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+  await storage.saveChatMessage({
+    userId,
+    agentId: "expert",
+    role: "ai",
+    text: text.trim(),
+    ts,
+  });
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 
 export async function registerRoutes(
@@ -175,6 +195,19 @@ export async function registerRoutes(
   storage.seedTaskDefinitions(TASK_SEED).catch((e) =>
     console.error("Task seed error:", e)
   );
+
+  // Seed default agent role/rules into system_config on startup.
+  // Only writes keys that don't already exist in DB — never overwrites user customizations.
+  storage.getSystemConfig().then(async (cfg) => {
+    const defaults: Record<string, string> = {};
+    for (const id of Object.keys(AGENT_META) as AgentId[]) {
+      if (!cfg[`agent_${id}_role`])  defaults[`agent_${id}_role`]  = DEFAULT_ROLES[id];
+      if (!cfg[`agent_${id}_rules`]) defaults[`agent_${id}_rules`] = DEFAULT_RULES[id];
+    }
+    if (Object.keys(defaults).length > 0) {
+      await storage.setSystemConfig(defaults);
+    }
+  }).catch((e) => console.error("Agent defaults seed error:", e));
 
   // ========== UBEREATS WEBHOOK ROUTES (MUST BE FIRST - Before Vite/Static) ==========
 
@@ -425,8 +458,8 @@ export async function registerRoutes(
       const currentRestaurant = restaurants.find(r => r.id === req.user!.currentRestaurantId) ?? restaurants[0];
       const restaurantId = currentRestaurant?.id ?? "default";
       const restaurant = currentRestaurant
-        ? { name: currentRestaurant.name, cuisine: currentRestaurant.cuisine ?? null }
-        : { name: "your restaurant", cuisine: null as string | null };
+        ? { name: currentRestaurant.name, cuisine: currentRestaurant.cuisine ?? null, address: currentRestaurant.address ?? null, rating: currentRestaurant.rating ?? null, reviewCount: currentRestaurant.reviewCount ?? null }
+        : { name: "your restaurant", cuisine: null as string | null, address: null, rating: null, reviewCount: null };
 
       const cfg = await storage.getSystemConfig();
       if (cfg[`agent_${agentId}_enabled`] === "false") {
@@ -447,7 +480,7 @@ export async function registerRoutes(
         userId,
         enrichedPrompt,
         messages,
-        parseInt(cfg["agent_max_tokens"] || "2048", 10),
+        2048,
       );
       res.json({ text });
     } catch (err: any) {
@@ -1056,10 +1089,10 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const currentRestaurant = restaurants.find(r => r.id === req.user!.currentRestaurantId) ?? restaurants[0];
       const restaurantId = currentRestaurant?.id ?? "default";
       const restaurantInfo = currentRestaurant
-        ? { name: currentRestaurant.name, cuisine: currentRestaurant.cuisine ?? "" }
-        : { name: "your restaurant", cuisine: "" };
+        ? { name: currentRestaurant.name, cuisine: currentRestaurant.cuisine ?? null, address: currentRestaurant.address ?? null, rating: currentRestaurant.rating ?? null, reviewCount: currentRestaurant.reviewCount ?? null }
+        : { name: "your restaurant", cuisine: null, address: null, rating: null, reviewCount: null };
 
-      const ocId = await syncOpencrawAgent(req.user.id, restaurantId, taskAgentId, restaurantInfo.name, restaurantInfo.cuisine, systemPrompt, cfg);
+      const ocId = await syncOpencrawAgent(req.user.id, restaurantId, taskAgentId, restaurantInfo.name, restaurantInfo.cuisine ?? "", systemPrompt, cfg);
       const enrichedPromptTask = withDeliveryInstructions(systemPrompt, req.user.id, taskAgentId, cfg["app_base_url"] ?? "", cfg["openclaw_api_key"] ?? "");
       const text = await callOpenclaw(
         cfg["openclaw_base_url"] || "",
@@ -1068,7 +1101,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         req.user.id,
         enrichedPromptTask,
         [{ role: "user", content: userMessage }],
-        parseInt(cfg["agent_max_tokens"] || "4096", 10),
+        4096,
       );
 
       // Save run to DB (non-blocking)
@@ -1273,7 +1306,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         req.user.id,
         systemPrompt,
         messages,
-        parseInt(cfg["agent_max_tokens"] || "2048", 10),
+        2048,
       );
       res.json({ text });
     } catch (err: any) {
@@ -1318,6 +1351,13 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       await storage.updateUserCurrentRestaurant(req.user.id, restaurant.id);
 
       res.status(201).json({ restaurant });
+
+      // Fire-and-forget: Expert Agent personalized onboarding questions
+      storage.getSystemConfig().then((cfg) => {
+        triggerExpertOnboarding(req.user.id, restaurant, cfg).catch((e: Error) =>
+          console.warn("[expert-onboard] failed:", e.message)
+        );
+      });
     } catch (err: any) {
       if (err?.name === "ZodError")
         return res.status(400).json({ message: err.errors[0]?.message || "Invalid input" });
@@ -1359,19 +1399,10 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     const cfg = await storage.getSystemConfig();
     // Merge DB values over env defaults so the form always shows effective config
     const effective: Record<string, string> = {
-      llm_base_url:    cfg["llm_base_url"] ?? "https://litellm.vllm.yesy.dev",
-      llm_model:       cfg["llm_model"]    ?? "claude-sonnet-4-6",
-      llm_api_key:     cfg["llm_api_key"]  ?? process.env.LITELLM_KEY ?? "",
-      agent_max_tokens: cfg["agent_max_tokens"] ?? "2048",
       app_base_url:      cfg["app_base_url"]       ?? "",
-      openclaw_enabled:  cfg["openclaw_enabled"]  ?? "false",
       openclaw_base_url: cfg["openclaw_base_url"] ?? "",
       openclaw_api_key:  cfg["openclaw_api_key"]  ?? "",
     };
-    // Mask the API key — only send last 6 chars
-    if (effective["llm_api_key"]) {
-      effective["llm_api_key"] = "••••••" + effective["llm_api_key"].slice(-6);
-    }
     if (effective["openclaw_api_key"]) {
       effective["openclaw_api_key"] = "••••••" + effective["openclaw_api_key"].slice(-6);
     }
@@ -1389,17 +1420,9 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     try {
       const body = req.body as Record<string, string>;
       const updates: Record<string, string> = {};
-      // LLM settings
-      if (body.llm_base_url) updates["llm_base_url"] = body.llm_base_url;
-      if (body.llm_model)    updates["llm_model"]    = body.llm_model;
-      if (body.llm_api_key && !body.llm_api_key.startsWith("••••••")) {
-        updates["llm_api_key"] = body.llm_api_key;
-      }
-      if (body.agent_max_tokens) updates["agent_max_tokens"] = body.agent_max_tokens;
       // app base URL
       if (body.app_base_url !== undefined) updates["app_base_url"] = body.app_base_url;
       // openclaw settings
-      if (body.openclaw_enabled  !== undefined) updates["openclaw_enabled"]  = body.openclaw_enabled;
       if (body.openclaw_base_url)               updates["openclaw_base_url"] = body.openclaw_base_url;
       if (body.openclaw_api_key && !body.openclaw_api_key.startsWith("••••••")) {
         updates["openclaw_api_key"] = body.openclaw_api_key;
@@ -1417,6 +1440,28 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       res.json({ ok: true });
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Invalid input" });
+    }
+  });
+
+  // ─── WeChat QR Login ────────────────────────────────────────────────────────
+
+  app.post("/api/channel/wechat/init-login", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const { qrcodeId, imgContent } = await wechat.getQrCode();
+      res.json({ qrcodeId, imgContent });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/channel/wechat/login-status/:qrcodeId", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const result = await wechat.checkQrStatus(req.params.qrcodeId);
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
     }
   });
 
@@ -1458,20 +1503,34 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
 
       const cfg = await storage.getSystemConfig();
       const config = req.body as Record<string, string>;
-      // Register webhook and get bot username
-      const appBaseUrl = (cfg["app_base_url"] || "").replace(/\/$/, "");
-      if (!appBaseUrl) {
-        return res.status(400).json({ message: "Please set App Base URL in System Config first (e.g. your Cloudflare tunnel URL)." });
-      }
-      const webhookUrl = `${appBaseUrl}/api/channel/${channelType}/webhook/${config.botToken}`;
       let mergedConfig = { ...config };
-      try {
-        const { botUsername } = await handler.registerWebhook(webhookUrl, config as any);
-        mergedConfig = { ...config, botUsername };
-      } catch (e: any) {
-        console.error("[channel] registerWebhook error:", e.message);
-        // Don't block binding save if webhook registration fails
+
+      if (channelType === "wechat") {
+        // WeChat uses polling, not webhooks — validate token and start poller
+        try {
+          await handler.registerWebhook("", config as any);
+        } catch (e: any) {
+          return res.status(400).json({ message: `WeChat token invalid: ${e.message}` });
+        }
+        // One WeChat binding per user — remove any existing bindings first
+        const oldIds = await storage.deleteAllChannelBindingsByTypeAndUser(req.user.id, "wechat");
+        for (const id of oldIds) stopPolling(id);
+      } else {
+        // Webhook-based channels need an app base URL
+        const appBaseUrl = (cfg["app_base_url"] || "").replace(/\/$/, "");
+        if (!appBaseUrl) {
+          return res.status(400).json({ message: "Please set App Base URL in System Config first (e.g. your Cloudflare tunnel URL)." });
+        }
+        const webhookUrl = `${appBaseUrl}/api/channel/${channelType}/webhook/${config.botToken}`;
+        try {
+          const { botUsername } = await handler.registerWebhook(webhookUrl, config as any);
+          mergedConfig = { ...config, botUsername };
+        } catch (e: any) {
+          console.error("[channel] registerWebhook error:", e.message);
+          // Don't block binding save if webhook registration fails
+        }
       }
+
       const binding = await storage.saveChannelBinding({
         userId: req.user.id,
         restaurantId,
@@ -1480,6 +1539,9 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         channelConfig: mergedConfig,
         active: true,
       });
+
+      if (channelType === "wechat") startPolling(binding.id);
+
       res.json(binding);
     } catch (err: any) {
       res.status(500).json({ message: err.message || "Internal server error" });
@@ -1493,6 +1555,11 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     const restaurants2 = await storage.getRestaurants(req.user.id);
     const current = restaurants2.find(r => r.id === req.user!.currentRestaurantId) ?? restaurants2[0];
     const restaurantId = current?.id ?? "default";
+    // Stop poller before deleting (WeChat only)
+    if (channelType === "wechat") {
+      const existing = await storage.getChannelBinding(req.user.id, restaurantId, agentId, channelType);
+      if (existing) stopPolling(existing.id);
+    }
     await storage.deleteChannelBinding(req.user.id, restaurantId, agentId, channelType);
     res.json({ ok: true });
   });
@@ -1531,8 +1598,8 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const allRestaurants = await storage.getRestaurants(userId);
       const restaurant = allRestaurants.find(r => r.id === restaurantId) ?? allRestaurants[0];
       const restaurantInfo = restaurant
-        ? { name: restaurant.name, cuisine: restaurant.cuisine ?? null }
-        : { name: "your restaurant", cuisine: null };
+        ? { name: restaurant.name, cuisine: restaurant.cuisine ?? null, address: restaurant.address ?? null, rating: restaurant.rating ?? null, reviewCount: restaurant.reviewCount ?? null }
+        : { name: "your restaurant", cuisine: null, address: null, rating: null, reviewCount: null };
 
       // Build system prompt
       const overrides = {
@@ -1558,7 +1625,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         userId,
         enrichedPromptTg,
         allMessages,
-        parseInt(cfg["agent_max_tokens"] || "2048", 10),
+        2048,
       );
 
       // Save both turns
@@ -1653,6 +1720,11 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       console.warn("[memsync] cron error:", e.message);
     }
   });
+
+  // ─── Restore WeChat pollers on server start ────────────────────────────────
+  restoreAllPollers().catch((e: Error) =>
+    console.warn("[wechat-poll] restoreAllPollers failed:", e.message)
+  );
 
   return httpServer;
 }

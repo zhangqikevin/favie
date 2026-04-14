@@ -44,6 +44,9 @@ export interface IStorage {
   updateChannelBindingConfig(id: string, patch: Record<string, string>): Promise<void>;
   deleteChannelBinding(userId: string, restaurantId: string, agentId: string, channelType: string): Promise<void>;
   getAllActiveChannelBindings(agentId: string, userId: string): Promise<ChannelBinding[]>;
+  getAllActiveChannelBindingsByType(channelType: string): Promise<ChannelBinding[]>;
+  getChannelBindingById(id: string): Promise<ChannelBinding | undefined>;
+  deleteAllChannelBindingsByTypeAndUser(userId: string, channelType: string): Promise<string[]>;
   getAllUsers(): Promise<User[]>;
   getAllChatHistorySince(userId: string, since: Date): Promise<ChatMessage[]>;
 }
@@ -298,6 +301,29 @@ export class DatabaseStorage implements IStorage {
     if (!existing) return;
     const merged = { ...(existing.channelConfig as Record<string, string>), ...patch };
     await db.update(channelBindings).set({ channelConfig: merged }).where(eq(channelBindings.id, id));
+  }
+
+  async getAllActiveChannelBindingsByType(channelType: string): Promise<ChannelBinding[]> {
+    return db.select().from(channelBindings).where(
+      and(eq(channelBindings.channelType, channelType), eq(channelBindings.active, true))
+    );
+  }
+
+  async getChannelBindingById(id: string): Promise<ChannelBinding | undefined> {
+    const [row] = await db.select().from(channelBindings).where(eq(channelBindings.id, id));
+    return row;
+  }
+
+  async deleteAllChannelBindingsByTypeAndUser(userId: string, channelType: string): Promise<string[]> {
+    const rows = await db.select({ id: channelBindings.id })
+      .from(channelBindings)
+      .where(and(eq(channelBindings.userId, userId), eq(channelBindings.channelType, channelType)));
+    if (rows.length > 0) {
+      await db.delete(channelBindings).where(
+        and(eq(channelBindings.userId, userId), eq(channelBindings.channelType, channelType))
+      );
+    }
+    return rows.map(r => r.id);
   }
 
   async getAllActiveChannelBindings(agentId: string, userId: string): Promise<ChannelBinding[]> {

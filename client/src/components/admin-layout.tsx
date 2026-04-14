@@ -35,14 +35,14 @@ const navSections: NavSection[] = [
   {
     sectionLabelKey: "admin.section_agents",
     items: [
-      { labelKey: "admin.boardroom",        href: "/dashboard",              icon: Users2 },
+      { labelKey: "admin.expert",           href: "/admin/agents/expert",    icon: Star,       dot: "bg-rose-500" },
       { labelKey: "admin.operation",        href: "/admin/agents/operation", icon: Briefcase,  dot: "bg-blue-500" },
       { labelKey: "admin.chef",             href: "/admin/agents/chef",      icon: ChefHat,    dot: "bg-amber-500" },
       { labelKey: "admin.marketing",        href: "/admin/agents/social",    icon: Megaphone,  dot: "bg-purple-500" },
       { labelKey: "admin.customer_service", href: "/admin/agents/customer",  icon: Headphones, dot: "bg-teal-500" },
       { labelKey: "admin.finance",          href: "/admin/agents/finance",   icon: DollarSign, dot: "bg-emerald-500" },
       { labelKey: "admin.legal_hr",         href: "/admin/agents/legal",     icon: Scale,      dot: "bg-violet-500" },
-      { labelKey: "admin.expert",           href: "/admin/agents/expert",    icon: Star,       dot: "bg-rose-500" },
+      { labelKey: "admin.boardroom",        href: "/dashboard",              icon: Users2 },
     ],
   },
   {

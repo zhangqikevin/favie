@@ -978,6 +978,7 @@
     "intro_per_month": "/ 月",
     "setup_gate_title": "请先设置您的餐厅",
     "setup_gate_desc": "{{name}} 需要您的餐厅信息才能开始工作。",
+    "expert_onboarding_generating": "正在生成餐厅运营诊断，大约需要 10 秒…",
     "task_delivery_ad_report_title": "外卖广告报告",
     "task_delivery_ad_report_short": "包含 ROAS、CPC 和预算建议的完整平台表现报告。",
     "task_revenue_growth_analysis_title": "收入增长分析",

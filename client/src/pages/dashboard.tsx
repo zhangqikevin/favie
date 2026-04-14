@@ -928,6 +928,7 @@ export default function Dashboard() {
               <RestaurantSetupFlow
                 onComplete={() => {
                   queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
+                  navigate("/admin/agents/expert");
                 }}
               />
             </div>
