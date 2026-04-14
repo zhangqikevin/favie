@@ -79,6 +79,7 @@ export async function syncOpencrawAgent(
   // across all sessions including cron-triggered ones. Fire-and-forget.
   if (appBaseUrl && apiKey && baseUrl && !initializedSouls.has(ocAgentId)) {
     initializedSouls.add(ocAgentId);
+    console.log(`[soul-init] initializing SOUL.md for ${ocAgentId} → ${appBaseUrl}/api/openclaw/deliver`);
 
     const soulContent = [
       "# Proactive Message Delivery",
@@ -109,6 +110,8 @@ export async function syncOpencrawAgent(
         },
       ],
       50,
+    ).then((reply) =>
+      console.log(`[soul-init] success for ${ocAgentId}: ${reply?.slice(0, 80)}`),
     ).catch((e: Error) =>
       console.warn(`[soul-init] failed for ${ocAgentId}:`, e.message),
     );
