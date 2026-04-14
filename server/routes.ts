@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import QRCode from "qrcode";
 import { createServer, type Server } from "http";
 import passport from "passport";
 import { storage } from "./storage";
@@ -1449,7 +1450,11 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
     try {
       const { qrcodeId, imgContent } = await wechat.getQrCode();
-      res.json({ qrcodeId, imgContent });
+      // imgContent is the WeChat URL to encode — generate a QR code PNG (base64)
+      const qrDataUrl = await QRCode.toDataURL(imgContent, { width: 256, margin: 2 });
+      // Strip the "data:image/png;base64," prefix so frontend handles it uniformly
+      const qrBase64 = qrDataUrl.replace(/^data:image\/png;base64,/, "");
+      res.json({ qrcodeId, imgContent: qrBase64 });
     } catch (e: any) {
       res.status(500).json({ message: e.message });
     }
