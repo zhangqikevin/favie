@@ -1,7 +1,7 @@
 import { storage } from "./storage";
 import * as wechat from "./channels/wechat";
-import { callOpenclaw } from "./openclaw";
 import { getAgentSystemPrompt, type AgentId } from "./agent-context";
+import { callLiteLLM } from "./llm";
 
 // Map<bindingId, AbortController> — one long-poll loop per active WeChat binding
 const activeLoops = new Map<string, AbortController>();
@@ -67,7 +67,10 @@ async function processMessage(
 
   const restaurants = await storage.getRestaurants(userId);
   const restaurant = restaurants.find((r) => r.id === restaurantId) ?? restaurants[0];
-  if (!restaurant) return;
+  if (!restaurant) {
+    console.warn(`[wechat-poll] no restaurant found for binding=${binding.id} userId=${userId}`);
+    return;
+  }
 
   const overrides = {
     role: cfg[`agent_${agentId}_role`],
@@ -76,7 +79,7 @@ async function processMessage(
   const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides);
 
   const history = await storage.getChatHistory(userId, agentId);
-  const ocMessages = [
+  const llmMessages = [
     ...history.slice(-20).map((h) => ({
       role: h.role === "ai" ? "assistant" : "user",
       content: h.text,
@@ -84,14 +87,7 @@ async function processMessage(
     { role: "user", content: text },
   ];
 
-  const baseUrl = cfg["openclaw_base_url"] ?? "";
-  const apiKey  = cfg["openclaw_api_key"]  ?? "";
-  if (!baseUrl || !apiKey) return;
-
-  const ocAgentId = `favie-${userId.slice(0, 8)}-${agentId}`;
-  const replyText = await callOpenclaw(
-    baseUrl, apiKey, ocAgentId, userId, systemPrompt, ocMessages, 2048,
-  );
+  const replyText = await callLiteLLM(systemPrompt, llmMessages);
 
   const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   await storage.saveChatMessages([
