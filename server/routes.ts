@@ -17,6 +17,8 @@ import {
 } from "./ubereats-api";
 import { syncOpencrawAgent, callOpenclaw } from "./openclaw";
 import { getChannelHandler } from "./channels/index";
+import * as wechat from "./channels/wechat";
+import { startPolling, stopPolling, restoreAllPollers } from "./wechat-poller";
 import cron from "node-cron";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -1441,6 +1443,28 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     }
   });
 
+  // ─── WeChat QR Login ────────────────────────────────────────────────────────
+
+  app.post("/api/channel/wechat/init-login", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const { qrcodeId, imgContent } = await wechat.getQrCode();
+      res.json({ qrcodeId, imgContent });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/channel/wechat/login-status/:qrcodeId", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const result = await wechat.checkQrStatus(req.params.qrcodeId);
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   // ─── Channel Binding API ────────────────────────────────────────────────────
 
   // GET all channel bindings for an agent (for sidebar display)
@@ -1479,20 +1503,34 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
 
       const cfg = await storage.getSystemConfig();
       const config = req.body as Record<string, string>;
-      // Register webhook and get bot username
-      const appBaseUrl = (cfg["app_base_url"] || "").replace(/\/$/, "");
-      if (!appBaseUrl) {
-        return res.status(400).json({ message: "Please set App Base URL in System Config first (e.g. your Cloudflare tunnel URL)." });
-      }
-      const webhookUrl = `${appBaseUrl}/api/channel/${channelType}/webhook/${config.botToken}`;
       let mergedConfig = { ...config };
-      try {
-        const { botUsername } = await handler.registerWebhook(webhookUrl, config as any);
-        mergedConfig = { ...config, botUsername };
-      } catch (e: any) {
-        console.error("[channel] registerWebhook error:", e.message);
-        // Don't block binding save if webhook registration fails
+
+      if (channelType === "wechat") {
+        // WeChat uses polling, not webhooks — validate token and start poller
+        try {
+          await handler.registerWebhook("", config as any);
+        } catch (e: any) {
+          return res.status(400).json({ message: `WeChat token invalid: ${e.message}` });
+        }
+        // One WeChat binding per user — remove any existing bindings first
+        const oldIds = await storage.deleteAllChannelBindingsByTypeAndUser(req.user.id, "wechat");
+        for (const id of oldIds) stopPolling(id);
+      } else {
+        // Webhook-based channels need an app base URL
+        const appBaseUrl = (cfg["app_base_url"] || "").replace(/\/$/, "");
+        if (!appBaseUrl) {
+          return res.status(400).json({ message: "Please set App Base URL in System Config first (e.g. your Cloudflare tunnel URL)." });
+        }
+        const webhookUrl = `${appBaseUrl}/api/channel/${channelType}/webhook/${config.botToken}`;
+        try {
+          const { botUsername } = await handler.registerWebhook(webhookUrl, config as any);
+          mergedConfig = { ...config, botUsername };
+        } catch (e: any) {
+          console.error("[channel] registerWebhook error:", e.message);
+          // Don't block binding save if webhook registration fails
+        }
       }
+
       const binding = await storage.saveChannelBinding({
         userId: req.user.id,
         restaurantId,
@@ -1501,6 +1539,9 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         channelConfig: mergedConfig,
         active: true,
       });
+
+      if (channelType === "wechat") startPolling(binding.id);
+
       res.json(binding);
     } catch (err: any) {
       res.status(500).json({ message: err.message || "Internal server error" });
@@ -1514,6 +1555,11 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     const restaurants2 = await storage.getRestaurants(req.user.id);
     const current = restaurants2.find(r => r.id === req.user!.currentRestaurantId) ?? restaurants2[0];
     const restaurantId = current?.id ?? "default";
+    // Stop poller before deleting (WeChat only)
+    if (channelType === "wechat") {
+      const existing = await storage.getChannelBinding(req.user.id, restaurantId, agentId, channelType);
+      if (existing) stopPolling(existing.id);
+    }
     await storage.deleteChannelBinding(req.user.id, restaurantId, agentId, channelType);
     res.json({ ok: true });
   });
@@ -1674,6 +1720,11 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       console.warn("[memsync] cron error:", e.message);
     }
   });
+
+  // ─── Restore WeChat pollers on server start ────────────────────────────────
+  restoreAllPollers().catch((e: Error) =>
+    console.warn("[wechat-poll] restoreAllPollers failed:", e.message)
+  );
 
   return httpServer;
 }
