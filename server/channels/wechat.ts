@@ -5,9 +5,8 @@ const ILINK_LOGIN_BASE = "https://ilinkai.weixin.qq.com";
 const ILINK_MSG_BASE   = "https://api.weixin.qq.com";
 
 function xUin(): string {
-  const buf = Buffer.alloc(4);
-  buf.writeUInt32BE(Math.floor(Math.random() * 0xFFFFFFFF), 0);
-  return buf.toString("base64");
+  const uint32 = crypto.randomBytes(4).readUInt32BE(0);
+  return Buffer.from(String(uint32), "utf-8").toString("base64");
 }
 
 function pubHeaders(): Record<string, string> {
@@ -103,7 +102,7 @@ export async function registerWebhook(
   const res = await fetch(`${base}/ilink/bot/getupdates`, {
     method: "POST",
     headers: authHeaders(config.botToken),
-    body: JSON.stringify({ get_updates_buf: "" }),
+    body: JSON.stringify({ get_updates_buf: "", base_info: { channel_version: "favie-1.0.0" } }),
   });
   if (!res.ok) throw new Error(`WeChat token validation failed: ${res.status}`);
   return { botUsername: "wechat" };
@@ -122,7 +121,7 @@ export async function getUpdates(
   const res = await fetch(`${base}/ilink/bot/getupdates`, {
     method: "POST",
     headers: authHeaders(botToken),
-    body: JSON.stringify({ get_updates_buf: cursor ?? "" }),
+    body: JSON.stringify({ get_updates_buf: cursor ?? "", base_info: { channel_version: "favie-1.0.0" } }),
     signal,
   });
   if (!res.ok) throw new Error(`WeChat getUpdates failed: ${res.status}`);
