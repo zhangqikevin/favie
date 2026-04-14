@@ -69,7 +69,7 @@ export async function syncOpencrawAgent(
   _fullSystemPrompt: string,
   cfg: Record<string, string>,
 ): Promise<string> {
-  const ocAgentId = `favie-${userId.slice(0, 8)}-${agentId}`;
+  const ocAgentId = `favie2-${userId.slice(0, 8)}-${agentId}`;
 
   const appBaseUrl = cfg["app_base_url"] || "https://favieai.replit.app";
   const apiKey = cfg["openclaw_api_key"] ?? "";
