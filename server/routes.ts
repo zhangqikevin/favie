@@ -1,7 +1,6 @@
 import type { Express } from "express";
 import QRCode from "qrcode";
 import { createServer, type Server } from "http";
-import { callLiteLLM } from "./llm";
 import passport from "passport";
 import { storage } from "./storage";
 import { hashPassword } from "./auth";
@@ -473,8 +472,17 @@ export async function registerRoutes(
       };
       const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides);
 
-      // Use LiteLLM (MOONSHOT_API_KEY) as the primary LLM
-      const text = await callLiteLLM(systemPrompt, messages);
+      const ocId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurant.name, restaurant.cuisine ?? "", systemPrompt, cfg);
+      const enrichedPrompt = withDeliveryInstructions(systemPrompt, userId, agentId, cfg["app_base_url"] ?? "", cfg["openclaw_api_key"] ?? "");
+      const text = await callOpenclaw(
+        cfg["openclaw_base_url"] || "",
+        cfg["openclaw_api_key"] || "",
+        ocId,
+        userId,
+        enrichedPrompt,
+        messages,
+        2048,
+      );
       res.json({ text });
     } catch (err: any) {
       if (err?.name === "ZodError") {
