@@ -18,6 +18,7 @@ import {
 } from "./ubereats-api";
 import { syncOpencrawAgent, callOpenclaw } from "./openclaw";
 import { getChannelHandler } from "./channels/index";
+import { getLogs } from "./log-buffer";
 
 // Default config values (used when system_config entries are not set)
 const DEFAULT_OPENCLAW_BASE_URL = "https://openclaw.kevinzhang.fun";
@@ -1674,22 +1675,33 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
 
       // Push to all active channel bindings for this user+agent
       const bindings = await storage.getAllActiveChannelBindings(agentId, userId);
+      console.log(`[deliver] userId=${userId} agentId=${agentId} found ${bindings.length} binding(s)`);
       for (const binding of bindings) {
         const handler = getChannelHandler(binding.channelType);
-        if (!handler) continue;
+        if (!handler) { console.warn(`[deliver] no handler for ${binding.channelType}`); continue; }
         const bCfg = binding.channelConfig as Record<string, string>;
-        if (!bCfg.chatId) continue; // no chatId yet — user hasn't messaged the bot
+        if (!bCfg.chatId) { console.warn(`[deliver] ${binding.channelType} binding has no chatId`); continue; }
+        console.log(`[deliver] sending to ${binding.channelType} chatId=${bCfg.chatId} hasToken=${!!bCfg.latestContextToken}`);
         try {
           await handler.sendMessage(bCfg.chatId, text, bCfg as any);
+          console.log(`[deliver] ${binding.channelType} sendMessage OK`);
         } catch (e: any) {
           console.error(`[deliver] ${binding.channelType} sendMessage failed:`, e.message);
         }
       }
-
-      console.log(`[deliver] userId=${userId} agentId=${agentId} delivered to ${bindings.length} channel(s)`);
     } catch (err: any) {
       console.error("[deliver] error:", err.message);
     }
+  });
+
+  // ─── Admin: view recent server logs ──────────────────────────────────────────
+  app.get("/api/admin/logs", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    const last = Math.min(Number(req.query.last) || 200, 500);
+    const filter = (req.query.filter as string) || "";
+    let lines = getLogs(last);
+    if (filter) lines = lines.filter(l => l.toLowerCase().includes(filter.toLowerCase()));
+    res.type("text/plain").send(lines.join("\n"));
   });
 
   // ─── Dev: manually trigger memory sync for current user ──────────────────────

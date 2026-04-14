@@ -87,9 +87,18 @@ export async function sendMessage(
     body: JSON.stringify(body),
   });
   const resBody = await res.text().catch(() => "");
-  console.log("[wechat] getUpdates raw response:", JSON.stringify({ sendMsgResult: { status: res.status, body: resBody } }));
+  console.log("[wechat-send]", JSON.stringify({ to: chatId, status: res.status, body: resBody }));
   if (!res.ok) {
     throw new Error(`WeChat sendMessage failed: ${res.status} ${resBody}`);
+  }
+  // Check iLink ret code (API returns 200 even on errors)
+  try {
+    const parsed = JSON.parse(resBody);
+    if (parsed.ret && parsed.ret !== 0) {
+      throw new Error(`WeChat sendMessage ret=${parsed.ret}: ${resBody}`);
+    }
+  } catch (e: any) {
+    if (e.message.startsWith("WeChat")) throw e;
   }
 }
 
