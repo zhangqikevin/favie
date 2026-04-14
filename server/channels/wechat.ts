@@ -5,9 +5,8 @@ const ILINK_LOGIN_BASE = "https://ilinkai.weixin.qq.com";
 const ILINK_MSG_BASE   = "https://api.weixin.qq.com";
 
 function xUin(): string {
-  const buf = Buffer.alloc(4);
-  buf.writeUInt32BE(Math.floor(Math.random() * 0xFFFFFFFF), 0);
-  return buf.toString("base64");
+  const uint32 = crypto.randomBytes(4).readUInt32BE(0);
+  return Buffer.from(String(uint32), "utf-8").toString("base64");
 }
 
 function pubHeaders(): Record<string, string> {
@@ -51,7 +50,7 @@ export async function checkQrStatus(
   if (!res.ok) throw new Error(`checkQrStatus failed: ${res.status}`);
   const data = await res.json() as { status: string; bot_token?: string; baseurl?: string };
   if (data.status === "confirmed" && data.bot_token) {
-    return { status: "confirmed", botToken: data.bot_token, baseurl: data.baseurl ?? ILINK_MSG_BASE };
+    return { status: "confirmed", botToken: data.bot_token, baseurl: data.baseurl || ILINK_MSG_BASE };
   }
   return { status: "pending" };
 }
@@ -67,7 +66,7 @@ export async function sendMessage(
   text: string,
   config: { botToken: string; baseurl?: string; latestContextToken?: string },
 ): Promise<void> {
-  const base = config.baseurl ?? ILINK_MSG_BASE;
+  const base = config.baseurl || ILINK_MSG_BASE;
   const clientId = `favie-${crypto.randomBytes(8).toString("hex")}`;
   const body = {
     msg: {
@@ -99,11 +98,11 @@ export async function registerWebhook(
   config: { botToken: string; baseurl?: string },
 ): Promise<{ botUsername: string }> {
   // Validate token by doing a quick getupdates call (POST, get_updates_buf="")
-  const base = config.baseurl ?? ILINK_MSG_BASE;
+  const base = config.baseurl || ILINK_MSG_BASE;
   const res = await fetch(`${base}/ilink/bot/getupdates`, {
     method: "POST",
     headers: authHeaders(config.botToken),
-    body: JSON.stringify({ get_updates_buf: "" }),
+    body: JSON.stringify({ get_updates_buf: "", base_info: { channel_version: "favie-1.0.0" } }),
   });
   if (!res.ok) throw new Error(`WeChat token validation failed: ${res.status}`);
   return { botUsername: "wechat" };
@@ -118,11 +117,11 @@ export async function getUpdates(
   _timeout = 0,
   signal?: AbortSignal,
 ): Promise<{ messages: ILinkMessage[]; nextCursor: string }> {
-  const base = baseurl ?? ILINK_MSG_BASE;
+  const base = baseurl || ILINK_MSG_BASE;
   const res = await fetch(`${base}/ilink/bot/getupdates`, {
     method: "POST",
     headers: authHeaders(botToken),
-    body: JSON.stringify({ get_updates_buf: cursor ?? "" }),
+    body: JSON.stringify({ get_updates_buf: cursor ?? "", base_info: { channel_version: "favie-1.0.0" } }),
     signal,
   });
   if (!res.ok) throw new Error(`WeChat getUpdates failed: ${res.status}`);
