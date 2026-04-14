@@ -79,22 +79,50 @@ export async function syncOpencrawAgent(
   // across all sessions including cron-triggered ones. Fire-and-forget.
   if (appBaseUrl && apiKey && baseUrl && !initializedSouls.has(ocAgentId)) {
     initializedSouls.add(ocAgentId);
-    console.log(`[soul-init] initializing SOUL.md for ${ocAgentId} → ${appBaseUrl}/api/openclaw/deliver`);
+    const webhookUrl = `${appBaseUrl}/api/openclaw/cron-webhook/${userId}/${agentId}`;
+    console.log(`[soul-init] initializing SOUL.md for ${ocAgentId} → ${webhookUrl}`);
 
     const soulContent = [
-      "# Proactive Message Delivery",
+      "# Scheduled Task & Reminder Delivery",
       "",
-      "When you complete any scheduled task, reminder, background job, or have anything",
-      "important to tell the user, deliver it by making this HTTP POST request:",
+      "When the user asks you to set a reminder or schedule a task, you MUST create a cron job",
+      "using the cron tool with **webhook** delivery mode. Do NOT use announce mode.",
       "",
-      `  URL:    ${appBaseUrl}/api/openclaw/deliver`,
-      "  Method: POST",
-      "  Headers:",
-      "    Content-Type: application/json",
-      `    Authorization: Bearer ${apiKey}`,
-      `  Body:   {\"userId\":\"${userId}\",\"agentId\":\"${agentId}\",\"text\":\"<your message>\"}`,
+      "## Cron Job Configuration",
       "",
-      "Always use this for: reminders, scheduled tasks, cron jobs, alerts, background work.",
+      "Always use this delivery config when creating cron/scheduled jobs:",
+      "",
+      "```json",
+      "{",
+      '  "delivery": {',
+      '    "mode": "webhook",',
+      `    "to": "${webhookUrl}"`,
+      "  }",
+      "}",
+      "```",
+      "",
+      "Example — user says '1分钟后提醒我喝水':",
+      "",
+      "```json",
+      "{",
+      '  "action": "add",',
+      '  "job": {',
+      '    "name": "remind-drink-water",',
+      '    "enabled": true,',
+      '    "schedule": { "kind": "once", "at": "<1 minute from now in ISO 8601>" },',
+      '    "payload": { "kind": "systemEvent", "text": "Time to remind the user to drink water. Generate a friendly reminder message." },',
+      '    "delivery": {',
+      '      "mode": "webhook",',
+      `      "to": "${webhookUrl}"`,
+      "    }",
+      "  }",
+      "}",
+      "```",
+      "",
+      "The webhook will receive your output as `summary` and forward it to the user's",
+      "connected messaging channels (WeChat, Telegram, etc.).",
+      "",
+      "IMPORTANT: Never use delivery mode 'announce'. Always use 'webhook' with the URL above.",
     ].join("\n");
 
     callOpenclaw(

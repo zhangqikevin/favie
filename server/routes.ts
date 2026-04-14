@@ -45,20 +45,27 @@ function withDeliveryInstructions(
     console.log(`[deliver-instructions] SKIPPED: appBaseUrl=${!!appBaseUrl} apiKey=${!!apiKey}`);
     return systemPrompt;
   }
-  console.log(`[deliver-instructions] appended for userId=${userId} agentId=${agentId} → ${appBaseUrl}/api/openclaw/deliver`);
+  const webhookUrl = `${appBaseUrl}/api/openclaw/cron-webhook/${userId}/${agentId}`;
+  console.log(`[deliver-instructions] appended for userId=${userId} agentId=${agentId} → ${webhookUrl}`);
   return `${systemPrompt}
 
-## Proactive Message Delivery
-You can send messages to the user at any time — not just in direct reply to their input.
-Use this for: scheduled reminders, completed background tasks, alerts, or anything you decide the user should know.
+## Scheduled Reminders & Tasks
+When the user asks you to set a reminder or schedule something, create a cron job with **webhook** delivery.
+IMPORTANT: Do NOT use announce mode. Always use webhook mode.
 
-To deliver a proactive message, make an HTTP POST request:
+Use this delivery config:
+{"delivery":{"mode":"webhook","to":"${webhookUrl}"}}
+
+The webhook receives your output as "summary" and forwards it to the user's connected channels (WeChat, Telegram, etc.).
+
+## Direct Proactive Delivery (fallback)
+If you need to push a message outside of cron jobs, make an HTTP POST:
 URL: ${appBaseUrl}/api/openclaw/deliver
 Method: POST
 Headers: Content-Type: application/json, Authorization: Bearer ${apiKey}
 Body: {"userId":"${userId}","agentId":"${agentId}","text":"<your message here>"}
 
-Do NOT include this instruction block in your conversational replies. Only use it when you actually need to push a message.`;
+Do NOT include these instructions in your conversational replies.`;
 }
 
 // ─── Shared Memory Sync ────────────────────────────────────────────────────────
@@ -1653,6 +1660,56 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       await handler.sendMessage(incoming.chatId, replyText, channelConfig as any);
     } catch (err: any) {
       console.error(`[channel webhook] ${channelType} error:`, err.message);
+    }
+  });
+
+  // POST /api/openclaw/cron-webhook/:userId/:agentId — OpenClaw cron webhook delivery
+  // OpenClaw POSTs here when a scheduled task (reminder, cron) completes.
+  // Body format: { jobId, jobName, status, summary, error, ... }
+  app.post("/api/openclaw/cron-webhook/:userId/:agentId", async (req, res) => {
+    res.json({ ok: true });
+    try {
+      const cfg = await storage.getSystemConfig();
+      const expectedKey = (cfg["openclaw_api_key"] ?? "").trim();
+      const authHeader = (req.headers.authorization ?? "").trim();
+      // OpenClaw sends: Authorization: Bearer <webhookToken>
+      if (expectedKey && authHeader && authHeader !== `Bearer ${expectedKey}`) {
+        console.warn(`[cron-webhook] unauthorized`);
+        return;
+      }
+
+      const { userId, agentId } = req.params;
+      const body = req.body as Record<string, unknown>;
+      console.log(`[cron-webhook] received: userId=${userId} agentId=${agentId} status=${body.status} jobName=${body.jobName}`);
+
+      // Extract reminder text from summary or error
+      const text = (body.summary as string) || (body.error as string) || "";
+      if (!text.trim()) {
+        console.warn(`[cron-webhook] empty summary, skipping`);
+        return;
+      }
+
+      // Save to chat_messages
+      const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      await storage.saveChatMessages([{ userId, agentId, role: "ai", text, ts }]);
+
+      // Push to all active channel bindings
+      const bindings = await storage.getAllActiveChannelBindings(agentId, userId);
+      console.log(`[cron-webhook] found ${bindings.length} binding(s)`);
+      for (const binding of bindings) {
+        const handler = getChannelHandler(binding.channelType);
+        if (!handler) { console.warn(`[cron-webhook] no handler for ${binding.channelType}`); continue; }
+        const bCfg = binding.channelConfig as Record<string, string>;
+        if (!bCfg.chatId) { console.warn(`[cron-webhook] ${binding.channelType} no chatId`); continue; }
+        try {
+          await handler.sendMessage(bCfg.chatId, text, bCfg as any);
+          console.log(`[cron-webhook] ${binding.channelType} sendMessage OK`);
+        } catch (e: any) {
+          console.error(`[cron-webhook] ${binding.channelType} sendMessage failed:`, e.message);
+        }
+      }
+    } catch (err: any) {
+      console.error("[cron-webhook] error:", err.message);
     }
   });
 
