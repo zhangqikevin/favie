@@ -1597,8 +1597,17 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
           clearInterval(id);
           setWechatQr(prev => prev ? { ...prev, status: "confirmed", botToken: data.botToken, baseurl: data.baseurl } : null);
           // Auto-save binding (guarded by ref — fires exactly once)
-          connectMutation.mutate({ channelType: "wechat", config: { botToken: data.botToken!, baseurl: data.baseurl ?? "" } });
-          setTimeout(() => setWechatQrOpen(false), 1500);
+          connectMutation.mutate(
+            { channelType: "wechat", config: { botToken: data.botToken!, baseurl: data.baseurl || "" } },
+            {
+              onSuccess: () => setTimeout(() => setWechatQrOpen(false), 1500),
+              onError: (err: any) => {
+                wechatBindingSaved.current = false;
+                console.error("[wechat] binding save failed:", err.message);
+                setWechatQrError(err.message || "Failed to save WeChat binding");
+              },
+            },
+          );
         }
       } catch { /* ignore poll errors */ }
     }, 2000);
