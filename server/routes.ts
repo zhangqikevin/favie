@@ -41,7 +41,11 @@ function withDeliveryInstructions(
   appBaseUrl: string,
   apiKey: string,
 ): string {
-  if (!appBaseUrl || !apiKey) return systemPrompt;
+  if (!appBaseUrl || !apiKey) {
+    console.log(`[deliver-instructions] SKIPPED: appBaseUrl=${!!appBaseUrl} apiKey=${!!apiKey}`);
+    return systemPrompt;
+  }
+  console.log(`[deliver-instructions] appended for userId=${userId} agentId=${agentId} → ${appBaseUrl}/api/openclaw/deliver`);
   return `${systemPrompt}
 
 ## Proactive Message Delivery
@@ -1658,10 +1662,10 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     res.json({ ok: true }); // respond immediately
     try {
       const cfg = await storage.getSystemConfig();
-      const expectedKey = cfg["openclaw_api_key"] ?? "";
-      const authHeader = req.headers.authorization ?? "";
+      const expectedKey = (cfg["openclaw_api_key"] ?? "").trim();
+      const authHeader = (req.headers.authorization ?? "").trim();
       if (!expectedKey || authHeader !== `Bearer ${expectedKey}`) {
-        console.warn("[deliver] unauthorized delivery attempt");
+        console.warn(`[deliver] unauthorized: expectedLen=${expectedKey.length} gotHeader=${authHeader.slice(0, 20)}...`);
         return;
       }
 
@@ -1698,10 +1702,13 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
   app.get("/api/admin/logs", async (req, res) => {
     // Auth: session OR ?key= matching openclaw_api_key
     const cfg = await storage.getSystemConfig();
-    const apiKey = cfg["openclaw_api_key"] ?? "";
-    const qKey = req.query.key as string;
+    const apiKey = (cfg["openclaw_api_key"] ?? "").trim();
+    const qKey = ((req.query.key as string) ?? "").trim();
     const authed = (req.isAuthenticated() && req.user) || (apiKey && qKey === apiKey);
-    if (!authed) return res.status(401).json({ message: "Not authenticated" });
+    if (!authed) {
+      console.log(`[admin/logs] 401: apiKey.len=${apiKey.length} qKey.len=${qKey.length} match=${qKey === apiKey} last6=${apiKey.slice(-6)}`);
+      return res.status(401).json({ message: "Not authenticated" });
+    }
     const last = Math.min(Number(req.query.last) || 200, 500);
     const filter = (req.query.filter as string) || "";
     let lines = getLogs(last);
