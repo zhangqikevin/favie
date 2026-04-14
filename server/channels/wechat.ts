@@ -36,8 +36,13 @@ export async function getQrCode(): Promise<{ qrcodeId: string; imgContent: strin
     headers: pubHeaders(),
   });
   if (!res.ok) throw new Error(`getQrCode failed: ${res.status}`);
-  const data = await res.json() as { qrcode: string; qrcode_img_content: string };
-  return { qrcodeId: data.qrcode, imgContent: data.qrcode_img_content };
+  const data = await res.json() as Record<string, unknown>;
+  console.log("[wechat] getQrCode raw keys:", Object.keys(data));
+  console.log("[wechat] qrcode_img_content type:", typeof data.qrcode_img_content,
+    "| first 80 chars:", String(data.qrcode_img_content ?? "").slice(0, 80));
+  const imgContent = String(data.qrcode_img_content ?? "");
+  const qrcodeId  = String(data.qrcode ?? "");
+  return { qrcodeId, imgContent };
 }
 
 export async function checkQrStatus(
