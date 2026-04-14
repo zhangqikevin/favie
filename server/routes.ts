@@ -49,45 +49,6 @@ Body: {"userId":"${userId}","agentId":"${agentId}","text":"<your message here>"}
 Do NOT include this instruction block in your conversational replies. Only use it when you actually need to push a message.`;
 }
 
-async function callLLM(
-  systemPrompt: string,
-  messages: { role: string; content: string }[],
-) {
-  const cfg = await storage.getSystemConfig();
-  const apiKey = cfg["llm_api_key"] || process.env.LITELLM_KEY;
-  const baseUrl = (cfg["llm_base_url"] || "https://litellm.vllm.yesy.dev").replace(/\/$/, "");
-  const model = cfg["llm_model"] || "claude-sonnet-4-6";
-
-  if (!apiKey) throw new Error("LLM API key not configured");
-
-  const doFetch = () =>
-    fetch(`${baseUrl}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-        max_tokens: parseInt(cfg["agent_max_tokens"] || "2048", 10),
-      }),
-    });
-
-  let res = await doFetch();
-  if (!res.ok && (res.status === 429 || res.status >= 500)) {
-    await sleep(1500);
-    res = await doFetch();
-  }
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`AI API error (${res.status}): ${err}`);
-  }
-  const data = (await res.json()) as any;
-  return data.choices?.[0]?.message?.content ?? "";
-}
-
 // ─── Shared Memory Sync ────────────────────────────────────────────────────────
 
 const ALL_AGENT_IDS: AgentId[] = ["operation", "chef", "social", "customer", "finance", "legal", "expert"];
@@ -504,7 +465,7 @@ export async function registerRoutes(
         userId,
         enrichedPrompt,
         messages,
-        parseInt(cfg["agent_max_tokens"] || "2048", 10),
+        2048,
       );
       res.json({ text });
     } catch (err: any) {
@@ -1125,7 +1086,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         req.user.id,
         enrichedPromptTask,
         [{ role: "user", content: userMessage }],
-        parseInt(cfg["agent_max_tokens"] || "4096", 10),
+        4096,
       );
 
       // Save run to DB (non-blocking)
@@ -1330,7 +1291,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         req.user.id,
         systemPrompt,
         messages,
-        parseInt(cfg["agent_max_tokens"] || "2048", 10),
+        2048,
       );
       res.json({ text });
     } catch (err: any) {
@@ -1423,19 +1384,10 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     const cfg = await storage.getSystemConfig();
     // Merge DB values over env defaults so the form always shows effective config
     const effective: Record<string, string> = {
-      llm_base_url:    cfg["llm_base_url"] ?? "https://litellm.vllm.yesy.dev",
-      llm_model:       cfg["llm_model"]    ?? "claude-sonnet-4-6",
-      llm_api_key:     cfg["llm_api_key"]  ?? process.env.LITELLM_KEY ?? "",
-      agent_max_tokens: cfg["agent_max_tokens"] ?? "2048",
       app_base_url:      cfg["app_base_url"]       ?? "",
-      openclaw_enabled:  cfg["openclaw_enabled"]  ?? "false",
       openclaw_base_url: cfg["openclaw_base_url"] ?? "",
       openclaw_api_key:  cfg["openclaw_api_key"]  ?? "",
     };
-    // Mask the API key — only send last 6 chars
-    if (effective["llm_api_key"]) {
-      effective["llm_api_key"] = "••••••" + effective["llm_api_key"].slice(-6);
-    }
     if (effective["openclaw_api_key"]) {
       effective["openclaw_api_key"] = "••••••" + effective["openclaw_api_key"].slice(-6);
     }
@@ -1453,17 +1405,9 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     try {
       const body = req.body as Record<string, string>;
       const updates: Record<string, string> = {};
-      // LLM settings
-      if (body.llm_base_url) updates["llm_base_url"] = body.llm_base_url;
-      if (body.llm_model)    updates["llm_model"]    = body.llm_model;
-      if (body.llm_api_key && !body.llm_api_key.startsWith("••••••")) {
-        updates["llm_api_key"] = body.llm_api_key;
-      }
-      if (body.agent_max_tokens) updates["agent_max_tokens"] = body.agent_max_tokens;
       // app base URL
       if (body.app_base_url !== undefined) updates["app_base_url"] = body.app_base_url;
       // openclaw settings
-      if (body.openclaw_enabled  !== undefined) updates["openclaw_enabled"]  = body.openclaw_enabled;
       if (body.openclaw_base_url)               updates["openclaw_base_url"] = body.openclaw_base_url;
       if (body.openclaw_api_key && !body.openclaw_api_key.startsWith("••••••")) {
         updates["openclaw_api_key"] = body.openclaw_api_key;
@@ -1622,7 +1566,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         userId,
         enrichedPromptTg,
         allMessages,
-        parseInt(cfg["agent_max_tokens"] || "2048", 10),
+        2048,
       );
 
       // Save both turns

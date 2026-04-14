@@ -448,12 +448,6 @@ function SystemConfigSection() {
     setShowKey(false);
   }
 
-  const LLM_FIELDS = [
-    { key: "llm_base_url", label: t("settings.base_url") },
-    { key: "llm_model",    label: t("settings.model_label") },
-    { key: "llm_api_key",  label: t("settings.api_key") },
-  ] as const;
-
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden" data-testid="section-settings-system-config">
       {/* Header */}
@@ -496,69 +490,10 @@ function SystemConfigSection() {
       ) : (
         <div className="divide-y divide-border">
 
-          {/* ── Model Group ── */}
-          <div className="px-5 py-5 space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("settings.section_model")}</p>
-
-            {!editing ? (
-              <ul className="space-y-0 -mx-5 divide-y divide-border">
-                {LLM_FIELDS.map(({ key, label }) => (
-                  <li key={key} className="flex items-center justify-between px-5 py-3">
-                    <span className="text-sm text-muted-foreground">{label}</span>
-                    <span className="text-sm font-medium text-foreground font-mono truncate max-w-[260px]">
-                      {form[key] || <span className="text-muted-foreground italic font-sans">{t("settings.not_set")}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">{t("settings.base_url")}</label>
-                  <Input value={form.llm_base_url ?? ""} onChange={(e) => setForm(f => ({ ...f, llm_base_url: e.target.value }))} placeholder="https://litellm.vllm.yesy.dev" className="text-sm font-mono" />
-                </div>
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">{t("settings.model_label")}</label>
-                  <Input value={form.llm_model ?? ""} onChange={(e) => setForm(f => ({ ...f, llm_model: e.target.value }))} placeholder="claude-sonnet-4-6" className="text-sm font-mono" />
-                </div>
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">{t("settings.api_key")}</label>
-                  <div className="relative">
-                    <Input
-                      type={showKey ? "text" : "password"}
-                      value={form.llm_api_key ?? ""}
-                      onChange={(e) => setForm(f => ({ ...f, llm_api_key: e.target.value }))}
-                      placeholder="sk-..."
-                      className="text-sm font-mono pr-9"
-                    />
-                    <button type="button" onClick={() => setShowKey(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                      {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* ── Agent Group ── */}
           <div className="px-5 py-5 space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("settings.section_agent")}</p>
-            </div>
-
-            {/* max_tokens */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{t("settings.max_tokens")}</span>
-              {editing ? (
-                <Input
-                  type="number"
-                  value={form.agent_max_tokens ?? "2048"}
-                  onChange={(e) => setForm(f => ({ ...f, agent_max_tokens: e.target.value }))}
-                  className="text-sm font-mono w-28 text-right"
-                />
-              ) : (
-                <span className="text-sm font-medium text-foreground font-mono">{form.agent_max_tokens ?? "2048"}</span>
-              )}
             </div>
 
             {/* Per-agent cards */}
@@ -600,12 +535,6 @@ function SystemConfigSection() {
             {!editing ? (
               <ul className="space-y-0 -mx-5 divide-y divide-border">
                 <li className="flex items-center justify-between px-5 py-3">
-                  <span className="text-sm text-muted-foreground">{t("settings.enabled_label")}</span>
-                  <span className={cn("text-sm font-medium", form.openclaw_enabled === "true" ? "text-green-600" : "text-muted-foreground")}>
-                    {form.openclaw_enabled === "true" ? t("settings.on") : t("settings.off")}
-                  </span>
-                </li>
-                <li className="flex items-center justify-between px-5 py-3">
                   <span className="text-sm text-muted-foreground">{t("settings.base_url")}</span>
                   <span className="text-sm font-medium text-foreground font-mono truncate max-w-[260px]">
                     {form.openclaw_base_url || <span className="text-muted-foreground italic font-sans">{t("settings.not_set")}</span>}
@@ -620,13 +549,6 @@ function SystemConfigSection() {
               </ul>
             ) : (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-muted-foreground">{t("settings.enable_openclaw")}</label>
-                  <Switch
-                    checked={form.openclaw_enabled === "true"}
-                    onCheckedChange={(v) => setForm(f => ({ ...f, openclaw_enabled: v ? "true" : "false" }))}
-                  />
-                </div>
                 <div>
                   <label className="text-sm text-muted-foreground mb-1 block">{t("settings.base_url")}</label>
                   <Input
