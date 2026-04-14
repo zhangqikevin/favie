@@ -1732,7 +1732,11 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
             ) : (
               <>
                 <img
-                  src={`data:image/png;base64,${wechatQr.imgContent}`}
+                  src={
+                    wechatQr.imgContent.startsWith("data:") || wechatQr.imgContent.startsWith("http")
+                      ? wechatQr.imgContent
+                      : `data:image/png;base64,${wechatQr.imgContent}`
+                  }
                   alt="WeChat QR Code"
                   className="w-44 h-44 rounded-lg border border-border"
                 />
