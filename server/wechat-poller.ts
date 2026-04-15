@@ -1,7 +1,8 @@
 import { storage } from "./storage";
 import * as wechat from "./channels/wechat";
-import { callOpenclaw } from "./openclaw";
+import { callOpenclaw, syncOpencrawAgent } from "./openclaw";
 import { getAgentSystemPrompt, type AgentId } from "./agent-context";
+
 
 // Map<bindingId, AbortController> — one long-poll loop per active WeChat binding
 const activeLoops = new Map<string, AbortController>();
@@ -97,7 +98,7 @@ async function processMessage(
     { role: "user", content: text },
   ];
 
-  const ocAgentId = `favie-${userId.slice(0, 8)}-${agentId}`;
+  const ocAgentId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurant.name, restaurant.cuisine ?? "", systemPrompt, cfg);
   const replyText = await callOpenclaw(baseUrl, apiKey, ocAgentId, userId, systemPrompt, ocMessages, 2048);
 
   const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
