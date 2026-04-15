@@ -74,47 +74,80 @@ function parseMarkdownImages(raw: string): { cleanText: string; imageUrls: strin
   return { cleanText, imageUrls };
 }
 
+interface UploadParam {
+  url: string;
+  auth_key: string;
+  x_cos_security_token: string;
+  aes_key: string; // 32-char hex → 16 bytes
+}
+
 /**
- * Download an image from URL and upload it to iLink media storage.
- * Returns media_id on success, null on failure.
+ * Correct iLink image upload flow (AES-128-ECB + CDN):
+ * 1. POST /ilink/bot/getuploadurl  → upload_param (url, auth_key, aes_key, ...)
+ * 2. AES-128-ECB encrypt raw image → POST to CDN → x-encrypted-param response header
+ * 3. sendmessage with type:2, image_item.cdn_media { url_param, aes_key, encrypt_type:1 }
+ *
+ * Returns { urlParam, aesKey } on success, null on failure.
  */
 async function uploadImageToILink(
   imageUrl: string,
   botToken: string,
-  baseurl?: string,
-): Promise<string | null> {
+): Promise<{ urlParam: string; aesKey: string } | null> {
   try {
-    const base = baseurl || ILINK_MSG_BASE;
+    // Step 1: get upload URL + AES key
+    const urlRes = await fetch(`${ILINK_LOGIN_BASE}/ilink/bot/getuploadurl`, {
+      method: "POST",
+      headers: authHeaders(botToken),
+      body: JSON.stringify({ upload_type: 1, base_info: { channel_version: "favie-1.0.0" } }),
+    });
+    if (!urlRes.ok) {
+      console.warn("[wechat-img] getuploadurl failed:", urlRes.status);
+      return null;
+    }
+    const urlData = await urlRes.json() as { ret?: number; upload_param?: UploadParam };
+    if (urlData.ret !== 0 || !urlData.upload_param) {
+      console.warn("[wechat-img] getuploadurl bad ret:", JSON.stringify(urlData).slice(0, 200));
+      return null;
+    }
+    const up = urlData.upload_param;
 
-    // Download the image
+    // Step 2: download source image
     const imgRes = await fetch(imageUrl);
     if (!imgRes.ok) {
       console.warn("[wechat-img] download failed:", imgRes.status, imageUrl.slice(0, 80));
       return null;
     }
-    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-    const contentType = imgRes.headers.get("content-type") || "image/jpeg";
-    const ext = contentType.includes("png") ? "png" : contentType.includes("gif") ? "gif" : "jpg";
+    const plain = Buffer.from(await imgRes.arrayBuffer());
+    const md5 = crypto.createHash("md5").update(plain).digest("hex");
 
-    // Build multipart form (native FormData + Blob, available in Node 20)
-    const form = new FormData();
-    form.append("type", "image");
-    form.append("media", new Blob([imgBuffer], { type: contentType }), `image.${ext}`);
+    // AES-128-ECB encrypt with PKCS7 padding
+    const key = Buffer.from(up.aes_key, "hex"); // 32 hex chars = 16 bytes
+    const cipher = crypto.createCipheriv("aes-128-ecb", key, null);
+    cipher.setAutoPadding(true);
+    const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
 
-    // Upload — omit Content-Type so fetch sets multipart boundary automatically
-    const { "Content-Type": _ct, ...headersWithoutCT } = authHeaders(botToken);
-    const uploadRes = await fetch(`${base}/ilink/bot/upload_media`, {
+    // Upload encrypted bytes to CDN
+    const cdnRes = await fetch(up.url, {
       method: "POST",
-      headers: headersWithoutCT,
-      body: form,
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Authorization": up.auth_key,
+        "x-cos-security-token": up.x_cos_security_token,
+        "x-cos-meta-md5": md5,
+      },
+      body: encrypted,
     });
-    const uploadBody = await uploadRes.text().catch(() => "");
-    console.log("[wechat-img] upload response:", uploadRes.status, uploadBody.slice(0, 200));
-    if (!uploadRes.ok) return null;
-
-    const data = JSON.parse(uploadBody) as { media_id?: string; ret?: number };
-    if (data.ret && data.ret !== 0) return null;
-    return data.media_id ?? null;
+    if (!cdnRes.ok) {
+      console.warn("[wechat-img] CDN upload failed:", cdnRes.status);
+      return null;
+    }
+    const urlParam = cdnRes.headers.get("x-encrypted-param");
+    if (!urlParam) {
+      console.warn("[wechat-img] CDN upload: missing x-encrypted-param header");
+      return null;
+    }
+    console.log("[wechat-img] upload success, urlParam:", urlParam.slice(0, 40));
+    return { urlParam, aesKey: up.aes_key };
   } catch (e: any) {
     console.warn("[wechat-img] upload error:", e.message);
     return null;
@@ -158,7 +191,8 @@ async function sendRawText(
 
 async function sendRawImage(
   chatId: string,
-  mediaId: string,
+  urlParam: string,
+  aesKey: string,
   config: { botToken: string; baseurl?: string; latestContextToken?: string },
 ): Promise<void> {
   const base = config.baseurl || ILINK_MSG_BASE;
@@ -170,7 +204,16 @@ async function sendRawImage(
       client_id: clientId,
       message_type: 2,
       message_state: 2,
-      item_list: [{ type: 3, image_item: { media_id: mediaId } }],
+      item_list: [{
+        type: 2,
+        image_item: {
+          cdn_media: {
+            url_param: urlParam,
+            aes_key: aesKey,
+            encrypt_type: 1,
+          },
+        },
+      }],
       context_token: config.latestContextToken ?? "",
     },
     base_info: { channel_version: "favie-1.0.0" },
@@ -203,18 +246,18 @@ export async function sendMessage(
     await sendRawText(chatId, cleanText, config);
   }
 
-  // For each image: upload to iLink and send as image message; fallback to URL text
+  // For each image: upload to iLink CDN and send as native image message; fallback to URL text
   for (const url of imageUrls) {
     console.log("[wechat-send] processing image:", url.slice(0, 80));
-    const mediaId = await uploadImageToILink(url, config.botToken, config.baseurl);
-    if (mediaId) {
-      console.log("[wechat-send] sending image via media_id:", mediaId);
-      await sendRawImage(chatId, mediaId, config).catch(async (e: Error) => {
+    const uploaded = await uploadImageToILink(url, config.botToken);
+    if (uploaded) {
+      console.log("[wechat-send] sending native image message");
+      await sendRawImage(chatId, uploaded.urlParam, uploaded.aesKey, config).catch(async (e: Error) => {
         console.warn("[wechat-send] image send failed, fallback to URL:", e.message);
         await sendRawText(chatId, url, config);
       });
     } else {
-      console.log("[wechat-send] upload failed, sending URL as text");
+      console.log("[wechat-send] upload failed, sending URL as text fallback");
       await sendRawText(chatId, url, config);
     }
   }
