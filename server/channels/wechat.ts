@@ -64,16 +64,61 @@ export function parseIncoming(_req: Request): null {
 /**
  * Extract image URLs and clean markdown from a response string.
  * Returns { cleanText, imageUrls }.
- * cleanText has markdown image syntax removed; other markdown is kept as-is for readability.
  */
 function parseMarkdownImages(raw: string): { cleanText: string; imageUrls: string[] } {
   const imageUrls: string[] = [];
-  // Match ![alt](url) — capture the URL
   const cleanText = raw.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, _alt, url) => {
     imageUrls.push(url.trim());
-    return "";  // remove the image syntax from text
-  }).replace(/\n{3,}/g, "\n\n").trim(); // collapse excess blank lines
+    return "";
+  }).replace(/\n{3,}/g, "\n\n").trim();
   return { cleanText, imageUrls };
+}
+
+/**
+ * Download an image from URL and upload it to iLink media storage.
+ * Returns media_id on success, null on failure.
+ */
+async function uploadImageToILink(
+  imageUrl: string,
+  botToken: string,
+  baseurl?: string,
+): Promise<string | null> {
+  try {
+    const base = baseurl || ILINK_MSG_BASE;
+
+    // Download the image
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) {
+      console.warn("[wechat-img] download failed:", imgRes.status, imageUrl.slice(0, 80));
+      return null;
+    }
+    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+    const contentType = imgRes.headers.get("content-type") || "image/jpeg";
+    const ext = contentType.includes("png") ? "png" : contentType.includes("gif") ? "gif" : "jpg";
+
+    // Build multipart form (native FormData + Blob, available in Node 20)
+    const form = new FormData();
+    form.append("type", "image");
+    form.append("media", new Blob([imgBuffer], { type: contentType }), `image.${ext}`);
+
+    // Upload — omit Content-Type so fetch sets multipart boundary automatically
+    const { "Content-Type": _ct, ...headersWithoutCT } = authHeaders(botToken);
+    const uploadRes = await fetch(`${base}/ilink/bot/upload_media`, {
+      method: "POST",
+      headers: headersWithoutCT,
+      body: form,
+    });
+    const uploadBody = await uploadRes.text().catch(() => "");
+    console.log("[wechat-img] upload response:", uploadRes.status, uploadBody.slice(0, 200));
+    if (!uploadRes.ok) return null;
+
+    const data = JSON.parse(uploadBody) as { media_id?: string; ret?: number };
+    if (data.ret && data.ret !== 0) return null;
+    return data.media_id ?? null;
+  } catch (e: any) {
+    console.warn("[wechat-img] upload error:", e.message);
+    return null;
+  }
 }
 
 async function sendRawText(
@@ -111,6 +156,41 @@ async function sendRawText(
   }
 }
 
+async function sendRawImage(
+  chatId: string,
+  mediaId: string,
+  config: { botToken: string; baseurl?: string; latestContextToken?: string },
+): Promise<void> {
+  const base = config.baseurl || ILINK_MSG_BASE;
+  const clientId = `favie-${crypto.randomBytes(8).toString("hex")}`;
+  const body = {
+    msg: {
+      from_user_id: "",
+      to_user_id: chatId,
+      client_id: clientId,
+      message_type: 2,
+      message_state: 2,
+      item_list: [{ type: 3, image_item: { media_id: mediaId } }],
+      context_token: config.latestContextToken ?? "",
+    },
+    base_info: { channel_version: "favie-1.0.0" },
+  };
+  const res = await fetch(`${base}/ilink/bot/sendmessage`, {
+    method: "POST",
+    headers: authHeaders(config.botToken),
+    body: JSON.stringify(body),
+  });
+  const resBody = await res.text().catch(() => "");
+  console.log("[wechat-sendimg]", JSON.stringify({ to: chatId, status: res.status, body: resBody.slice(0, 200) }));
+  if (!res.ok) throw new Error(`WeChat sendImage failed: ${res.status} ${resBody}`);
+  try {
+    const parsed = JSON.parse(resBody);
+    if (parsed.ret && parsed.ret !== 0) throw new Error(`WeChat sendImage ret=${parsed.ret}: ${resBody}`);
+  } catch (e: any) {
+    if (e.message.startsWith("WeChat")) throw e;
+  }
+}
+
 export async function sendMessage(
   chatId: string,
   text: string,
@@ -123,10 +203,20 @@ export async function sendMessage(
     await sendRawText(chatId, cleanText, config);
   }
 
-  // Send each image URL as a separate message so the user can tap to view
+  // For each image: upload to iLink and send as image message; fallback to URL text
   for (const url of imageUrls) {
-    console.log("[wechat-send] sending image URL:", url.slice(0, 80));
-    await sendRawText(chatId, url, config);
+    console.log("[wechat-send] processing image:", url.slice(0, 80));
+    const mediaId = await uploadImageToILink(url, config.botToken, config.baseurl);
+    if (mediaId) {
+      console.log("[wechat-send] sending image via media_id:", mediaId);
+      await sendRawImage(chatId, mediaId, config).catch(async (e: Error) => {
+        console.warn("[wechat-send] image send failed, fallback to URL:", e.message);
+        await sendRawText(chatId, url, config);
+      });
+    } else {
+      console.log("[wechat-send] upload failed, sending URL as text");
+      await sendRawText(chatId, url, config);
+    }
   }
 }
 
