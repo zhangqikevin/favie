@@ -136,19 +136,22 @@ async function uploadImageToILink(
     }
     const urlRaw = await urlRes.text();
     console.log("[wechat-img] getuploadurl response:", urlRaw.slice(0, 500));
-    const urlData = JSON.parse(urlRaw) as { ret?: number; upload_param?: string };
-    if (urlData.ret !== 0 || !urlData.upload_param) {
-      console.warn("[wechat-img] getuploadurl bad ret:", urlData.ret);
+    const urlData = JSON.parse(urlRaw) as { ret?: number; upload_param?: string; upload_full_url?: string };
+    // ret=0 or absent means success; need either upload_full_url or upload_param
+    if ((urlData.ret !== undefined && urlData.ret !== 0) || (!urlData.upload_full_url && !urlData.upload_param)) {
+      console.warn("[wechat-img] getuploadurl bad ret:", urlData.ret, "has_url:", !!urlData.upload_full_url, "has_param:", !!urlData.upload_param);
       return null;
     }
-    const uploadParam = urlData.upload_param;
 
     // Step 3: AES-128-ECB encrypt and upload to CDN
     const cipher = crypto.createCipheriv("aes-128-ecb", aesKey, null);
     cipher.setAutoPadding(true);
     const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
 
-    const cdnUrl = `${CDN_BASE}/upload?encrypted_query_param=${encodeURIComponent(uploadParam)}&filekey=${encodeURIComponent(filekey)}`;
+    // Use upload_full_url if provided, otherwise build from upload_param
+    const cdnUrl = urlData.upload_full_url
+      ?? `${CDN_BASE}/upload?encrypted_query_param=${encodeURIComponent(urlData.upload_param!)}&filekey=${encodeURIComponent(filekey)}`;
+    console.log("[wechat-img] CDN upload URL:", cdnUrl.slice(0, 120));
     const cdnRes = await fetch(cdnUrl, {
       method: "POST",
       headers: { "Content-Type": "application/octet-stream" },
