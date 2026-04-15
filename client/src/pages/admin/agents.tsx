@@ -2464,6 +2464,7 @@ export default function AgentChatPage() {
                             h2: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
                             h3: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
                             code: ({ children }) => <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono">{children}</code>,
+                            img: ({ src, alt }) => <img src={src} alt={alt || ""} className="max-w-[60%] rounded-lg my-1" />,
                           }}
                         >
                           {msg.text}

@@ -218,8 +218,9 @@ async function sendRawImage(
 ): Promise<void> {
   const base = config.baseurl || ILINK_MSG_BASE;
   const clientId = `favie-${crypto.randomBytes(8).toString("hex")}`;
-  // aes_key in sendmessage is base64 of raw 16 bytes
-  const aesKeyBase64 = Buffer.from(aesKeyHex, "hex").toString("base64");
+  // aes_key in sendmessage is base64 of the hex string (not raw bytes)
+  // per SDK: Buffer.from(uploaded.aeskey).toString("base64") where aeskey is hex
+  const aesKeyBase64 = Buffer.from(aesKeyHex).toString("base64");
   const body = {
     msg: {
       from_user_id: "",
