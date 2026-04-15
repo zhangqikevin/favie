@@ -61,7 +61,22 @@ export function parseIncoming(_req: Request): null {
   return null; // WeChat uses long-polling, not webhooks
 }
 
-export async function sendMessage(
+/**
+ * Extract image URLs and clean markdown from a response string.
+ * Returns { cleanText, imageUrls }.
+ * cleanText has markdown image syntax removed; other markdown is kept as-is for readability.
+ */
+function parseMarkdownImages(raw: string): { cleanText: string; imageUrls: string[] } {
+  const imageUrls: string[] = [];
+  // Match ![alt](url) — capture the URL
+  const cleanText = raw.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, _alt, url) => {
+    imageUrls.push(url.trim());
+    return "";  // remove the image syntax from text
+  }).replace(/\n{3,}/g, "\n\n").trim(); // collapse excess blank lines
+  return { cleanText, imageUrls };
+}
+
+async function sendRawText(
   chatId: string,
   text: string,
   config: { botToken: string; baseurl?: string; latestContextToken?: string },
@@ -80,25 +95,38 @@ export async function sendMessage(
     },
     base_info: { channel_version: "favie-1.0.0" },
   };
-  console.log("[wechat] getUpdates raw response:", JSON.stringify({ sendMsg: { to: chatId, base, clientId } }));
   const res = await fetch(`${base}/ilink/bot/sendmessage`, {
     method: "POST",
     headers: authHeaders(config.botToken),
     body: JSON.stringify(body),
   });
   const resBody = await res.text().catch(() => "");
-  console.log("[wechat-send]", JSON.stringify({ to: chatId, status: res.status, body: resBody }));
-  if (!res.ok) {
-    throw new Error(`WeChat sendMessage failed: ${res.status} ${resBody}`);
-  }
-  // Check iLink ret code (API returns 200 even on errors)
+  console.log("[wechat-send]", JSON.stringify({ to: chatId, status: res.status, body: resBody.slice(0, 200) }));
+  if (!res.ok) throw new Error(`WeChat sendMessage failed: ${res.status} ${resBody}`);
   try {
     const parsed = JSON.parse(resBody);
-    if (parsed.ret && parsed.ret !== 0) {
-      throw new Error(`WeChat sendMessage ret=${parsed.ret}: ${resBody}`);
-    }
+    if (parsed.ret && parsed.ret !== 0) throw new Error(`WeChat sendMessage ret=${parsed.ret}: ${resBody}`);
   } catch (e: any) {
     if (e.message.startsWith("WeChat")) throw e;
+  }
+}
+
+export async function sendMessage(
+  chatId: string,
+  text: string,
+  config: { botToken: string; baseurl?: string; latestContextToken?: string },
+): Promise<void> {
+  const { cleanText, imageUrls } = parseMarkdownImages(text);
+
+  // Send the main text (if non-empty after stripping images)
+  if (cleanText.trim()) {
+    await sendRawText(chatId, cleanText, config);
+  }
+
+  // Send each image URL as a separate message so the user can tap to view
+  for (const url of imageUrls) {
+    console.log("[wechat-send] sending image URL:", url.slice(0, 80));
+    await sendRawText(chatId, url, config);
   }
 }
 
