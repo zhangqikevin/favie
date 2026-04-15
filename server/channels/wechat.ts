@@ -104,9 +104,11 @@ async function uploadImageToILink(
       console.warn("[wechat-img] getuploadurl failed:", urlRes.status);
       return null;
     }
-    const urlData = await urlRes.json() as { ret?: number; upload_param?: UploadParam };
+    const urlRaw = await urlRes.text();
+    console.log("[wechat-img] getuploadurl response:", urlRaw.slice(0, 500));
+    const urlData = JSON.parse(urlRaw) as { ret?: number; upload_param?: UploadParam };
     if (urlData.ret !== 0 || !urlData.upload_param) {
-      console.warn("[wechat-img] getuploadurl bad ret:", JSON.stringify(urlData).slice(0, 200));
+      console.warn("[wechat-img] getuploadurl bad ret:", urlData.ret);
       return null;
     }
     const up = urlData.upload_param;
