@@ -92,13 +92,18 @@ interface UploadParam {
 async function uploadImageToILink(
   imageUrl: string,
   botToken: string,
+  baseurl?: string,
 ): Promise<{ urlParam: string; aesKey: string } | null> {
   try {
     // Step 1: get upload URL + AES key
-    const urlRes = await fetch(`${ILINK_LOGIN_BASE}/ilink/bot/getuploadurl`, {
+    // Try the message API base first (baseurl or ILINK_MSG_BASE), fallback to login base
+    const base = baseurl || ILINK_MSG_BASE;
+    const reqBody = { upload_type: 1, base_info: { channel_version: "favie-1.0.0" } };
+    console.log("[wechat-img] getuploadurl request:", base, JSON.stringify(reqBody));
+    const urlRes = await fetch(`${base}/ilink/bot/getuploadurl`, {
       method: "POST",
       headers: authHeaders(botToken),
-      body: JSON.stringify({ upload_type: 1, base_info: { channel_version: "favie-1.0.0" } }),
+      body: JSON.stringify(reqBody),
     });
     if (!urlRes.ok) {
       console.warn("[wechat-img] getuploadurl failed:", urlRes.status);
@@ -106,9 +111,26 @@ async function uploadImageToILink(
     }
     const urlRaw = await urlRes.text();
     console.log("[wechat-img] getuploadurl response:", urlRaw.slice(0, 500));
-    const urlData = JSON.parse(urlRaw) as { ret?: number; upload_param?: UploadParam };
+    let urlData = JSON.parse(urlRaw) as { ret?: number; upload_param?: UploadParam };
+
+    // If first base failed, try the other base (login vs msg)
     if (urlData.ret !== 0 || !urlData.upload_param) {
-      console.warn("[wechat-img] getuploadurl bad ret:", urlData.ret);
+      const altBase = base === ILINK_LOGIN_BASE ? ILINK_MSG_BASE : ILINK_LOGIN_BASE;
+      console.log("[wechat-img] retrying getuploadurl on alt base:", altBase);
+      const altRes = await fetch(`${altBase}/ilink/bot/getuploadurl`, {
+        method: "POST",
+        headers: authHeaders(botToken),
+        body: JSON.stringify(reqBody),
+      });
+      if (altRes.ok) {
+        const altRaw = await altRes.text();
+        console.log("[wechat-img] alt getuploadurl response:", altRaw.slice(0, 500));
+        urlData = JSON.parse(altRaw) as { ret?: number; upload_param?: UploadParam };
+      }
+    }
+
+    if (urlData.ret !== 0 || !urlData.upload_param) {
+      console.warn("[wechat-img] getuploadurl bad ret on both bases:", urlData.ret);
       return null;
     }
     const up = urlData.upload_param;
@@ -251,7 +273,7 @@ export async function sendMessage(
   // For each image: upload to iLink CDN and send as native image message; fallback to URL text
   for (const url of imageUrls) {
     console.log("[wechat-send] processing image:", url.slice(0, 80));
-    const uploaded = await uploadImageToILink(url, config.botToken);
+    const uploaded = await uploadImageToILink(url, config.botToken, config.baseurl);
     if (uploaded) {
       console.log("[wechat-send] sending native image message");
       await sendRawImage(chatId, uploaded.urlParam, uploaded.aesKey, config).catch(async (e: Error) => {
