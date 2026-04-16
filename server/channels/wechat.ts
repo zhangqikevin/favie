@@ -155,13 +155,10 @@ async function uploadImageToILink(
     cipher.setAutoPadding(true);
     const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
 
-    // Use upload_full_url if provided, otherwise build from upload_param
-    // Always append filekey if not already in the URL
-    let cdnUrl = urlData.upload_full_url
+    // Use upload_full_url directly if provided (it already contains all needed params),
+    // otherwise build from upload_param + filekey
+    const cdnUrl = urlData.upload_full_url
       ?? `${CDN_BASE}/upload?encrypted_query_param=${encodeURIComponent(urlData.upload_param!)}&filekey=${encodeURIComponent(filekey)}`;
-    if (!cdnUrl.includes("filekey=")) {
-      cdnUrl += `&filekey=${encodeURIComponent(filekey)}`;
-    }
     console.log("[wechat-img] CDN upload:", JSON.stringify({ urlLen: cdnUrl.length, hasFilekey: cdnUrl.includes("filekey="), encryptedSize: encrypted.length }));
     // Retry CDN upload up to 2 times on 5xx errors
     let cdnRes: Response | null = null;
