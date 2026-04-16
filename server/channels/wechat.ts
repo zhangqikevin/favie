@@ -160,9 +160,9 @@ async function uploadImageToILink(
     const cdnUrl = urlData.upload_full_url
       ?? `${CDN_BASE}/upload?encrypted_query_param=${encodeURIComponent(urlData.upload_param!)}&filekey=${encodeURIComponent(filekey)}`;
     console.log("[wechat-img] CDN upload:", JSON.stringify({ urlLen: cdnUrl.length, hasFilekey: cdnUrl.includes("filekey="), encryptedSize: encrypted.length }));
-    // Retry CDN upload up to 2 times on 5xx errors
+    // Retry CDN upload up to 4 times on 5xx errors with backoff
     let cdnRes: Response | null = null;
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    for (let attempt = 1; attempt <= 4; attempt++) {
       cdnRes = await fetch(cdnUrl, {
         method: "POST",
         headers: { "Content-Type": "application/octet-stream" },
@@ -170,7 +170,8 @@ async function uploadImageToILink(
       });
       if (cdnRes.ok || cdnRes.status < 500) break;
       const cdnBody = await cdnRes.text().catch(() => "");
-      console.warn(`[wechat-img] CDN upload attempt ${attempt} failed:`, cdnRes.status, cdnBody.slice(0, 200));
+      console.warn(`[wechat-img] CDN upload attempt ${attempt}/4 failed:`, cdnRes.status, cdnBody.slice(0, 200));
+      if (attempt < 4) await new Promise(r => setTimeout(r, attempt * 2000));
     }
     if (!cdnRes || !cdnRes.ok) {
       console.warn("[wechat-img] CDN upload failed after retries:", cdnRes?.status);
