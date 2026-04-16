@@ -114,21 +114,31 @@ async function uploadImageFromUrl(
   chatId: string,
   api: ApiClient,
 ): Promise<UploadedFileInfo | null> {
-  // Download image once
-  const imgRes = await fetch(imageUrl);
-  if (!imgRes.ok) {
-    console.warn("[wechat-img] download failed:", imgRes.status, imageUrl.slice(0, 80));
+  // Download image once — guarded so any network/stream error returns null
+  // (NOT throws), letting sendMessage fall back to URL text.
+  let plaintext: Buffer;
+  let rawsize: number;
+  let rawfilemd5: string;
+  let filesize: number;
+  try {
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) {
+      console.warn("[wechat-img] download failed:", imgRes.status, imageUrl.slice(0, 80));
+      return null;
+    }
+    plaintext = Buffer.from(await imgRes.arrayBuffer());
+    rawsize = plaintext.length;
+    rawfilemd5 = crypto.createHash("md5").update(plaintext).digest("hex");
+    filesize = aesEcbPaddedSize(rawsize);
+    console.log("[wechat-img] downloaded:", JSON.stringify({
+      size: rawsize,
+      md5: rawfilemd5.slice(0, 12),
+      url: imageUrl.slice(0, 80),
+    }));
+  } catch (e: any) {
+    console.warn("[wechat-img] download error:", e?.message ?? e, imageUrl.slice(0, 80));
     return null;
   }
-  const plaintext = Buffer.from(await imgRes.arrayBuffer());
-  const rawsize = plaintext.length;
-  const rawfilemd5 = crypto.createHash("md5").update(plaintext).digest("hex");
-  const filesize = aesEcbPaddedSize(rawsize);
-  console.log("[wechat-img] downloaded:", JSON.stringify({
-    size: rawsize,
-    md5: rawfilemd5.slice(0, 12),
-    url: imageUrl.slice(0, 80),
-  }));
 
   let lastErr: unknown;
   for (let attempt = 1; attempt <= UPLOAD_MAX_RETRIES; attempt++) {
