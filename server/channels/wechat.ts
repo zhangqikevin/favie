@@ -142,7 +142,7 @@ async function uploadImageToILink(
       return null;
     }
     const urlRaw = await urlRes.text();
-    console.log("[wechat-img] getuploadurl response:", urlRaw.slice(0, 500));
+    console.log("[wechat-img] getuploadurl response:", urlRaw.slice(0, 800));
     const urlData = JSON.parse(urlRaw) as { ret?: number; upload_param?: string; upload_full_url?: string };
     // ret=0 or absent means success; need either upload_full_url or upload_param
     if ((urlData.ret !== undefined && urlData.ret !== 0) || (!urlData.upload_full_url && !urlData.upload_param)) {
@@ -162,15 +162,21 @@ async function uploadImageToILink(
     if (!cdnUrl.includes("filekey=")) {
       cdnUrl += `&filekey=${encodeURIComponent(filekey)}`;
     }
-    console.log("[wechat-img] CDN upload URL:", cdnUrl.slice(0, 160));
-    const cdnRes = await fetch(cdnUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/octet-stream" },
-      body: new Uint8Array(encrypted),
-    });
-    if (!cdnRes.ok) {
+    console.log("[wechat-img] CDN upload:", JSON.stringify({ urlLen: cdnUrl.length, hasFilekey: cdnUrl.includes("filekey="), encryptedSize: encrypted.length }));
+    // Retry CDN upload up to 2 times on 5xx errors
+    let cdnRes: Response | null = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      cdnRes = await fetch(cdnUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: new Uint8Array(encrypted),
+      });
+      if (cdnRes.ok || cdnRes.status < 500) break;
       const cdnBody = await cdnRes.text().catch(() => "");
-      console.warn("[wechat-img] CDN upload failed:", cdnRes.status, cdnBody.slice(0, 200));
+      console.warn(`[wechat-img] CDN upload attempt ${attempt} failed:`, cdnRes.status, cdnBody.slice(0, 200));
+    }
+    if (!cdnRes || !cdnRes.ok) {
+      console.warn("[wechat-img] CDN upload failed after retries:", cdnRes?.status);
       return null;
     }
     const downloadParam = cdnRes.headers.get("x-encrypted-param");
