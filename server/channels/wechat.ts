@@ -188,6 +188,13 @@ async function uploadImageFromUrl(
         throw new Error(`CDN POST ${cdnRes.status} (${postMs}ms): ${errMsg.slice(0, 200)}`);
       }
       const downloadParam = cdnRes.headers.get("x-encrypted-param");
+      const cdnWarn = cdnRes.headers.get("x-error-message");
+      console.log("[wechat-img] attempt", attempt, "CDN POST ok:", JSON.stringify({
+        status: cdnRes.status,
+        postMs,
+        warn: cdnWarn ?? null,
+        hasDownloadParam: !!downloadParam,
+      }));
       if (!downloadParam) {
         throw new Error(`CDN POST 200 but missing x-encrypted-param header (${postMs}ms)`);
       }
