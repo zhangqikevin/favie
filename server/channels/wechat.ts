@@ -67,10 +67,17 @@ export function parseIncoming(_req: Request): null {
  */
 function parseMarkdownImages(raw: string): { cleanText: string; imageUrls: string[] } {
   const imageUrls: string[] = [];
-  const cleanText = raw.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, _alt, url) => {
+  // Step 1: extract markdown images ![alt](url)
+  let text = raw.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, _alt, url) => {
     imageUrls.push(url.trim());
     return "";
-  }).replace(/\n{3,}/g, "\n\n").trim();
+  });
+  // Step 2: extract bare image URLs (not already inside markdown links)
+  text = text.replace(/(?<!\()(https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp|bmp|svg)(?:\?\S*)?)/gi, (url) => {
+    imageUrls.push(url.trim());
+    return "";
+  });
+  const cleanText = text.replace(/\n{3,}/g, "\n\n").trim();
   return { cleanText, imageUrls };
 }
 
@@ -265,6 +272,7 @@ export async function sendMessage(
   config: { botToken: string; baseurl?: string; latestContextToken?: string },
 ): Promise<void> {
   const { cleanText, imageUrls } = parseMarkdownImages(text);
+  console.log("[wechat-send] parsed:", JSON.stringify({ hasText: !!cleanText.trim(), imageCount: imageUrls.length, rawLen: text.length, preview: text.slice(0, 120) }));
 
   // Send the main text (if non-empty after stripping images)
   if (cleanText.trim()) {
