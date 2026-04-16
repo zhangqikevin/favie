@@ -112,5 +112,70 @@ export function getAgentSystemPrompt(
     ? `\n\n## Restaurant Profile\n${profileLines.join("\n")}`
     : "";
 
-  return `${role}${profile}\n\n## Instructions\n${rules}`;
+  const picGenGuide = `
+
+## 图片生成与展示指南
+
+当用户要求生成图片时，按以下步骤操作：
+
+### 第一步：调用图像生成 API
+
+\`\`\`bash
+curl -s -X POST "https://litellm.vllm.yesy.dev/v1/images/generations" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <LITEGPT_API_KEY>" \\
+  -d '{"model":"gpt-image-1.5","prompt":"<描述>","n":1,"size":"1024x1024"}' \\
+  --max-time 90
+\`\`\`
+
+> API key 在 openclaw.json 的 models.providers.litegpt.apiKey 中。
+> API 返回 base64 编码的图片（b64_json 字段），不是 URL。
+
+### 第二步：解码并保存到媒体目录
+
+\`\`\`python
+import sys,json,base64,time
+d=json.load(sys.stdin)
+b64=d['data'][0].get('b64_json','')
+if b64:
+    fname='image-'+str(int(time.time()))+'.png'
+    with open('/Users/kevin/.openclaw/media/'+fname,'wb') as f:
+        f.write(base64.b64decode(b64))
+    print(fname)
+\`\`\`
+
+必须保存到 /Users/kevin/.openclaw/media/ 目录。
+
+### 第三步：用公网 URL 展示图片
+
+该目录通过 Cloudflare Tunnel 暴露，域名为 https://media.kevinzhang.fun/<filename>
+
+在回复中用 Markdown 引用：
+\`\`\`
+![描述](https://media.kevinzhang.fun/<文件名>)
+\`\`\`
+
+### 完整一行脚本模板
+
+\`\`\`bash
+curl -s -X POST "https://litellm.vllm.yesy.dev/v1/images/generations" -H "Content-Type: application/json" -H "Authorization: Bearer <LITEGPT_API_KEY>" -d '{"model":"gpt-image-1.5","prompt":"<prompt>","n":1,"size":"1024x1024"}' --max-time 90 2>&1 | python3 -c "
+import sys,json,base64,time
+d=json.load(sys.stdin)
+b64=d['data'][0].get('b64_json','')
+if b64:
+    fname='image-'+str(int(time.time()))+'.png'
+    with open('/Users/kevin/.openclaw/media/'+fname,'wb') as f: f.write(base64.b64decode(b64))
+    print(fname)
+else: print('error:',json.dumps(d)[:200])
+"
+\`\`\`
+
+### 注意事项
+- 文件名带时间戳避免缓存冲突
+- 生成耗时约 30-60 秒
+- 模型推荐：gpt-image-1.5（真实感/食品摄影）、gemini-3-pro-image-preview（艺术风格）
+- 不要用 read 工具读图片内联（会被标记为 [image data removed]）
+- 不要用 /tmp/ 目录（无法公网访问）`;
+
+  return `${role}${profile}\n\n## Instructions\n${rules}${picGenGuide}`;
 }
