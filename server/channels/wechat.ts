@@ -114,61 +114,65 @@ async function uploadImageToILink(
     const rawfilemd5 = crypto.createHash("md5").update(plain).digest("hex");
     const filesize = aesEcbPaddedSize(rawsize);
 
-    // Generate random AES key and filekey
+    // Generate random AES key
     const aesKey = crypto.randomBytes(16);
     const aesKeyHex = aesKey.toString("hex");
-    const filekey = crypto.randomBytes(16).toString("hex");
 
-    // Step 2: call getuploadurl with file metadata
-    const reqBody = {
-      filekey,
-      media_type: 1, // IMAGE
-      to_user_id: chatId,
-      rawsize,
-      rawfilemd5,
-      filesize,
-      no_need_thumb: true,
-      aeskey: aesKeyHex,
-      base_info: { channel_version: "favie-1.0.0" },
-    };
-    console.log("[wechat-img] getuploadurl request:", JSON.stringify({ filekey, rawsize, filesize, md5: rawfilemd5 }));
-    const urlRes = await fetch(`${ILINK_LOGIN_BASE}/ilink/bot/getuploadurl`, {
-      method: "POST",
-      headers: authHeaders(botToken),
-      body: JSON.stringify(reqBody),
-    });
-    if (!urlRes.ok) {
-      console.warn("[wechat-img] getuploadurl HTTP failed:", urlRes.status);
-      return null;
-    }
-    const urlRaw = await urlRes.text();
-    console.log("[wechat-img] getuploadurl response:", urlRaw.slice(0, 800));
-    const urlData = JSON.parse(urlRaw) as { ret?: number; upload_param?: string; upload_full_url?: string };
-    // ret=0 or absent means success; need either upload_full_url or upload_param
-    if ((urlData.ret !== undefined && urlData.ret !== 0) || (!urlData.upload_full_url && !urlData.upload_param)) {
-      console.warn("[wechat-img] getuploadurl bad ret:", urlData.ret, "has_url:", !!urlData.upload_full_url, "has_param:", !!urlData.upload_param);
-      return null;
-    }
-
-    // Step 3: AES-128-ECB encrypt and upload to CDN
+    // Step 2: AES-128-ECB encrypt the image (reused across retries)
     const cipher = crypto.createCipheriv("aes-128-ecb", aesKey, null);
     cipher.setAutoPadding(true);
     const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
 
-    // Use upload_full_url directly if provided (it already contains all needed params),
-    // otherwise build from upload_param + filekey
-    const cdnUrl = urlData.upload_full_url
-      ?? `${CDN_BASE}/upload?encrypted_query_param=${encodeURIComponent(urlData.upload_param!)}&filekey=${encodeURIComponent(filekey)}`;
-    console.log("[wechat-img] CDN upload:", JSON.stringify({ urlLen: cdnUrl.length, hasFilekey: cdnUrl.includes("filekey="), encryptedSize: encrypted.length }));
-    // Retry CDN upload up to 4 times on 5xx errors with backoff
+    // Step 3: Upload to CDN with retries — request a fresh upload URL each attempt
     let cdnRes: Response | null = null;
+    let downloadParam: string | null = null;
     for (let attempt = 1; attempt <= 4; attempt++) {
+      // Generate a new filekey for each attempt
+      const attemptFilekey = crypto.randomBytes(16).toString("hex");
+      const reqBody = {
+        filekey: attemptFilekey,
+        media_type: 1, // IMAGE
+        to_user_id: chatId,
+        rawsize,
+        rawfilemd5,
+        filesize,
+        no_need_thumb: true,
+        aeskey: aesKeyHex,
+        base_info: { channel_version: "favie-1.0.0" },
+      };
+      console.log(`[wechat-img] attempt ${attempt}/4 getuploadurl:`, JSON.stringify({ filekey: attemptFilekey, rawsize, filesize, md5: rawfilemd5 }));
+      const urlRes = await fetch(`${ILINK_LOGIN_BASE}/ilink/bot/getuploadurl`, {
+        method: "POST",
+        headers: authHeaders(botToken),
+        body: JSON.stringify(reqBody),
+      });
+      if (!urlRes.ok) {
+        console.warn(`[wechat-img] attempt ${attempt}/4 getuploadurl HTTP failed:`, urlRes.status);
+        if (attempt < 4) { await new Promise(r => setTimeout(r, attempt * 2000)); continue; }
+        return null;
+      }
+      const urlRaw = await urlRes.text();
+      console.log(`[wechat-img] attempt ${attempt}/4 getuploadurl response:`, urlRaw.slice(0, 300));
+      const urlData = JSON.parse(urlRaw) as { ret?: number; upload_param?: string; upload_full_url?: string };
+      if ((urlData.ret !== undefined && urlData.ret !== 0) || (!urlData.upload_full_url && !urlData.upload_param)) {
+        console.warn(`[wechat-img] attempt ${attempt}/4 getuploadurl bad ret:`, urlData.ret);
+        if (attempt < 4) { await new Promise(r => setTimeout(r, attempt * 2000)); continue; }
+        return null;
+      }
+
+      const cdnUrl = urlData.upload_full_url
+        ?? `${CDN_BASE}/upload?encrypted_query_param=${encodeURIComponent(urlData.upload_param!)}&filekey=${encodeURIComponent(attemptFilekey)}`;
+      console.log(`[wechat-img] attempt ${attempt}/4 CDN upload:`, JSON.stringify({ urlLen: cdnUrl.length, encryptedSize: encrypted.length }));
+
       cdnRes = await fetch(cdnUrl, {
         method: "POST",
         headers: { "Content-Type": "application/octet-stream" },
         body: new Uint8Array(encrypted),
       });
-      if (cdnRes.ok || cdnRes.status < 500) break;
+      if (cdnRes.ok) {
+        downloadParam = cdnRes.headers.get("x-encrypted-param");
+        break;
+      }
       const cdnBody = await cdnRes.text().catch(() => "");
       console.warn(`[wechat-img] CDN upload attempt ${attempt}/4 failed:`, cdnRes.status, cdnBody.slice(0, 200));
       if (attempt < 4) await new Promise(r => setTimeout(r, attempt * 2000));
@@ -177,7 +181,6 @@ async function uploadImageToILink(
       console.warn("[wechat-img] CDN upload failed after retries:", cdnRes?.status);
       return null;
     }
-    const downloadParam = cdnRes.headers.get("x-encrypted-param");
     if (!downloadParam) {
       console.warn("[wechat-img] CDN: missing x-encrypted-param header");
       return null;
