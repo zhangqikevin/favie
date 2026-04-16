@@ -153,7 +153,8 @@ async function uploadImageFromUrl(
     plaintext = compressed;
     rawsize = plaintext.length;
     rawfilemd5 = crypto.createHash("md5").update(plaintext).digest("hex");
-    filesize = aesEcbPaddedSize(rawsize);
+    // NOTE: filesize is populated per-attempt (depends on raw vs AES mode) below.
+    filesize = rawsize;
     console.log("[wechat-img] downloaded+compressed:", JSON.stringify({
       origSize,
       size: rawsize,
@@ -173,6 +174,14 @@ async function uploadImageFromUrl(
     const aeskey = crypto.randomBytes(16);
 
     try {
+      // Alternate upload strategies per attempt to find the one the server accepts.
+      // attempt 1: raw bytes, filesize=rawsize (new full_url path)
+      // attempt 2: AES ciphertext, filesize=padded (legacy path)
+      // attempt 3: raw bytes, filesize=rawsize (retry new path)
+      // attempt 4: AES ciphertext, filesize=padded (retry legacy path)
+      const useAes = attempt % 2 === 0;
+      const attemptFilesize = useAes ? aesEcbPaddedSize(rawsize) : rawsize;
+
       // Step 1: get fresh upload_param
       const t0 = Date.now();
       const resp = await api.getUploadUrl({
@@ -181,7 +190,7 @@ async function uploadImageFromUrl(
         to_user_id: chatId,
         rawsize,
         rawfilemd5,
-        filesize,
+        filesize: attemptFilesize,
         no_need_thumb: true,
         aeskey: aeskey.toString("hex"),
       });
@@ -201,14 +210,11 @@ async function uploadImageFromUrl(
         len: (uploadFullUrl ?? uploadParam ?? "").length,
       }));
 
-      // For new `upload_full_url` mode, the URL is pre-signed and (per WeChat's nova
-      // CDN) appears to expect RAW image bytes. AES encryption is only required for
-      // the legacy `upload_param` flow.
-      const useFullUrl = !!uploadFullUrl;
-      const body: Buffer = useFullUrl ? plaintext : encryptAesEcb(plaintext, aeskey);
+      // Strategy driven by `useAes` (odd attempts = raw, even = AES)
+      const body: Buffer = useAes ? encryptAesEcb(plaintext, aeskey) : plaintext;
       const cdnUrl = uploadFullUrl
         ?? buildCdnUploadUrl({ cdnBaseUrl: CDN_BASE_URL, uploadParam: uploadParam!, filekey });
-      const contentType = useFullUrl ? "image/png" : "application/octet-stream";
+      const contentType = useAes ? "application/octet-stream" : "image/jpeg";
 
       const postT0 = Date.now();
       const cdnRes = await fetch(cdnUrl, {
@@ -256,7 +262,7 @@ async function uploadImageFromUrl(
         downloadEncryptedQueryParam: downloadParam,
         aeskey: aeskey.toString("hex"),
         fileSize: rawsize,
-        fileSizeCiphertext: useFullUrl ? rawsize : filesize,
+        fileSizeCiphertext: useAes ? aesEcbPaddedSize(rawsize) : rawsize,
       };
       console.log("[wechat-img] upload success:", JSON.stringify({
         attempt,
