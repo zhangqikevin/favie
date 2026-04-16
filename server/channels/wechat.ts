@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { Request } from "express";
+import sharp from "sharp";
 import {
   ApiClient,
   type UploadedFileInfo,
@@ -126,12 +127,37 @@ async function uploadImageFromUrl(
       console.warn("[wechat-img] download failed:", imgRes.status, imageUrl.slice(0, 80));
       return null;
     }
-    plaintext = Buffer.from(await imgRes.arrayBuffer());
+    const original = Buffer.from(await imgRes.arrayBuffer());
+    const origSize = original.length;
+    // WeChat iLink image upload appears to reject large payloads (CDN x-error-code
+    // -5102031 after 40-70s for ~2MB files). Compress to JPEG, max 1280px,
+    // quality 80; iterate down if still > 800KB.
+    let compressed = original;
+    try {
+      let quality = 80;
+      let maxDim = 1280;
+      for (let i = 0; i < 4; i++) {
+        compressed = await sharp(original)
+          .rotate()
+          .resize({ width: maxDim, height: maxDim, fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality, mozjpeg: true })
+          .toBuffer();
+        if (compressed.length <= 800 * 1024) break;
+        quality -= 15;
+        maxDim = Math.floor(maxDim * 0.85);
+      }
+    } catch (e: any) {
+      console.warn("[wechat-img] compression failed, using original:", e?.message ?? e);
+      compressed = original;
+    }
+    plaintext = compressed;
     rawsize = plaintext.length;
     rawfilemd5 = crypto.createHash("md5").update(plaintext).digest("hex");
     filesize = aesEcbPaddedSize(rawsize);
-    console.log("[wechat-img] downloaded:", JSON.stringify({
+    console.log("[wechat-img] downloaded+compressed:", JSON.stringify({
+      origSize,
       size: rawsize,
+      ratio: (rawsize / origSize).toFixed(2),
       md5: rawfilemd5.slice(0, 12),
       url: imageUrl.slice(0, 80),
     }));
