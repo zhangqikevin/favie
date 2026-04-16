@@ -316,7 +316,7 @@ export async function getUpdates(
   const res = await fetch(`${base}/ilink/bot/getupdates`, {
     method: "POST",
     headers: authHeaders(botToken),
-    body: JSON.stringify({ get_updates_buf: cursor ?? "", base_info: { channel_version: "favie-1.0.0" } }),
+    body: JSON.stringify({ get_updates_buf: cursor ?? "", timeout: _timeout, base_info: { channel_version: "favie-1.0.0" } }),
     signal,
   });
   if (!res.ok) throw new Error(`WeChat getUpdates failed: ${res.status}`);
