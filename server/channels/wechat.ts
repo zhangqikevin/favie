@@ -1,16 +1,15 @@
-import { writeFile, unlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import crypto from "node:crypto";
 import type { Request } from "express";
 import {
   ApiClient,
-  type WeixinMessage,
   type UploadedFileInfo,
-  uploadImage as ilinkUploadImage,
   sendText as ilinkSendText,
   sendImage as ilinkSendImage,
   CDN_BASE_URL,
+  UploadMediaType,
+  encryptAesEcb,
+  aesEcbPaddedSize,
+  buildCdnUploadUrl,
 } from "wechat-ilink-client";
 
 const ILINK_LOGIN_BASE = "https://ilinkai.weixin.qq.com";
@@ -100,48 +99,114 @@ function parseMarkdownImages(raw: string): { cleanText: string; imageUrls: strin
 }
 
 /**
- * Download image from URL, save to temp file, upload via wechat-ilink-client SDK.
- * Retries with fresh upload URL on each attempt.
+ * Download image from URL and upload to WeChat CDN.
+ *
+ * Built on SDK primitives (encryptAesEcb / aesEcbPaddedSize / buildCdnUploadUrl
+ * / api.getUploadUrl) instead of SDK's uploadImage(), because the SDK's internal
+ * retry reuses the same one-shot upload_param. We fetch a fresh upload_param
+ * (and fresh filekey + aeskey) on every retry, which is what the WeChat CDN
+ * actually needs.
  */
+const UPLOAD_MAX_RETRIES = 4;
+
 async function uploadImageFromUrl(
   imageUrl: string,
   chatId: string,
   api: ApiClient,
 ): Promise<UploadedFileInfo | null> {
-  let tmpPath: string | null = null;
-  try {
-    // Download image to temp file (SDK requires file path)
-    const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) {
-      console.warn("[wechat-img] download failed:", imgRes.status, imageUrl.slice(0, 80));
-      return null;
-    }
-    const buf = Buffer.from(await imgRes.arrayBuffer());
-    console.log("[wechat-img] downloaded:", JSON.stringify({ size: buf.length, url: imageUrl.slice(0, 80) }));
-
-    tmpPath = join(tmpdir(), `favie-img-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.png`);
-    await writeFile(tmpPath, buf);
-
-    // Use SDK's uploadImage — it handles getUploadUrl + AES encrypt + CDN upload + retry
-    const uploaded = await ilinkUploadImage({
-      filePath: tmpPath,
-      toUserId: chatId,
-      api,
-      cdnBaseUrl: CDN_BASE_URL,
-    });
-    console.log("[wechat-img] upload success:", JSON.stringify({
-      filekey: uploaded.filekey,
-      fileSize: uploaded.fileSize,
-      ciphertextSize: uploaded.fileSizeCiphertext,
-      downloadParam: uploaded.downloadEncryptedQueryParam.slice(0, 40),
-    }));
-    return uploaded;
-  } catch (e: any) {
-    console.warn("[wechat-img] upload error:", e.message);
+  // Download image once
+  const imgRes = await fetch(imageUrl);
+  if (!imgRes.ok) {
+    console.warn("[wechat-img] download failed:", imgRes.status, imageUrl.slice(0, 80));
     return null;
-  } finally {
-    if (tmpPath) await unlink(tmpPath).catch(() => {});
   }
+  const plaintext = Buffer.from(await imgRes.arrayBuffer());
+  const rawsize = plaintext.length;
+  const rawfilemd5 = crypto.createHash("md5").update(plaintext).digest("hex");
+  const filesize = aesEcbPaddedSize(rawsize);
+  console.log("[wechat-img] downloaded:", JSON.stringify({
+    size: rawsize,
+    md5: rawfilemd5.slice(0, 12),
+    url: imageUrl.slice(0, 80),
+  }));
+
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= UPLOAD_MAX_RETRIES; attempt++) {
+    // Fresh per-attempt material — upload_param appears to be one-shot/short-TTL
+    const filekey = crypto.randomBytes(16).toString("hex");
+    const aeskey = crypto.randomBytes(16);
+
+    try {
+      // Step 1: get fresh upload_param
+      const t0 = Date.now();
+      const resp = await api.getUploadUrl({
+        filekey,
+        media_type: UploadMediaType.IMAGE,
+        to_user_id: chatId,
+        rawsize,
+        rawfilemd5,
+        filesize,
+        no_need_thumb: true,
+        aeskey: aeskey.toString("hex"),
+      });
+      const uploadParam = resp.upload_param;
+      const getUrlMs = Date.now() - t0;
+      if (!uploadParam) {
+        throw new Error(`getUploadUrl returned no upload_param: ${JSON.stringify(resp)}`);
+      }
+      console.log("[wechat-img] attempt", attempt, "got upload_param:", JSON.stringify({
+        ms: getUrlMs,
+        filekey: filekey.slice(0, 12),
+        paramLen: uploadParam.length,
+      }));
+
+      // Step 2: AES-128-ECB encrypt
+      const ciphertext = encryptAesEcb(plaintext, aeskey);
+
+      // Step 3: POST encrypted bytes to CDN
+      const cdnUrl = buildCdnUploadUrl({ cdnBaseUrl: CDN_BASE_URL, uploadParam, filekey });
+      const postT0 = Date.now();
+      const cdnRes = await fetch(cdnUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: new Uint8Array(ciphertext),
+      });
+      const postMs = Date.now() - postT0;
+
+      if (cdnRes.status !== 200) {
+        const errMsg = cdnRes.headers.get("x-error-message") ?? await cdnRes.text().catch(() => "(no body)");
+        throw new Error(`CDN POST ${cdnRes.status} (${postMs}ms): ${errMsg.slice(0, 200)}`);
+      }
+      const downloadParam = cdnRes.headers.get("x-encrypted-param");
+      if (!downloadParam) {
+        throw new Error(`CDN POST 200 but missing x-encrypted-param header (${postMs}ms)`);
+      }
+
+      const uploaded: UploadedFileInfo = {
+        filekey,
+        downloadEncryptedQueryParam: downloadParam,
+        aeskey: aeskey.toString("hex"),
+        fileSize: rawsize,
+        fileSizeCiphertext: filesize,
+      };
+      console.log("[wechat-img] upload success:", JSON.stringify({
+        attempt,
+        postMs,
+        filekey: filekey.slice(0, 12),
+        downloadParam: downloadParam.slice(0, 40),
+      }));
+      return uploaded;
+    } catch (e: any) {
+      lastErr = e;
+      console.warn(`[wechat-img] attempt ${attempt}/${UPLOAD_MAX_RETRIES} failed:`, e?.message ?? e);
+      if (attempt < UPLOAD_MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    }
+  }
+
+  console.warn("[wechat-img] all upload attempts failed:", (lastErr as any)?.message ?? lastErr);
+  return null;
 }
 
 export async function sendMessage(
