@@ -1446,6 +1446,12 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
 
   app.get("/api/channel/wechat/login-status/:qrcodeId", async (req, res) => {
     if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    // Disable ETag/304 for this poll endpoint — apiRequest treats !res.ok (incl. 304)
+    // as failure, and that causes the poll loop to throw spuriously when express
+    // returns 304 for repeated identical {"status":"pending"} responses.
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
     try {
       const result = await wechat.checkQrStatus(req.params.qrcodeId);
       res.json(result);

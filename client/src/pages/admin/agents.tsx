@@ -1585,33 +1585,42 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
     },
   });
 
-  // Poll for WeChat QR scan status
+  // Poll for WeChat QR scan status — sequential (next request only fires after
+  // the previous one completes) to avoid stacking up dozens of in-flight long-polls
+  // when the server holds each request open for ~30s.
   useEffect(() => {
     if (!wechatQr || wechatQr.status !== "pending") return;
-    const id = setInterval(async () => {
-      try {
-        const res = await apiRequest("GET", `/api/channel/wechat/login-status/${wechatQr.qrcodeId}`);
-        const data = await res.json() as { status: string; botToken?: string; baseurl?: string };
-        if (data.status === "confirmed" && data.botToken && !wechatBindingSaved.current) {
-          wechatBindingSaved.current = true;
-          clearInterval(id);
-          setWechatQr(prev => prev ? { ...prev, status: "confirmed", botToken: data.botToken, baseurl: data.baseurl } : null);
-          // Auto-save binding (guarded by ref — fires exactly once)
-          connectMutation.mutate(
-            { channelType: "wechat", config: { botToken: data.botToken!, baseurl: data.baseurl || "" } },
-            {
-              onSuccess: () => setTimeout(() => setWechatQrOpen(false), 1500),
-              onError: (err: any) => {
-                wechatBindingSaved.current = false;
-                console.error("[wechat] binding save failed:", err.message);
-                setWechatQrError(err.message || "Failed to save WeChat binding");
+    let cancelled = false;
+    const qrcodeId = wechatQr.qrcodeId;
+    (async () => {
+      while (!cancelled) {
+        try {
+          const res = await apiRequest("GET", `/api/channel/wechat/login-status/${qrcodeId}`);
+          if (cancelled) return;
+          const data = await res.json() as { status: string; botToken?: string; baseurl?: string };
+          if (data.status === "confirmed" && data.botToken && !wechatBindingSaved.current) {
+            wechatBindingSaved.current = true;
+            cancelled = true;
+            setWechatQr(prev => prev ? { ...prev, status: "confirmed", botToken: data.botToken, baseurl: data.baseurl } : null);
+            connectMutation.mutate(
+              { channelType: "wechat", config: { botToken: data.botToken!, baseurl: data.baseurl || "" } },
+              {
+                onSuccess: () => setTimeout(() => setWechatQrOpen(false), 1500),
+                onError: (err: any) => {
+                  wechatBindingSaved.current = false;
+                  console.error("[wechat] binding save failed:", err.message);
+                  setWechatQrError(err.message || "Failed to save WeChat binding");
+                },
               },
-            },
-          );
-        }
-      } catch { /* ignore poll errors */ }
-    }, 2000);
-    return () => clearInterval(id);
+            );
+            return;
+          }
+        } catch { /* ignore individual poll errors and retry */ }
+        // Brief gap before next request
+        await new Promise(r => setTimeout(r, 500));
+      }
+    })();
+    return () => { cancelled = true; };
   }, [wechatQr?.qrcodeId, wechatQr?.status]);
 
   async function handleWechatConnect() {
