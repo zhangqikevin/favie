@@ -300,13 +300,18 @@ export async function getUpdates(
     signal,
   });
   if (!res.ok) throw new Error(`WeChat getUpdates failed: ${res.status}`);
-  const data = await res.json() as { msgs?: ILinkMessage[]; get_updates_buf?: string; ret?: number };
+  const data = await res.json() as { msgs?: ILinkMessage[]; get_updates_buf?: string; ret?: number; errcode?: number; errmsg?: string };
+  // Detect expired/dead ilink session — throw a typed error so poller can deactivate binding
+  if (data.errcode && data.errcode !== 0) {
+    const err = new Error(`WeChat ilink error ${data.errcode}: ${data.errmsg ?? "(no msg)"}`);
+    (err as any).ilinkErrcode = data.errcode;
+    throw err;
+  }
   const msgCount = data.msgs?.length ?? 0;
   const inCursor = (cursor ?? "").slice(0, 20);
   const outCursor = (data.get_updates_buf ?? "").slice(0, 20);
-  // If cursor advanced but no messages, dump full payload — usually a session/status event
   if (msgCount === 0 && inCursor !== outCursor && inCursor !== "") {
-    console.log("[wechat] getUpdates GHOST advance (cursor moved, 0 msgs) — full payload:", JSON.stringify(data));
+    console.log("[wechat] getUpdates ghost advance (cursor moved, 0 msgs) — payload:", JSON.stringify(data));
   } else {
     console.log("[wechat] getUpdates raw response:", JSON.stringify({ ret: data.ret, msgCount, buf: outCursor, firstMsg: data.msgs?.[0] }));
   }

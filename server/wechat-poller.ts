@@ -45,8 +45,14 @@ async function pollLoop(bindingId: string, signal: AbortSignal): Promise<void> {
       if (messages.length === 0) await sleep(3000);
     } catch (e: any) {
       if (signal.aborted) break;
+      // ilink session expired (errcode -14) or token invalid — bind is dead, mark inactive & stop polling
+      if (e?.ilinkErrcode) {
+        console.warn(`[wechat-poll] binding=${bindingId} ilink errcode=${e.ilinkErrcode} (${e.message}) — deactivating binding, user must re-bind via QR`);
+        try { await storage.setChannelBindingActive(bindingId, false); } catch {}
+        break;
+      }
       console.error(`[wechat-poll] binding=${bindingId} getUpdates error:`, e.message);
-      await sleep(5000); // Back off on error before retrying
+      await sleep(5000);
     }
   }
 }

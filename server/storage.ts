@@ -42,6 +42,7 @@ export interface IStorage {
   getChannelBindingByToken(channelType: string, token: string): Promise<ChannelBinding | undefined>;
   saveChannelBinding(data: InsertChannelBinding): Promise<ChannelBinding>;
   updateChannelBindingConfig(id: string, patch: Record<string, string>): Promise<void>;
+  setChannelBindingActive(id: string, active: boolean): Promise<void>;
   deleteChannelBinding(userId: string, restaurantId: string, agentId: string, channelType: string): Promise<void>;
   getAllActiveChannelBindings(agentId: string, userId: string): Promise<ChannelBinding[]>;
   getAllActiveChannelBindingsByType(channelType: string): Promise<ChannelBinding[]>;
@@ -301,6 +302,10 @@ export class DatabaseStorage implements IStorage {
     if (!existing) return;
     const merged = { ...(existing.channelConfig as Record<string, string>), ...patch };
     await db.update(channelBindings).set({ channelConfig: merged }).where(eq(channelBindings.id, id));
+  }
+
+  async setChannelBindingActive(id: string, active: boolean): Promise<void> {
+    await db.update(channelBindings).set({ active }).where(eq(channelBindings.id, id));
   }
 
   async getAllActiveChannelBindingsByType(channelType: string): Promise<ChannelBinding[]> {
