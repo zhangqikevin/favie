@@ -188,6 +188,10 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
+      // Skip noisy polling endpoints from log buffer entirely
+      if (req.method === "GET" && (path.startsWith("/api/chat/") || path === "/api/admin/logs")) {
+        return;
+      }
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         const body = JSON.stringify(capturedJsonResponse);

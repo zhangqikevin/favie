@@ -1,5 +1,5 @@
 // In-memory ring buffer for recent server logs (viewable via /api/admin/logs)
-const MAX_LINES = 500;
+const MAX_LINES = 2000;
 const buffer: string[] = [];
 
 export function pushLog(level: string, ...args: unknown[]): void {
