@@ -41,7 +41,8 @@ async function pollLoop(bindingId: string, signal: AbortSignal): Promise<void> {
           );
         }
       }
-      // No messages: long-poll already waited 30s, loop immediately for next batch
+      // If no messages and response returned instantly, wait before next poll
+      if (messages.length === 0) await sleep(3000);
     } catch (e: any) {
       if (signal.aborted) break;
       console.error(`[wechat-poll] binding=${bindingId} getUpdates error:`, e.message);
