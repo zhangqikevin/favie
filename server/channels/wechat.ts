@@ -174,13 +174,10 @@ async function uploadImageFromUrl(
     const aeskey = crypto.randomBytes(16);
 
     try {
-      // Alternate upload strategies per attempt to find the one the server accepts.
-      // attempt 1: raw bytes, filesize=rawsize (new full_url path)
-      // attempt 2: AES ciphertext, filesize=padded (legacy path)
-      // attempt 3: raw bytes, filesize=rawsize (retry new path)
-      // attempt 4: AES ciphertext, filesize=padded (retry legacy path)
-      const useAes = attempt % 2 === 0;
-      const attemptFilesize = useAes ? aesEcbPaddedSize(rawsize) : rawsize;
+      // WeChat CDN (both legacy upload_param and new upload_full_url modes) expects
+      // AES-ECB encrypted ciphertext. filesize must equal the padded ciphertext length.
+      const useAes = true;
+      const attemptFilesize = aesEcbPaddedSize(rawsize);
 
       // Step 1: get fresh upload_param
       const t0 = Date.now();
