@@ -36,9 +36,11 @@ export async function callOpenclaw(
   }
 
   const data = (await res.json()) as {
-    choices: { message: { content: string } }[];
+    choices: { message: { content: string | null; tool_calls?: any[] } }[];
   };
-  return data.choices[0]?.message?.content ?? "";
+  const msg = data.choices[0]?.message;
+  console.log("[openclaw] response:", JSON.stringify({ content: msg?.content?.slice(0, 200) ?? null, hasToolCalls: !!msg?.tool_calls?.length, choiceCount: data.choices?.length }));
+  return msg?.content ?? "";
 }
 
 /**
