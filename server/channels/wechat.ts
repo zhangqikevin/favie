@@ -1,5 +1,17 @@
+import { writeFile, unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import crypto from "node:crypto";
 import type { Request } from "express";
+import {
+  ApiClient,
+  type WeixinMessage,
+  type UploadedFileInfo,
+  uploadImage as ilinkUploadImage,
+  sendText as ilinkSendText,
+  sendImage as ilinkSendImage,
+  CDN_BASE_URL,
+} from "wechat-ilink-client";
 
 const ILINK_LOGIN_BASE = "https://ilinkai.weixin.qq.com";
 const ILINK_MSG_BASE   = "https://api.weixin.qq.com";
@@ -13,20 +25,29 @@ function pubHeaders(): Record<string, string> {
   return { "X-WECHAT-UIN": xUin(), "Content-Type": "application/json" };
 }
 
-function authHeaders(botToken: string): Record<string, string> {
-  return {
-    "Authorization": `Bearer ${botToken}`,
-    "AuthorizationType": "ilink_bot_token",
-    "X-WECHAT-UIN": xUin(),
-    "Content-Type": "application/json",
-  };
-}
-
 export interface ILinkMessage {
   from_user_id: string;
   to_user_id: string;
   context_token: string;
   item_list: Array<{ type: number; text_item?: { text: string } }>;
+}
+
+// ── ApiClient cache ───────────────────────────────────────────────────────
+// Reuse ApiClient instances per botToken to avoid creating new ones each call
+const clientCache = new Map<string, ApiClient>();
+
+function getClient(botToken: string, baseurl?: string): ApiClient {
+  const key = botToken;
+  let client = clientCache.get(key);
+  if (!client) {
+    client = new ApiClient({
+      baseUrl: baseurl || ILINK_LOGIN_BASE,
+      token: botToken,
+      channelVersion: "favie-1.0.0",
+    });
+    clientCache.set(key, client);
+  }
+  return client;
 }
 
 // ── Login flow ──────────────────────────────────────────────────────────────
@@ -63,16 +84,13 @@ export function parseIncoming(_req: Request): null {
 
 /**
  * Extract image URLs and clean markdown from a response string.
- * Returns { cleanText, imageUrls }.
  */
 function parseMarkdownImages(raw: string): { cleanText: string; imageUrls: string[] } {
   const imageUrls: string[] = [];
-  // Step 1: extract markdown images ![alt](url)
   let text = raw.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, _alt, url) => {
     imageUrls.push(url.trim());
     return "";
   });
-  // Step 2: extract bare image URLs (not already inside markdown links)
   text = text.replace(/(?<!\()(https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp|bmp|svg)(?:\?\S*)?)/gi, (url) => {
     imageUrls.push(url.trim());
     return "";
@@ -81,200 +99,48 @@ function parseMarkdownImages(raw: string): { cleanText: string; imageUrls: strin
   return { cleanText, imageUrls };
 }
 
-const CDN_BASE = "https://novac2c.cdn.weixin.qq.com/c2c";
-
-function aesEcbPaddedSize(plaintextSize: number): number {
-  return Math.ceil((plaintextSize + 1) / 16) * 16;
-}
-
 /**
- * iLink image upload flow (per wechat-ilink-client SDK):
- * 1. Download source image, compute MD5, generate random AES key + filekey
- * 2. POST /ilink/bot/getuploadurl with file metadata → upload_param (encrypted string)
- * 3. AES-128-ECB encrypt image → POST to CDN → x-encrypted-param response header
- * 4. sendmessage with type:2, image_item.media { encrypt_query_param, aes_key (base64), encrypt_type:1 }
- *
- * Returns { downloadParam, aesKeyHex } on success, null on failure.
+ * Download image from URL, save to temp file, upload via wechat-ilink-client SDK.
+ * Retries with fresh upload URL on each attempt.
  */
-async function uploadImageToILink(
+async function uploadImageFromUrl(
   imageUrl: string,
-  botToken: string,
   chatId: string,
-  baseurl?: string,
-): Promise<{ downloadParam: string; aesKeyHex: string; ciphertextSize: number } | null> {
+  api: ApiClient,
+): Promise<UploadedFileInfo | null> {
+  let tmpPath: string | null = null;
   try {
-    // Step 1: download source image
+    // Download image to temp file (SDK requires file path)
     const imgRes = await fetch(imageUrl);
     if (!imgRes.ok) {
       console.warn("[wechat-img] download failed:", imgRes.status, imageUrl.slice(0, 80));
       return null;
     }
-    const plain = Buffer.from(await imgRes.arrayBuffer());
-    const rawsize = plain.length;
-    const rawfilemd5 = crypto.createHash("md5").update(plain).digest("hex");
-    const filesize = aesEcbPaddedSize(rawsize);
+    const buf = Buffer.from(await imgRes.arrayBuffer());
+    console.log("[wechat-img] downloaded:", JSON.stringify({ size: buf.length, url: imageUrl.slice(0, 80) }));
 
-    // Generate random AES key
-    const aesKey = crypto.randomBytes(16);
-    const aesKeyHex = aesKey.toString("hex");
+    tmpPath = join(tmpdir(), `favie-img-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.png`);
+    await writeFile(tmpPath, buf);
 
-    // Step 2: AES-128-ECB encrypt the image (reused across retries)
-    const cipher = crypto.createCipheriv("aes-128-ecb", aesKey, null);
-    cipher.setAutoPadding(true);
-    const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
-
-    // Step 3: Upload to CDN with retries — request a fresh upload URL each attempt
-    let cdnRes: Response | null = null;
-    let downloadParam: string | null = null;
-    for (let attempt = 1; attempt <= 4; attempt++) {
-      // Generate a new filekey for each attempt
-      const attemptFilekey = crypto.randomBytes(16).toString("hex");
-      const reqBody = {
-        filekey: attemptFilekey,
-        media_type: 1, // IMAGE
-        to_user_id: chatId,
-        rawsize,
-        rawfilemd5,
-        filesize,
-        no_need_thumb: true,
-        aeskey: aesKeyHex,
-        base_info: { channel_version: "favie-1.0.0" },
-      };
-      console.log(`[wechat-img] attempt ${attempt}/4 getuploadurl:`, JSON.stringify({ filekey: attemptFilekey, rawsize, filesize, md5: rawfilemd5 }));
-      const urlRes = await fetch(`${ILINK_LOGIN_BASE}/ilink/bot/getuploadurl`, {
-        method: "POST",
-        headers: authHeaders(botToken),
-        body: JSON.stringify(reqBody),
-      });
-      if (!urlRes.ok) {
-        console.warn(`[wechat-img] attempt ${attempt}/4 getuploadurl HTTP failed:`, urlRes.status);
-        if (attempt < 4) { await new Promise(r => setTimeout(r, attempt * 2000)); continue; }
-        return null;
-      }
-      const urlRaw = await urlRes.text();
-      console.log(`[wechat-img] attempt ${attempt}/4 getuploadurl response:`, urlRaw.slice(0, 300));
-      const urlData = JSON.parse(urlRaw) as { ret?: number; upload_param?: string; upload_full_url?: string };
-      if ((urlData.ret !== undefined && urlData.ret !== 0) || (!urlData.upload_full_url && !urlData.upload_param)) {
-        console.warn(`[wechat-img] attempt ${attempt}/4 getuploadurl bad ret:`, urlData.ret);
-        if (attempt < 4) { await new Promise(r => setTimeout(r, attempt * 2000)); continue; }
-        return null;
-      }
-
-      const cdnUrl = urlData.upload_full_url
-        ?? `${CDN_BASE}/upload?encrypted_query_param=${encodeURIComponent(urlData.upload_param!)}&filekey=${encodeURIComponent(attemptFilekey)}`;
-      console.log(`[wechat-img] attempt ${attempt}/4 CDN upload:`, JSON.stringify({ urlLen: cdnUrl.length, encryptedSize: encrypted.length }));
-
-      cdnRes = await fetch(cdnUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/octet-stream" },
-        body: new Uint8Array(encrypted),
-      });
-      if (cdnRes.ok) {
-        downloadParam = cdnRes.headers.get("x-encrypted-param");
-        break;
-      }
-      const cdnBody = await cdnRes.text().catch(() => "");
-      console.warn(`[wechat-img] CDN upload attempt ${attempt}/4 failed:`, cdnRes.status, cdnBody.slice(0, 200));
-      if (attempt < 4) await new Promise(r => setTimeout(r, attempt * 2000));
-    }
-    if (!cdnRes || !cdnRes.ok) {
-      console.warn("[wechat-img] CDN upload failed after retries:", cdnRes?.status);
-      return null;
-    }
-    if (!downloadParam) {
-      console.warn("[wechat-img] CDN: missing x-encrypted-param header");
-      return null;
-    }
-    console.log("[wechat-img] upload success, downloadParam:", downloadParam.slice(0, 40));
-    return { downloadParam, aesKeyHex, ciphertextSize: encrypted.length };
+    // Use SDK's uploadImage — it handles getUploadUrl + AES encrypt + CDN upload + retry
+    const uploaded = await ilinkUploadImage({
+      filePath: tmpPath,
+      toUserId: chatId,
+      api,
+      cdnBaseUrl: CDN_BASE_URL,
+    });
+    console.log("[wechat-img] upload success:", JSON.stringify({
+      filekey: uploaded.filekey,
+      fileSize: uploaded.fileSize,
+      ciphertextSize: uploaded.fileSizeCiphertext,
+      downloadParam: uploaded.downloadEncryptedQueryParam.slice(0, 40),
+    }));
+    return uploaded;
   } catch (e: any) {
     console.warn("[wechat-img] upload error:", e.message);
     return null;
-  }
-}
-
-async function sendRawText(
-  chatId: string,
-  text: string,
-  config: { botToken: string; baseurl?: string; latestContextToken?: string },
-): Promise<void> {
-  const base = config.baseurl || ILINK_MSG_BASE;
-  const clientId = `favie-${crypto.randomBytes(8).toString("hex")}`;
-  const body = {
-    msg: {
-      from_user_id: "",
-      to_user_id: chatId,
-      client_id: clientId,
-      message_type: 2,
-      message_state: 2,
-      item_list: [{ type: 1, text_item: { text } }],
-      context_token: config.latestContextToken ?? "",
-    },
-    base_info: { channel_version: "favie-1.0.0" },
-  };
-  const res = await fetch(`${base}/ilink/bot/sendmessage`, {
-    method: "POST",
-    headers: authHeaders(config.botToken),
-    body: JSON.stringify(body),
-  });
-  const resBody = await res.text().catch(() => "");
-  console.log("[wechat-send]", JSON.stringify({ to: chatId, status: res.status, body: resBody.slice(0, 200) }));
-  if (!res.ok) throw new Error(`WeChat sendMessage failed: ${res.status} ${resBody}`);
-  try {
-    const parsed = JSON.parse(resBody);
-    if (parsed.ret && parsed.ret !== 0) throw new Error(`WeChat sendMessage ret=${parsed.ret}: ${resBody}`);
-  } catch (e: any) {
-    if (e.message.startsWith("WeChat")) throw e;
-  }
-}
-
-async function sendRawImage(
-  chatId: string,
-  downloadParam: string,
-  aesKeyHex: string,
-  ciphertextSize: number,
-  config: { botToken: string; baseurl?: string; latestContextToken?: string },
-): Promise<void> {
-  const base = config.baseurl || ILINK_MSG_BASE;
-  const clientId = `favie-${crypto.randomBytes(8).toString("hex")}`;
-  // aes_key in sendmessage is base64 of the hex string (not raw bytes)
-  // per SDK: Buffer.from(uploaded.aeskey).toString("base64") where aeskey is hex
-  const aesKeyBase64 = Buffer.from(aesKeyHex).toString("base64");
-  const body = {
-    msg: {
-      from_user_id: "",
-      to_user_id: chatId,
-      client_id: clientId,
-      message_type: 2,
-      message_state: 2,
-      item_list: [{
-        type: 2,
-        image_item: {
-          media: {
-            encrypt_query_param: downloadParam,
-            aes_key: aesKeyBase64,
-            encrypt_type: 1,
-          },
-          mid_size: ciphertextSize,
-        },
-      }],
-      context_token: config.latestContextToken ?? "",
-    },
-    base_info: { channel_version: "favie-1.0.0" },
-  };
-  const res = await fetch(`${base}/ilink/bot/sendmessage`, {
-    method: "POST",
-    headers: authHeaders(config.botToken),
-    body: JSON.stringify(body),
-  });
-  const resBody = await res.text().catch(() => "");
-  console.log("[wechat-sendimg]", JSON.stringify({ to: chatId, status: res.status, body: resBody.slice(0, 200) }));
-  if (!res.ok) throw new Error(`WeChat sendImage failed: ${res.status} ${resBody}`);
-  try {
-    const parsed = JSON.parse(resBody);
-    if (parsed.ret && parsed.ret !== 0) throw new Error(`WeChat sendImage ret=${parsed.ret}: ${resBody}`);
-  } catch (e: any) {
-    if (e.message.startsWith("WeChat")) throw e;
+  } finally {
+    if (tmpPath) await unlink(tmpPath).catch(() => {});
   }
 }
 
@@ -286,24 +152,30 @@ export async function sendMessage(
   const { cleanText, imageUrls } = parseMarkdownImages(text);
   console.log("[wechat-send] parsed:", JSON.stringify({ hasText: !!cleanText.trim(), imageCount: imageUrls.length, rawLen: text.length, preview: text.slice(0, 120) }));
 
-  // Send the main text (if non-empty after stripping images)
+  const api = getClient(config.botToken, config.baseurl);
+  const ctx = config.latestContextToken ?? "";
+
+  // Send text
   if (cleanText.trim()) {
-    await sendRawText(chatId, cleanText, config);
+    await ilinkSendText(api, chatId, cleanText, ctx);
+    console.log("[wechat-send] text sent to", chatId);
   }
 
-  // For each image: upload to iLink CDN and send as native image message; fallback to URL text
+  // Send images: upload via SDK then send as native image; fallback to URL text
   for (const url of imageUrls) {
     console.log("[wechat-send] processing image:", url.slice(0, 80));
-    const uploaded = await uploadImageToILink(url, config.botToken, chatId, config.baseurl);
+    const uploaded = await uploadImageFromUrl(url, chatId, api);
     if (uploaded) {
-      console.log("[wechat-send] sending native image message");
-      await sendRawImage(chatId, uploaded.downloadParam, uploaded.aesKeyHex, uploaded.ciphertextSize, config).catch(async (e: Error) => {
+      try {
+        await ilinkSendImage(api, chatId, uploaded, ctx);
+        console.log("[wechat-send] native image sent to", chatId);
+      } catch (e: any) {
         console.warn("[wechat-send] image send failed, fallback to URL:", e.message);
-        await sendRawText(chatId, url, config);
-      });
+        await ilinkSendText(api, chatId, url, ctx);
+      }
     } else {
       console.log("[wechat-send] upload failed, sending URL as text fallback");
-      await sendRawText(chatId, url, config);
+      await ilinkSendText(api, chatId, url, ctx);
     }
   }
 }
@@ -312,14 +184,8 @@ export async function registerWebhook(
   _webhookUrl: string,
   config: { botToken: string; baseurl?: string },
 ): Promise<{ botUsername: string }> {
-  // Validate token by doing a quick getupdates call (POST, get_updates_buf="")
-  const base = config.baseurl || ILINK_MSG_BASE;
-  const res = await fetch(`${base}/ilink/bot/getupdates`, {
-    method: "POST",
-    headers: authHeaders(config.botToken),
-    body: JSON.stringify({ get_updates_buf: "", base_info: { channel_version: "favie-1.0.0" } }),
-  });
-  if (!res.ok) throw new Error(`WeChat token validation failed: ${res.status}`);
+  const api = getClient(config.botToken, config.baseurl);
+  await api.getUpdates("", 5000);
   return { botUsername: "wechat" };
 }
 
@@ -333,9 +199,15 @@ export async function getUpdates(
   signal?: AbortSignal,
 ): Promise<{ messages: ILinkMessage[]; nextCursor: string }> {
   const base = baseurl || ILINK_MSG_BASE;
+  // Keep manual fetch here for signal support (SDK doesn't expose AbortSignal)
   const res = await fetch(`${base}/ilink/bot/getupdates`, {
     method: "POST",
-    headers: authHeaders(botToken),
+    headers: {
+      "Authorization": `Bearer ${botToken}`,
+      "AuthorizationType": "ilink_bot_token",
+      "X-WECHAT-UIN": xUin(),
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ get_updates_buf: cursor ?? "", timeout: _timeout, base_info: { channel_version: "favie-1.0.0" } }),
     signal,
   });
