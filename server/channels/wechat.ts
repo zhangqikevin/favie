@@ -159,22 +159,28 @@ async function uploadImageFromUrl(
         no_need_thumb: true,
         aeskey: aeskey.toString("hex"),
       });
-      const uploadParam = resp.upload_param;
       const getUrlMs = Date.now() - t0;
-      if (!uploadParam) {
-        throw new Error(`getUploadUrl returned no upload_param: ${JSON.stringify(resp)}`);
+      // WeChat CDN returns either:
+      //   - new: `upload_full_url` (complete pre-signed URL, includes encrypted_query_param + filekey + taskid)
+      //   - old: `upload_param` (string we used to combine via buildCdnUploadUrl)
+      const uploadParam = (resp as any).upload_param as string | undefined;
+      const uploadFullUrl = (resp as any).upload_full_url as string | undefined;
+      if (!uploadParam && !uploadFullUrl) {
+        throw new Error(`getUploadUrl returned no upload_param/upload_full_url: ${JSON.stringify(resp)}`);
       }
-      console.log("[wechat-img] attempt", attempt, "got upload_param:", JSON.stringify({
+      console.log("[wechat-img] attempt", attempt, "got upload params:", JSON.stringify({
         ms: getUrlMs,
         filekey: filekey.slice(0, 12),
-        paramLen: uploadParam.length,
+        mode: uploadFullUrl ? "full_url" : "param",
+        len: (uploadFullUrl ?? uploadParam ?? "").length,
       }));
 
       // Step 2: AES-128-ECB encrypt
       const ciphertext = encryptAesEcb(plaintext, aeskey);
 
       // Step 3: POST encrypted bytes to CDN
-      const cdnUrl = buildCdnUploadUrl({ cdnBaseUrl: CDN_BASE_URL, uploadParam, filekey });
+      const cdnUrl = uploadFullUrl
+        ?? buildCdnUploadUrl({ cdnBaseUrl: CDN_BASE_URL, uploadParam: uploadParam!, filekey });
       const postT0 = Date.now();
       const cdnRes = await fetch(cdnUrl, {
         method: "POST",
