@@ -26,6 +26,7 @@ const allowlist = [
   "pg",
   "stripe",
   "uuid",
+  "wechat-ilink-client",
   "ws",
   "xlsx",
   "zod",
