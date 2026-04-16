@@ -301,7 +301,15 @@ export async function getUpdates(
   });
   if (!res.ok) throw new Error(`WeChat getUpdates failed: ${res.status}`);
   const data = await res.json() as { msgs?: ILinkMessage[]; get_updates_buf?: string; ret?: number };
-  console.log("[wechat] getUpdates raw response:", JSON.stringify({ ret: data.ret, msgCount: data.msgs?.length, buf: data.get_updates_buf?.slice(0, 20), firstMsg: data.msgs?.[0] }));
+  const msgCount = data.msgs?.length ?? 0;
+  const inCursor = (cursor ?? "").slice(0, 20);
+  const outCursor = (data.get_updates_buf ?? "").slice(0, 20);
+  // If cursor advanced but no messages, dump full payload — usually a session/status event
+  if (msgCount === 0 && inCursor !== outCursor && inCursor !== "") {
+    console.log("[wechat] getUpdates GHOST advance (cursor moved, 0 msgs) — full payload:", JSON.stringify(data));
+  } else {
+    console.log("[wechat] getUpdates raw response:", JSON.stringify({ ret: data.ret, msgCount, buf: outCursor, firstMsg: data.msgs?.[0] }));
+  }
   return {
     messages: data.msgs ?? [],
     nextCursor: data.get_updates_buf ?? cursor ?? "",
