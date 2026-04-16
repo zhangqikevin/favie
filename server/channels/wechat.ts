@@ -234,7 +234,7 @@ async function uploadImageFromUrl(
       console.log("[wechat-img] attempt", attempt, "CDN POST result:", JSON.stringify({
         status: cdnRes.status,
         postMs,
-        mode: useFullUrl ? "full_url-raw" : "param-aes",
+        mode: useAes ? "aes" : "raw",
         bodyLen: body.length,
         contentType,
         headers: allHeaders,
