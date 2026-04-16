@@ -175,34 +175,54 @@ async function uploadImageFromUrl(
         len: (uploadFullUrl ?? uploadParam ?? "").length,
       }));
 
-      // Step 2: AES-128-ECB encrypt
-      const ciphertext = encryptAesEcb(plaintext, aeskey);
-
-      // Step 3: POST encrypted bytes to CDN
+      // For new `upload_full_url` mode, the URL is pre-signed and (per WeChat's nova
+      // CDN) appears to expect RAW image bytes. AES encryption is only required for
+      // the legacy `upload_param` flow.
+      const useFullUrl = !!uploadFullUrl;
+      const body: Buffer = useFullUrl ? plaintext : encryptAesEcb(plaintext, aeskey);
       const cdnUrl = uploadFullUrl
         ?? buildCdnUploadUrl({ cdnBaseUrl: CDN_BASE_URL, uploadParam: uploadParam!, filekey });
+      const contentType = useFullUrl ? "image/png" : "application/octet-stream";
+
       const postT0 = Date.now();
       const cdnRes = await fetch(cdnUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/octet-stream" },
-        body: new Uint8Array(ciphertext),
+        headers: {
+          "Content-Type": contentType,
+          "Content-Length": String(body.length),
+        },
+        body: new Uint8Array(body),
       });
       const postMs = Date.now() - postT0;
 
-      if (cdnRes.status !== 200) {
-        const errMsg = cdnRes.headers.get("x-error-message") ?? await cdnRes.text().catch(() => "(no body)");
-        throw new Error(`CDN POST ${cdnRes.status} (${postMs}ms): ${errMsg.slice(0, 200)}`);
-      }
-      const downloadParam = cdnRes.headers.get("x-encrypted-param");
-      const cdnWarn = cdnRes.headers.get("x-error-message");
-      console.log("[wechat-img] attempt", attempt, "CDN POST ok:", JSON.stringify({
+      // Capture all response headers + body snippet for debugging
+      const allHeaders: Record<string, string> = {};
+      cdnRes.headers.forEach((v, k) => { allHeaders[k] = v; });
+      const respBody = await cdnRes.text().catch(() => "(unreadable)");
+      console.log("[wechat-img] attempt", attempt, "CDN POST result:", JSON.stringify({
         status: cdnRes.status,
         postMs,
-        warn: cdnWarn ?? null,
-        hasDownloadParam: !!downloadParam,
+        mode: useFullUrl ? "full_url-raw" : "param-aes",
+        bodyLen: body.length,
+        contentType,
+        headers: allHeaders,
+        bodySnippet: respBody.slice(0, 500),
       }));
+
+      if (cdnRes.status !== 200) {
+        throw new Error(`CDN POST ${cdnRes.status} (${postMs}ms): ${(allHeaders["x-error-message"] ?? respBody).slice(0, 200)}`);
+      }
+
+      // Try to extract download params from headers (legacy) or JSON body (new)
+      let downloadParam = cdnRes.headers.get("x-encrypted-param") ?? undefined;
+      if (!downloadParam && respBody) {
+        try {
+          const j = JSON.parse(respBody);
+          downloadParam = j.encrypted_query_param ?? j.download_param ?? j.x_encrypted_param;
+        } catch { /* not json */ }
+      }
       if (!downloadParam) {
-        throw new Error(`CDN POST 200 but missing x-encrypted-param header (${postMs}ms)`);
+        throw new Error(`CDN POST 200 but no download param in headers/body (${postMs}ms)`);
       }
 
       const uploaded: UploadedFileInfo = {
@@ -210,7 +230,7 @@ async function uploadImageFromUrl(
         downloadEncryptedQueryParam: downloadParam,
         aeskey: aeskey.toString("hex"),
         fileSize: rawsize,
-        fileSizeCiphertext: filesize,
+        fileSizeCiphertext: useFullUrl ? rawsize : filesize,
       };
       console.log("[wechat-img] upload success:", JSON.stringify({
         attempt,
