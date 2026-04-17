@@ -42,7 +42,6 @@ const navSections: NavSection[] = [
       { labelKey: "admin.customer_service", href: "/admin/agents/customer",  icon: Headphones, dot: "bg-teal-500" },
       { labelKey: "admin.finance",          href: "/admin/agents/finance",   icon: DollarSign, dot: "bg-emerald-500" },
       { labelKey: "admin.legal_hr",         href: "/admin/agents/legal",     icon: Scale,      dot: "bg-violet-500" },
-      { labelKey: "admin.boardroom",        href: "/dashboard",              icon: Users2 },
     ],
   },
   {

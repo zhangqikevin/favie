@@ -31,13 +31,24 @@ export default function Login() {
     ? new URLSearchParams(window.location.search).get("next") || ""
     : "";
 
+  // Default landing page after login depends on whether the user has hired any agents.
+  // No hires yet → drop them into the Task Market so they can pick something.
+  const defaultLanded = (): string => {
+    try {
+      const hired = JSON.parse(localStorage.getItem("favie_hired_agents") || "[]");
+      return Array.isArray(hired) && hired.length > 0 ? "/admin/agents/expert" : "/admin/task-market";
+    } catch {
+      return "/admin/task-market";
+    }
+  };
+
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
 
   if (!isLoading && user) {
-    navigate(nextPath || (user.selectedPlan ? "/dashboard" : "/onboarding"));
+    navigate(nextPath || (user.selectedPlan ? defaultLanded() : "/onboarding"));
     return null;
   }
 
@@ -50,7 +61,7 @@ export default function Login() {
       sessionStorage.setItem("fromLogin", "1");
       setIsThinking(true);
       setTimeout(() => {
-        navigate(nextPath || (loggedInUser.selectedPlan ? "/dashboard" : "/onboarding"));
+        navigate(nextPath || (loggedInUser.selectedPlan ? defaultLanded() : "/onboarding"));
       }, 2000);
     } catch (err: any) {
       setServerError(err.message || "Login failed. Please try again.");

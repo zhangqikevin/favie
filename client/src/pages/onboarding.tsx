@@ -36,8 +36,18 @@ export default function Onboarding() {
     return null;
   }
 
+  // Where to land after onboarding: hired anyone yet? → agents page; otherwise Task Market.
+  const postOnboardingPath = (): string => {
+    try {
+      const hired = JSON.parse(localStorage.getItem("favie_hired_agents") || "[]");
+      return Array.isArray(hired) && hired.length > 0 ? "/admin/agents/expert" : "/admin/task-market";
+    } catch {
+      return "/admin/task-market";
+    }
+  };
+
   if (!isLoading && user?.selectedPlan) {
-    navigate("/dashboard");
+    navigate(postOnboardingPath());
     return null;
   }
 
@@ -45,7 +55,7 @@ export default function Onboarding() {
     setSelecting(planId);
     try {
       await selectPlan(planId);
-      navigate("/dashboard");
+      navigate(postOnboardingPath());
     } catch {
       setSelecting(null);
     }
