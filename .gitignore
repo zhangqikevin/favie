@@ -8,3 +8,5 @@ Archive.zip
 node_modules
 .DS_Store
 openclaw.json
+.gstack/
+.whatsapp-auth/

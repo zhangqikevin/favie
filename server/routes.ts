@@ -25,6 +25,8 @@ const DEFAULT_OPENCLAW_BASE_URL = "https://openclaw.kevinzhang.fun";
 const DEFAULT_APP_BASE_URL = "https://favieai.replit.app";
 import * as wechat from "./channels/wechat";
 import { startPolling, stopPolling, restoreAllPollers } from "./wechat-poller";
+import { getWhatsAppManager } from "./whatsapp-manager";
+import { IM_CHANNEL_TYPES } from "./channels/index";
 import cron from "node-cron";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -1463,6 +1465,43 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     }
   });
 
+  // ─── WhatsApp QR Login ──────────────────────────────────────────────────────
+
+  app.post("/api/channel/whatsapp/init-login", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const waMgr = getWhatsAppManager();
+      const { sessionId, qr } = await waMgr.startLogin();
+      // Generate QR code as base64 PNG for frontend display
+      const qrDataUrl = await QRCode.toDataURL(qr, { width: 256, margin: 2 });
+      const qrBase64 = qrDataUrl.replace(/^data:image\/png;base64,/, "");
+      res.json({ sessionId, imgContent: qrBase64 });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/channel/whatsapp/login-status/:sessionId", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    try {
+      const waMgr = getWhatsAppManager();
+      const status = waMgr.getLoginStatus(req.params.sessionId);
+      if (!status) return res.status(404).json({ message: "Session not found" });
+      // If QR refreshed, generate new image
+      let imgContent: string | undefined;
+      if (status.qr && status.status === "pending") {
+        const qrDataUrl = await QRCode.toDataURL(status.qr, { width: 256, margin: 2 });
+        imgContent = qrDataUrl.replace(/^data:image\/png;base64,/, "");
+      }
+      res.json({ status: status.status, imgContent, error: status.error });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   // ─── Channel Binding API ────────────────────────────────────────────────────
 
   // GET all channel bindings for an agent (for sidebar display)
@@ -1503,6 +1542,19 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const config = req.body as Record<string, string>;
       let mergedConfig = { ...config };
 
+      // ── Single IM channel enforcement ──
+      // telegram, wechat, whatsapp are mutually exclusive — disconnect any existing IM binding
+      if ((IM_CHANNEL_TYPES as readonly string[]).includes(channelType)) {
+        const waMgr = getWhatsAppManager();
+        for (const imType of IM_CHANNEL_TYPES) {
+          const oldIds = await storage.deleteAllChannelBindingsByTypeAndUser(req.user.id, imType);
+          for (const id of oldIds) {
+            if (imType === "wechat") stopPolling(id);
+            if (imType === "whatsapp") { waMgr.stopConnection(id); waMgr.cleanupAuth(id); }
+          }
+        }
+      }
+
       if (channelType === "wechat") {
         // WeChat uses polling, not webhooks — validate token and start poller
         try {
@@ -1510,11 +1562,13 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         } catch (e: any) {
           return res.status(400).json({ message: `WeChat token invalid: ${e.message}` });
         }
-        // One WeChat binding per user — remove any existing bindings first
-        const oldIds = await storage.deleteAllChannelBindingsByTypeAndUser(req.user.id, "wechat");
-        for (const id of oldIds) stopPolling(id);
+      } else if (channelType === "whatsapp") {
+        // WhatsApp uses Baileys WebSocket — finalize login session and start connection
+        const sessionId = config.sessionId;
+        if (!sessionId) return res.status(400).json({ message: "Missing sessionId" });
+        // Save binding first to get the ID, then finalize login + start connection
       } else {
-        // Webhook-based channels need an app base URL
+        // Webhook-based channels (Telegram) need an app base URL
         const appBaseUrl = (cfg["app_base_url"] || "").replace(/\/$/, "");
         if (!appBaseUrl) {
           return res.status(400).json({ message: "Please set App Base URL in System Config first (e.g. your Cloudflare tunnel URL)." });
@@ -1539,6 +1593,11 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       });
 
       if (channelType === "wechat") startPolling(binding.id);
+      if (channelType === "whatsapp") {
+        const waMgr = getWhatsAppManager();
+        await waMgr.finalizeLogin(config.sessionId, binding.id);
+        await waMgr.startConnection(binding.id);
+      }
 
       res.json(binding);
     } catch (err: any) {
@@ -1553,10 +1612,15 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     const restaurants2 = await storage.getRestaurants(req.user.id);
     const current = restaurants2.find(r => r.id === req.user!.currentRestaurantId) ?? restaurants2[0];
     const restaurantId = current?.id ?? "default";
-    // Stop poller before deleting (WeChat only)
-    if (channelType === "wechat") {
-      const existing = await storage.getChannelBinding(req.user.id, restaurantId, agentId, channelType);
-      if (existing) stopPolling(existing.id);
+    // Stop connection before deleting
+    const existing = await storage.getChannelBinding(req.user.id, restaurantId, agentId, channelType);
+    if (existing) {
+      if (channelType === "wechat") stopPolling(existing.id);
+      if (channelType === "whatsapp") {
+        const waMgr = getWhatsAppManager();
+        waMgr.stopConnection(existing.id);
+        waMgr.cleanupAuth(existing.id);
+      }
     }
     await storage.deleteChannelBinding(req.user.id, restaurantId, agentId, channelType);
     res.json({ ok: true });
@@ -1676,7 +1740,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       for (const binding of bindings) {
         const handler = getChannelHandler(binding.channelType);
         if (!handler) { console.warn(`[cron-webhook] no handler for ${binding.channelType}`); continue; }
-        const bCfg = binding.channelConfig as Record<string, string>;
+        const bCfg: Record<string, string> = { ...(binding.channelConfig as Record<string, string>), _bindingId: binding.id };
         if (!bCfg.chatId) { console.warn(`[cron-webhook] ${binding.channelType} no chatId`); continue; }
         try {
           await handler.sendMessage(bCfg.chatId, text, bCfg as any);
@@ -1717,7 +1781,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       for (const binding of bindings) {
         const handler = getChannelHandler(binding.channelType);
         if (!handler) { console.warn(`[deliver] no handler for ${binding.channelType}`); continue; }
-        const bCfg = binding.channelConfig as Record<string, string>;
+        const bCfg: Record<string, string> = { ...(binding.channelConfig as Record<string, string>), _bindingId: binding.id };
         if (!bCfg.chatId) { console.warn(`[deliver] ${binding.channelType} binding has no chatId`); continue; }
         console.log(`[deliver] sending to ${binding.channelType} chatId=${bCfg.chatId} hasToken=${!!bCfg.latestContextToken}`);
         try {
@@ -1788,9 +1852,12 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     }
   });
 
-  // ─── Restore WeChat pollers on server start ────────────────────────────────
+  // ─── Restore channel connections on server start ────────────────────────────
   restoreAllPollers().catch((e: Error) =>
     console.warn("[wechat-poll] restoreAllPollers failed:", e.message)
+  );
+  getWhatsAppManager().restoreAllConnections().catch((e: Error) =>
+    console.warn("[whatsapp] restoreAllConnections failed:", e.message)
   );
 
   return httpServer;

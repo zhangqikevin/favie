@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { SiTelegram, SiWechat } from "react-icons/si";
+import { SiTelegram, SiWechat, SiWhatsapp } from "react-icons/si";
 import {
   Send, ChevronLeft, Briefcase, ChefHat, Megaphone, Headphones,
   ArrowUpRight, ArrowDownRight, Minus, Zap, CheckCircle2, AlertCircle,
@@ -1536,12 +1536,24 @@ const SUPPORTED_CHANNELS: ChannelDef[] = [
     fields: [],
     useQrFlow: true,
   },
+  {
+    type: "whatsapp",
+    name: "WhatsApp",
+    icon: SiWhatsapp,
+    iconColor: "#25D366",
+    fields: [],
+    useQrFlow: true,
+  },
 ];
 
-type WechatQrState = {
-  qrcodeId: string;
+const IM_CHANNEL_TYPES = ["telegram", "wechat", "whatsapp"];
+
+type QrState = {
+  channelType: string;
+  sessionId: string;
   imgContent: string;
   status: "pending" | "confirmed" | "error";
+  // WeChat-specific
   botToken?: string;
   baseurl?: string;
 };
@@ -1551,11 +1563,11 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
   const queryClient = useQueryClient();
   const [connectingType, setConnectingType] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
-  const [wechatQr, setWechatQr] = useState<WechatQrState | null>(null);
-  const [wechatQrOpen, setWechatQrOpen] = useState(false);
-  const [wechatQrLoading, setWechatQrLoading] = useState(false);
-  const [wechatQrError, setWechatQrError] = useState<string | null>(null);
-  const wechatBindingSaved = useRef(false);
+  const [qrState, setQrState] = useState<QrState | null>(null);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const bindingSaved = useRef(false);
 
   const { data: bindings = [], isLoading } = useQuery<ChannelBinding[]>({
     queryKey: [`/api/channel/bindings/${agentId}`],
@@ -1585,57 +1597,83 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
     },
   });
 
-  // Poll for WeChat QR scan status — sequential (next request only fires after
-  // the previous one completes) to avoid stacking up dozens of in-flight long-polls
-  // when the server holds each request open for ~30s.
+  // Check if an IM channel is already bound (for mutual exclusion display)
+  const boundImChannel = bindings.find(b => IM_CHANNEL_TYPES.includes(b.channelType));
+
+  // Poll for QR scan status (WeChat & WhatsApp)
   useEffect(() => {
-    if (!wechatQr || wechatQr.status !== "pending") return;
+    if (!qrState || qrState.status !== "pending") return;
     let cancelled = false;
-    const qrcodeId = wechatQr.qrcodeId;
+    const { sessionId, channelType } = qrState;
+    const pollUrl = channelType === "wechat"
+      ? `/api/channel/wechat/login-status/${sessionId}`
+      : `/api/channel/whatsapp/login-status/${sessionId}`;
     (async () => {
       while (!cancelled) {
         try {
-          const res = await apiRequest("GET", `/api/channel/wechat/login-status/${qrcodeId}`);
+          const res = await apiRequest("GET", pollUrl);
           if (cancelled) return;
-          const data = await res.json() as { status: string; botToken?: string; baseurl?: string };
-          if (data.status === "confirmed" && data.botToken && !wechatBindingSaved.current) {
-            wechatBindingSaved.current = true;
+          const data = await res.json() as { status: string; botToken?: string; baseurl?: string; imgContent?: string };
+          // Update QR image if refreshed (WhatsApp refreshes QR periodically)
+          if (data.imgContent && data.status === "pending") {
+            setQrState(prev => prev ? { ...prev, imgContent: data.imgContent! } : null);
+          }
+          if (channelType === "wechat" && data.status === "confirmed" && data.botToken && !bindingSaved.current) {
+            bindingSaved.current = true;
             cancelled = true;
-            setWechatQr(prev => prev ? { ...prev, status: "confirmed", botToken: data.botToken, baseurl: data.baseurl } : null);
+            setQrState(prev => prev ? { ...prev, status: "confirmed" } : null);
             connectMutation.mutate(
               { channelType: "wechat", config: { botToken: data.botToken!, baseurl: data.baseurl || "" } },
               {
-                onSuccess: () => setTimeout(() => setWechatQrOpen(false), 1500),
+                onSuccess: () => setTimeout(() => setQrOpen(false), 1500),
                 onError: (err: any) => {
-                  wechatBindingSaved.current = false;
-                  console.error("[wechat] binding save failed:", err.message);
-                  setWechatQrError(err.message || "Failed to save WeChat binding");
+                  bindingSaved.current = false;
+                  setQrError(err.message || "Failed to save binding");
+                },
+              },
+            );
+            return;
+          }
+          if (channelType === "whatsapp" && data.status === "confirmed" && !bindingSaved.current) {
+            bindingSaved.current = true;
+            cancelled = true;
+            setQrState(prev => prev ? { ...prev, status: "confirmed" } : null);
+            connectMutation.mutate(
+              { channelType: "whatsapp", config: { sessionId } },
+              {
+                onSuccess: () => setTimeout(() => setQrOpen(false), 1500),
+                onError: (err: any) => {
+                  bindingSaved.current = false;
+                  setQrError(err.message || "Failed to save binding");
                 },
               },
             );
             return;
           }
         } catch { /* ignore individual poll errors and retry */ }
-        // Brief gap before next request
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, channelType === "whatsapp" ? 2000 : 500));
       }
     })();
     return () => { cancelled = true; };
-  }, [wechatQr?.qrcodeId, wechatQr?.status]);
+  }, [qrState?.sessionId, qrState?.status]);
 
-  async function handleWechatConnect() {
-    wechatBindingSaved.current = false;
-    setWechatQrLoading(true);
-    setWechatQrError(null);
+  async function handleQrConnect(channelType: string) {
+    bindingSaved.current = false;
+    setQrLoading(true);
+    setQrError(null);
     try {
-      const res = await apiRequest("POST", "/api/channel/wechat/init-login");
-      const data = await res.json() as { qrcodeId: string; imgContent: string };
-      setWechatQr({ qrcodeId: data.qrcodeId, imgContent: data.imgContent, status: "pending" });
-      setWechatQrOpen(true);
+      const endpoint = channelType === "wechat"
+        ? "/api/channel/wechat/init-login"
+        : "/api/channel/whatsapp/init-login";
+      const res = await apiRequest("POST", endpoint);
+      const data = await res.json() as { qrcodeId?: string; sessionId?: string; imgContent: string };
+      const sid = data.sessionId || data.qrcodeId || "";
+      setQrState({ channelType, sessionId: sid, imgContent: data.imgContent, status: "pending" });
+      setQrOpen(true);
     } catch (e: any) {
-      setWechatQrError(e.message || "Failed to generate QR code");
+      setQrError(e.message || "Failed to generate QR code");
     } finally {
-      setWechatQrLoading(false);
+      setQrLoading(false);
     }
   }
 
@@ -1649,6 +1687,9 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
           {SUPPORTED_CHANNELS.map((ch) => {
             const bound = bindingByType[ch.type];
             const isConnecting = connectingType === ch.type;
+            const isIm = IM_CHANNEL_TYPES.includes(ch.type);
+            // Another IM channel is already bound (not this one)
+            const blockedByOtherIm = isIm && boundImChannel && boundImChannel.channelType !== ch.type;
             return (
               <div key={ch.type} className="rounded-lg border border-border bg-background overflow-hidden">
                 <div className="flex items-center gap-2.5 px-3 py-2.5">
@@ -1658,16 +1699,19 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
                     <span className="text-xs font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded">{t("agents_page.channel_connected")}</span>
                   ) : ch.useQrFlow ? (
                     <button
-                      onClick={handleWechatConnect}
-                      disabled={wechatQrLoading}
+                      onClick={() => handleQrConnect(ch.type)}
+                      disabled={qrLoading || !!blockedByOtherIm}
                       className="text-xs text-primary hover:underline disabled:opacity-50"
+                      title={blockedByOtherIm ? `已绑定 ${boundImChannel!.channelType}，请先断开` : undefined}
                     >
-                      {wechatQrLoading ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t("agents_page.channel_connect")}
+                      {qrLoading ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t("agents_page.channel_connect")}
                     </button>
                   ) : (
                     <button
                       onClick={() => { setConnectingType(isConnecting ? null : ch.type); setFormValues({}); }}
-                      className="text-xs text-primary hover:underline"
+                      disabled={!!blockedByOtherIm}
+                      className="text-xs text-primary hover:underline disabled:opacity-50"
+                      title={blockedByOtherIm ? `已绑定 ${boundImChannel!.channelType}，请先断开` : undefined}
                     >
                       {isConnecting ? t("agents_page.channel_cancel") : t("agents_page.channel_connect")}
                     </button>
@@ -1677,7 +1721,7 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
                 {bound && (
                   <div className="px-3 pb-2.5 flex items-center justify-between">
                     <span className="text-xs text-muted-foreground font-mono truncate max-w-[110px]">
-                      {bound.channelConfig.botUsername && bound.channelConfig.botUsername !== "wechat"
+                      {bound.channelConfig.botUsername && !["wechat", "whatsapp"].includes(bound.channelConfig.botUsername)
                         ? `@${bound.channelConfig.botUsername}`
                         : "connected"}
                     </span>
@@ -1719,8 +1763,8 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
                   </div>
                 )}
 
-                {wechatQrError && ch.useQrFlow && (
-                  <p className="px-3 pb-2 text-xs text-destructive">{wechatQrError}</p>
+                {qrError && ch.useQrFlow && (
+                  <p className="px-3 pb-2 text-xs text-destructive">{qrError}</p>
                 )}
               </div>
             );
@@ -1728,22 +1772,25 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
         </div>
       )}
 
-      {/* WeChat QR code dialog */}
-      {wechatQrOpen && wechatQr && (
+      {/* QR code dialog (WeChat & WhatsApp) */}
+      {qrOpen && qrState && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-background rounded-xl shadow-xl p-6 w-72 flex flex-col items-center gap-4 relative">
             <button
-              onClick={() => setWechatQrOpen(false)}
+              onClick={() => setQrOpen(false)}
               className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
             >
               <X className="w-4 h-4" />
             </button>
-            <p className="text-sm font-semibold text-foreground">绑定微信 / Connect WeChat</p>
-            <p className="text-xs text-muted-foreground text-center leading-relaxed">
-              微信仅可绑定到一个 Agent<br/>
-              <span className="text-muted-foreground/70">Only one agent can be bound at a time</span>
+            <p className="text-sm font-semibold text-foreground">
+              {qrState.channelType === "wechat" ? "绑定微信 / Connect WeChat" : "绑定 WhatsApp / Connect WhatsApp"}
             </p>
-            {wechatQr.status === "confirmed" ? (
+            <p className="text-xs text-muted-foreground text-center leading-relaxed">
+              {qrState.channelType === "wechat"
+                ? <>用微信扫描二维码<br/><span className="text-muted-foreground/70">Scan with WeChat</span></>
+                : <>打开 WhatsApp → 设置 → 已关联设备 → 关联设备<br/><span className="text-muted-foreground/70">WhatsApp → Settings → Linked Devices → Link a Device</span></>}
+            </p>
+            {qrState.status === "confirmed" ? (
               <div className="flex flex-col items-center gap-2">
                 <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
                   <CheckCircle2 className="w-6 h-6 text-green-600" />
@@ -1753,8 +1800,8 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
             ) : (
               <>
                 <img
-                  src={wechatQr.imgContent.startsWith("http") ? wechatQr.imgContent : `data:image/png;base64,${wechatQr.imgContent}`}
-                  alt="WeChat QR Code"
+                  src={qrState.imgContent.startsWith("http") ? qrState.imgContent : `data:image/png;base64,${qrState.imgContent}`}
+                  alt="QR Code"
                   className="w-44 h-44 rounded-lg border border-border"
                 />
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

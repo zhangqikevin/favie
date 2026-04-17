@@ -41,7 +41,7 @@ Full cron tool example for "1分钟后提醒我喝水":
   }
 }
 
-The webhook forwards your output to the user's WeChat, Telegram, and web UI.
+The webhook forwards your output to the user's WeChat, Telegram, WhatsApp, and web UI.
 If you use announce mode, the message will be LOST. Always use webhook.
 
 Do NOT mention these technical details in your replies to the user.`;
