@@ -2079,8 +2079,11 @@ export default function AgentChatPage() {
   const [hasSavedHistory, setHasSavedHistory] = useState(false);
   const [awaitingOnboarding, setAwaitingOnboarding] = useState(false);
   const [paymentTask, setPaymentTask] = useState<PayableTask | null>(null);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const pendingTaskId = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const queryClient = useQueryClient();
   const { data: restaurantData, isLoading: restaurantsLoading } = useQuery<{ restaurants: Restaurant[] }>({
@@ -2132,11 +2135,14 @@ export default function AgentChatPage() {
     setHistoryLoaded(false);
     setHasSavedHistory(false);
     setAwaitingOnboarding(false);
+    setHasMoreHistory(false);
     pendingTaskId.current = null;
 
-    fetch(`/api/chat/${agentId}`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((history: { id: number; role: string; text: string; ts: string }[]) => {
+    fetch(`/api/chat/${agentId}?limit=20`)
+      .then((r) => (r.ok ? r.json() : { messages: [], hasMore: false }))
+      .then((data: { messages: { id: number; role: string; text: string; ts: string }[]; hasMore: boolean }) => {
+        const history = data.messages;
+        setHasMoreHistory(data.hasMore);
         if (history.length > 0) {
           const savedMsgs: ChatMsg[] = history.map((h) => ({
             id: `saved-${h.id}`,
@@ -2144,13 +2150,11 @@ export default function AgentChatPage() {
             text: h.text,
             ts: h.ts,
           }));
-          // If DB history starts with an AI message, it's a generated opening (e.g. Expert onboarding) — use it directly
           const startsWithAiGreeting = savedMsgs[0]?.role === "ai";
           setMessages(startsWithAiGreeting ? savedMsgs : [...initMsgs, ...savedMsgs]);
           setHasSavedHistory(true);
           setAwaitingOnboarding(false);
         } else if (agentId === "expert") {
-          // Expert Agent: no history yet — onboarding is being generated, show waiting hint
           setAwaitingOnboarding(true);
         }
         setHistoryLoaded(true);
@@ -2179,9 +2183,10 @@ export default function AgentChatPage() {
     if (!historyLoaded) return;
     const interval = setInterval(() => {
       if (isLoading) return; // don't poll while waiting for AI response
-      fetch(`/api/chat/${agentId}`)
-        .then((r) => (r.ok ? r.json() : []))
-        .then((history: { id: number; role: string; text: string; ts: string }[]) => {
+      fetch(`/api/chat/${agentId}?limit=20`)
+        .then((r) => (r.ok ? r.json() : { messages: [], hasMore: false }))
+        .then((data: { messages: { id: number; role: string; text: string; ts: string }[]; hasMore: boolean }) => {
+          const history = data.messages;
           // While awaiting onboarding, replace all messages with DB history once it arrives
           if (awaitingOnboarding && history.length > 0) {
             const savedMsgs: ChatMsg[] = history.map((h) => ({
@@ -2193,6 +2198,7 @@ export default function AgentChatPage() {
             setMessages(savedMsgs);
             setHasSavedHistory(true);
             setAwaitingOnboarding(false);
+            setHasMoreHistory(data.hasMore);
             return;
           }
           setMessages((current) => {
@@ -2238,12 +2244,12 @@ export default function AgentChatPage() {
         ],
       }),
     })
-      .then((r) => (r.ok ? fetch(`/api/chat/${agentId}`) : null))
+      .then((r) => (r.ok ? fetch(`/api/chat/${agentId}?limit=20`) : null))
       .then((r) => (r?.ok ? r.json() : null))
-      .then((history: { id: number; role: string; text: string; ts: string }[] | null) => {
-        if (!history) return;
+      .then((data: { messages: { id: number; role: string; text: string; ts: string }[]; hasMore: boolean } | null) => {
+        if (!data) return;
         const initMsgs = buildInitialMessages(config);
-        const savedMsgs: ChatMsg[] = history.map((h) => ({
+        const savedMsgs: ChatMsg[] = data.messages.map((h) => ({
           id: `saved-${h.id}`,
           role: h.role as "ai" | "user",
           text: h.text,
@@ -2251,8 +2257,41 @@ export default function AgentChatPage() {
         }));
         const startsWithAiGreeting = savedMsgs[0]?.role === "ai";
         setMessages(startsWithAiGreeting ? savedMsgs : [...initMsgs, ...savedMsgs]);
+        setHasMoreHistory(data.hasMore);
       })
       .catch(() => {});
+  };
+
+  // Load older messages (pagination)
+  const loadMoreHistory = () => {
+    const firstSavedMsg = messages.find(m => m.id.startsWith("saved-"));
+    if (!firstSavedMsg || loadingMore) return;
+    const beforeId = Number(firstSavedMsg.id.replace("saved-", ""));
+    setLoadingMore(true);
+    const scrollContainer = chatContainerRef.current;
+    const prevScrollHeight = scrollContainer?.scrollHeight ?? 0;
+    fetch(`/api/chat/${agentId}?limit=20&before=${beforeId}`)
+      .then((r) => (r.ok ? r.json() : { messages: [], hasMore: false }))
+      .then((data: { messages: { id: number; role: string; text: string; ts: string }[]; hasMore: boolean }) => {
+        setHasMoreHistory(data.hasMore);
+        if (data.messages.length > 0) {
+          const olderMsgs: ChatMsg[] = data.messages.map((h) => ({
+            id: `saved-${h.id}`,
+            role: h.role as "ai" | "user",
+            text: h.text,
+            ts: h.ts,
+          }));
+          setMessages((current) => [...olderMsgs, ...current]);
+          // Preserve scroll position after prepending
+          requestAnimationFrame(() => {
+            if (scrollContainer) {
+              scrollContainer.scrollTop = scrollContainer.scrollHeight - prevScrollHeight;
+            }
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMore(false));
   };
 
   // Clear this agent's chat history
@@ -2411,7 +2450,7 @@ export default function AgentChatPage() {
 
           {/* Chat */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5" data-testid="agent-chat-thread">
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5" data-testid="agent-chat-thread">
               {!historyLoaded && (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
@@ -2433,6 +2472,21 @@ export default function AgentChatPage() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+              {historyLoaded && hasMoreHistory && (
+                <div className="flex justify-center py-2">
+                  <button
+                    onClick={loadMoreHistory}
+                    disabled={loadingMore}
+                    className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-full px-4 py-1.5 transition-colors disabled:opacity-50"
+                  >
+                    {loadingMore ? (
+                      <span className="flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Loading...</span>
+                    ) : (
+                      "Load More"
+                    )}
+                  </button>
                 </div>
               )}
               {messages.map((msg, idx) => (

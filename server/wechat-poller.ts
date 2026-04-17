@@ -96,7 +96,7 @@ async function processMessage(
     return;
   }
 
-  const history = await storage.getChatHistory(userId, agentId);
+  const { messages: history } = await storage.getChatHistory(userId, agentId);
   const ocMessages = [
     ...history.slice(-20).map((h) => ({
       role: h.role === "ai" ? "assistant" : "user",

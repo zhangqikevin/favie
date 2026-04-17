@@ -479,15 +479,18 @@ export async function registerRoutes(
     }
   });
 
-  // GET /api/chat/:agentId — fetch saved chat history
+  // GET /api/chat/:agentId — fetch saved chat history (paginated)
+  // Query params: limit (default 20), before (message id for cursor-based pagination)
   app.get("/api/chat/:agentId", async (req, res) => {
     if (!req.isAuthenticated() || !req.user) {
       return res.status(401).json({ message: "Not authenticated" });
     }
     try {
       const { agentId } = z.object({ agentId: z.enum(["operation", "chef", "social", "customer", "finance", "legal", "expert"]) }).parse(req.params);
-      const history = await storage.getChatHistory(req.user.id, agentId);
-      res.json(history);
+      const limit = Math.min(Number(req.query.limit) || 20, 100);
+      const before = req.query.before ? Number(req.query.before) : undefined;
+      const { messages, hasMore } = await storage.getChatHistory(req.user.id, agentId, limit, before);
+      res.json({ messages, hasMore });
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Invalid request" });
     }
@@ -1604,7 +1607,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurantInfo, overrides);
 
       // Load last 20 messages from history
-      const history = await storage.getChatHistory(userId, agentId);
+      const { messages: history } = await storage.getChatHistory(userId, agentId);
       const historyMessages = history.slice(-20).map(m => ({ role: m.role === "ai" ? "assistant" : m.role, content: m.text }));
 
       // Add incoming user message

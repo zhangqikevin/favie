@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { eq, desc, and, gte } from "drizzle-orm";
+import { eq, desc, asc, and, gte, sql } from "drizzle-orm";
 import pg from "pg";
 import {
   users, type User, type InsertUser,
@@ -31,7 +31,7 @@ export interface IStorage {
   getTaskDefinitions(): Promise<TaskDefinition[]>;
   createTaskRun(data: InsertTaskRun): Promise<TaskRun>;
   getTaskRuns(userId: string): Promise<(TaskRun & { task: TaskDefinition | null })[]>;
-  getChatHistory(userId: string, agentId: string): Promise<ChatMessage[]>;
+  getChatHistory(userId: string, agentId: string, limit?: number, beforeId?: number): Promise<{ messages: ChatMessage[]; hasMore: boolean }>;
   saveChatMessage(data: InsertChatMessage): Promise<ChatMessage>;
   saveChatMessages(data: InsertChatMessage[]): Promise<void>;
   clearChatHistory(userId: string, agentId: string): Promise<void>;
@@ -194,12 +194,30 @@ export class DatabaseStorage implements IStorage {
     return runs.map((r) => ({ ...r, task: defMap[r.taskId] ?? null }));
   }
 
-  async getChatHistory(userId: string, agentId: string): Promise<ChatMessage[]> {
-    return db
+  // Cutoff: hide all messages before 2026-04-17 00:00:00 PDT (= 2026-04-17 07:00:00 UTC)
+  private static readonly CHAT_CUTOFF = new Date("2026-04-17T07:00:00Z");
+
+  async getChatHistory(userId: string, agentId: string, limit = 20, beforeId?: number): Promise<{ messages: ChatMessage[]; hasMore: boolean }> {
+    const conditions = [
+      eq(chatMessages.userId, userId),
+      eq(chatMessages.agentId, agentId),
+      gte(chatMessages.createdAt, DatabaseStorage.CHAT_CUTOFF),
+    ];
+    if (beforeId) {
+      conditions.push(sql`${chatMessages.id} < ${beforeId}`);
+    }
+    // Fetch limit+1 to detect hasMore, ordered DESC to get latest first
+    const rows = await db
       .select()
       .from(chatMessages)
-      .where(and(eq(chatMessages.userId, userId), eq(chatMessages.agentId, agentId)))
-      .orderBy(chatMessages.id);
+      .where(and(...conditions))
+      .orderBy(desc(chatMessages.id))
+      .limit(limit + 1);
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    // Return in chronological order (ASC)
+    page.reverse();
+    return { messages: page, hasMore };
   }
 
   async getAllUsers(): Promise<User[]> {
