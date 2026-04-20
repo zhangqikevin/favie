@@ -32,7 +32,7 @@ export default function Register() {
   });
 
   if (!isLoading && user) {
-    navigate(user.selectedPlan ? "/dashboard" : "/onboarding");
+    navigate(user.selectedPlan ? "/admin/task-market" : "/onboarding");
     return null;
   }
 

@@ -878,7 +878,19 @@ export default function Dashboard() {
     ?? restaurantData?.restaurants?.[0];
   const restaurantName = currentRestaurant?.name ?? "";
 
-  useEffect(() => { if (!user) navigate("/login"); }, [user]);
+  useEffect(() => {
+    if (!user) { navigate("/login"); return; }
+    try {
+      const hired = JSON.parse(localStorage.getItem("favie_hired_agents") || "[]");
+      if (Array.isArray(hired) && hired.length > 0) {
+        navigate(`/admin/agents/${hired[hired.length - 1]}`);
+      } else {
+        navigate("/admin/task-market");
+      }
+    } catch {
+      navigate("/admin/task-market");
+    }
+  }, [user]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
   useEffect(() => {
     if (!isThinking) return;
