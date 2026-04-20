@@ -456,7 +456,7 @@ export async function registerRoutes(
         role:  cfg[`agent_${agentId}_role`]  || undefined,
         rules: cfg[`agent_${agentId}_rules`] || undefined,
       };
-      const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides);
+      const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides, userId);
 
       const ocId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurant.name, restaurant.cuisine ?? "", systemPrompt, cfg);
       const enrichedPrompt = withDeliveryInstructions(systemPrompt, userId, agentId, cfg["app_base_url"] || DEFAULT_APP_BASE_URL, cfg["openclaw_api_key"] ?? "");
@@ -1668,7 +1668,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         role:  cfg[`agent_${agentId}_role`]  || undefined,
         rules: cfg[`agent_${agentId}_rules`] || undefined,
       };
-      const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurantInfo, overrides);
+      const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurantInfo, overrides, userId);
 
       // Load last 20 messages from history
       const { messages: history } = await storage.getChatHistory(userId, agentId);

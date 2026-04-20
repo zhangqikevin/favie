@@ -98,6 +98,7 @@ export function getAgentSystemPrompt(
   agentId: AgentId,
   restaurant: { name: string; cuisine?: string | null; address?: string | null },
   overrides?: { role?: string; rules?: string },
+  userId?: string,
 ): string {
   const rName = restaurant.name;
   const rType = restaurant.cuisine ? `a ${restaurant.cuisine} restaurant` : "a restaurant";
@@ -111,6 +112,10 @@ export function getAgentSystemPrompt(
   const profile = profileLines.length > 0
     ? `\n\n## Restaurant Profile\n${profileLines.join("\n")}`
     : "";
+
+  const mediaSubdir = userId ? `${userId}/` : "";
+  const mediaDir = `/Users/kevin/.openclaw/media/${mediaSubdir}`;
+  const mediaUrl = `https://media.favie.us/${mediaSubdir}`;
 
   const picGenGuide = `
 
@@ -134,37 +139,39 @@ curl -s -X POST "https://litellm.vllm.yesy.dev/v1/images/generations" \\
 ### 第二步：解码并保存到媒体目录
 
 \`\`\`python
-import sys,json,base64,time
+import sys,json,base64,time,os
 d=json.load(sys.stdin)
 b64=d['data'][0].get('b64_json','')
 if b64:
+    os.makedirs('${mediaDir}', exist_ok=True)
     fname='image-'+str(int(time.time()))+'.png'
-    with open('/Users/kevin/.openclaw/media/'+fname,'wb') as f:
+    with open('${mediaDir}'+fname,'wb') as f:
         f.write(base64.b64decode(b64))
     print(fname)
 \`\`\`
 
-必须保存到 /Users/kevin/.openclaw/media/ 目录。
+必须保存到 ${mediaDir} 目录（如不存在会自动创建）。
 
 ### 第三步：用公网 URL 展示图片
 
-该目录通过 Cloudflare Tunnel 暴露，域名为 https://media.kevinzhang.fun/<filename>
+该目录通过 Cloudflare Tunnel 暴露，公网 URL 为：${mediaUrl}<filename>
 
 在回复中用 Markdown 引用：
 \`\`\`
-![描述](https://media.kevinzhang.fun/<文件名>)
+![描述](${mediaUrl}<文件名>)
 \`\`\`
 
 ### 完整一行脚本模板
 
 \`\`\`bash
 curl -s -X POST "https://litellm.vllm.yesy.dev/v1/images/generations" -H "Content-Type: application/json" -H "Authorization: Bearer <LITEGPT_API_KEY>" -d '{"model":"gpt-image-1.5","prompt":"<prompt>","n":1,"size":"1024x1024"}' --max-time 90 2>&1 | python3 -c "
-import sys,json,base64,time
+import sys,json,base64,time,os
+os.makedirs('${mediaDir}', exist_ok=True)
 d=json.load(sys.stdin)
 b64=d['data'][0].get('b64_json','')
 if b64:
     fname='image-'+str(int(time.time()))+'.png'
-    with open('/Users/kevin/.openclaw/media/'+fname,'wb') as f: f.write(base64.b64decode(b64))
+    with open('${mediaDir}'+fname,'wb') as f: f.write(base64.b64decode(b64))
     print(fname)
 else: print('error:',json.dumps(d)[:200])
 "

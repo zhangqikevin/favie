@@ -87,7 +87,7 @@ async function processMessage(
     role: cfg[`agent_${agentId}_role`],
     rules: cfg[`agent_${agentId}_rules`],
   };
-  const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides);
+  const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides, userId);
 
   const baseUrl = cfg["openclaw_base_url"] || "https://openclaw.kevinzhang.fun";
   const apiKey  = cfg["openclaw_api_key"]  ?? "";
