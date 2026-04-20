@@ -11,9 +11,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
-  MapPin, CheckCircle2, Building2, ChefHat, ArrowRight, Loader2,
+  MapPin, CheckCircle2, ChefHat, ArrowRight, Loader2,
 } from "lucide-react";
-import { SiGoogle, SiYelp } from "react-icons/si";
+import { SiGoogle } from "react-icons/si";
 
 const formSchema = z.object({
   name: z.string().min(2, "Restaurant name must be at least 2 characters"),
@@ -24,42 +24,12 @@ type FormValues = z.infer<typeof formSchema>;
 
 type Step = "form" | "searching" | "results" | "done";
 
-interface SearchResult {
-  name: string;
-  address: string;
-  phone: string;
-  cuisine: string;
-  rating: string;
-  reviewCount: number;
-}
-
-function generateMockResults(name: string, address: string): {
-  google: SearchResult;
-  yelp: SearchResult;
-} {
-  const googleRating = (4.0 + Math.random() * 0.8).toFixed(1);
-  const yelpRating = (3.8 + Math.random() * 0.9).toFixed(1);
-  const googleReviews = Math.floor(50 + Math.random() * 300);
-  const yelpReviews = Math.floor(30 + Math.random() * 200);
-
-  return {
-    google: {
-      name,
-      address,
-      phone: "",
-      cuisine: "",
-      rating: googleRating,
-      reviewCount: googleReviews,
-    },
-    yelp: {
-      name,
-      address,
-      phone: "",
-      cuisine: "",
-      rating: yelpRating,
-      reviewCount: yelpReviews,
-    },
-  };
+interface PlaceResult {
+  displayName: { text: string };
+  formattedAddress: string;
+  rating?: number;
+  userRatingCount?: number;
+  googleMapsUri?: string;
 }
 
 function StarRating({ rating }: { rating: string }) {
@@ -88,8 +58,9 @@ interface RestaurantSetupFlowProps {
 
 export default function RestaurantSetupFlow({ onComplete, compact }: RestaurantSetupFlowProps) {
   const [step, setStep] = useState<Step>("form");
-  const [mockResults, setMockResults] = useState<{ google: SearchResult; yelp: SearchResult } | null>(null);
+  const [places, setPlaces] = useState<PlaceResult[]>([]);
   const [formValues, setFormValues] = useState<FormValues>({ name: "", address: "" });
+  const [searchError, setSearchError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const form = useForm<FormValues>({
@@ -99,7 +70,8 @@ export default function RestaurantSetupFlow({ onComplete, compact }: RestaurantS
 
   const createMutation = useMutation({
     mutationFn: async (data: {
-      name: string; address: string; rating: string; reviewCount: number;
+      name: string; address: string; rating?: string; reviewCount?: number;
+      googleUrl?: string; yelpUrl?: string;
     }) => {
       const res = await apiRequest("POST", "/api/restaurants", data);
       return res.json();
@@ -114,22 +86,51 @@ export default function RestaurantSetupFlow({ onComplete, compact }: RestaurantS
     },
   });
 
-  const handleSearch = (values: FormValues) => {
+  const handleSearch = async (values: FormValues) => {
     setFormValues(values);
     setStep("searching");
-    const results = generateMockResults(values.name, values.address);
-    setMockResults(results);
-    setTimeout(() => setStep("results"), 1800);
+    setSearchError(null);
+    try {
+      const query = `${values.name} ${values.address}`;
+      const res = await fetch(`/api/places/search?query=${encodeURIComponent(query)}`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.places && data.places.length > 0) {
+        setPlaces(data.places.slice(0, 5));
+        setStep("results");
+      } else {
+        setPlaces([]);
+        setStep("results");
+      }
+    } catch (e: any) {
+      setSearchError(e.message || "Search failed");
+      setStep("form");
+    }
   };
 
-  const handleConfirm = (source: "google" | "yelp") => {
-    if (!mockResults) return;
-    const result = mockResults[source];
+  const handleConfirm = (place: PlaceResult) => {
+    const name = place.displayName?.text || formValues.name;
+    const address = place.formattedAddress || formValues.address;
+    const yelpUrl = `https://www.yelp.com/search?find_desc=${encodeURIComponent(name)}&find_loc=${encodeURIComponent(address)}`;
+    createMutation.mutate({
+      name,
+      address,
+      rating: place.rating?.toFixed(1),
+      reviewCount: place.userRatingCount,
+      googleUrl: place.googleMapsUri,
+      yelpUrl,
+    });
+  };
+
+  const handleManualConfirm = () => {
+    const yelpUrl = `https://www.yelp.com/search?find_desc=${encodeURIComponent(formValues.name)}&find_loc=${encodeURIComponent(formValues.address)}`;
+    const googleUrl = `https://www.google.com/maps/search/${encodeURIComponent(formValues.name + " " + formValues.address)}`;
     createMutation.mutate({
       name: formValues.name,
       address: formValues.address,
-      rating: result.rating,
-      reviewCount: result.reviewCount,
+      googleUrl,
+      yelpUrl,
     });
   };
 
@@ -157,84 +158,94 @@ export default function RestaurantSetupFlow({ onComplete, compact }: RestaurantS
         compact ? "py-8" : "py-16"
       )}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
-            <SiYelp size={20} color="#D32323" />
-          </div>
-          <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
           <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
             <SiGoogle size={20} color="#4285F4" />
           </div>
+          <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground">Searching Yelp & Google Maps…</p>
+          <p className="text-sm font-semibold text-foreground">Searching Google Maps…</p>
           <p className="text-xs text-muted-foreground mt-0.5">Looking for "{formValues.name}"</p>
         </div>
       </div>
     );
   }
 
-  if (step === "results" && mockResults) {
+  if (step === "results") {
     return (
       <div className={cn("space-y-4", compact && "")}>
         <div>
-          <p className="text-sm font-semibold text-foreground">We found your restaurant</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Confirm which listing is yours on each platform</p>
+          <p className="text-sm font-semibold text-foreground">
+            {places.length > 0 ? "We found your restaurant" : "No results found"}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {places.length > 0
+              ? "Select which listing is yours"
+              : "You can add it manually or try a different search"}
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {(["google", "yelp"] as const).map((source) => {
-            const result = mockResults[source];
-            const isGoogle = source === "google";
-            return (
+        {places.length > 0 ? (
+          <div className="space-y-2">
+            {places.map((place, idx) => (
               <div
-                key={source}
-                className="bg-background border border-border rounded-xl p-4 space-y-3"
-                data-testid={`card-search-result-${source}`}
+                key={idx}
+                className="bg-background border border-border rounded-xl p-3 space-y-2"
               >
-                <div className="flex items-center gap-2">
-                  <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                    isGoogle ? "bg-blue-50" : "bg-red-50"
-                  )}>
-                    {isGoogle
-                      ? <SiGoogle size={16} color="#4285F4" />
-                      : <SiYelp size={16} color="#D32323" />
+                <div className="flex items-start gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <SiGoogle size={14} color="#4285F4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground leading-tight">
+                      {place.displayName?.text}
+                    </p>
+                    <div className="flex items-start gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-muted-foreground leading-snug">
+                        {place.formattedAddress}
+                      </p>
+                    </div>
+                    {place.rating && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <StarRating rating={place.rating.toFixed(1)} />
+                        {place.userRatingCount && (
+                          <span className="text-xs text-muted-foreground">
+                            ({place.userRatingCount} reviews)
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-shrink-0"
+                    onClick={() => handleConfirm(place)}
+                    disabled={createMutation.isPending}
+                  >
+                    {createMutation.isPending
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <>Select <ArrowRight className="w-3 h-3 ml-1" /></>
                     }
-                  </div>
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    {isGoogle ? "Google Maps" : "Yelp"}
-                  </span>
+                  </Button>
                 </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-foreground leading-tight">{result.name}</p>
-                  <div className="flex items-start gap-1 mt-1">
-                    <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-muted-foreground leading-snug">{result.address}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <StarRating rating={result.rating} />
-                  <span className="text-xs text-muted-foreground">({result.reviewCount} reviews)</span>
-                </div>
-
-                <Button
-                  size="sm"
-                  className="w-full"
-                  onClick={() => handleConfirm(source)}
-                  disabled={createMutation.isPending}
-                  data-testid={`button-confirm-restaurant-${source}`}
-                >
-                  {createMutation.isPending
-                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    : <>This is my restaurant <ArrowRight className="w-3.5 h-3.5 ml-1" /></>
-                  }
-                </Button>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleManualConfirm}
+            disabled={createMutation.isPending}
+          >
+            {createMutation.isPending
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <>Add "{formValues.name}" manually <ArrowRight className="w-3.5 h-3.5 ml-1" /></>
+            }
+          </Button>
+        )}
 
         <button
           className="text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -256,9 +267,13 @@ export default function RestaurantSetupFlow({ onComplete, compact }: RestaurantS
           </div>
           <div>
             <p className="text-base font-semibold text-foreground">Add your restaurant</p>
-            <p className="text-sm text-muted-foreground">We'll find your listing on Yelp & Google Maps</p>
+            <p className="text-sm text-muted-foreground">We'll find your listing on Google Maps</p>
           </div>
         </div>
+      )}
+
+      {searchError && (
+        <p className="text-xs text-red-500">{searchError}</p>
       )}
 
       <Form {...form}>

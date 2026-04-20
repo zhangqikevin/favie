@@ -1684,7 +1684,11 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
         <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
       ) : (
         <div className="space-y-2">
-          {SUPPORTED_CHANNELS.map((ch) => {
+          {[...SUPPORTED_CHANNELS].sort((a, b) => {
+            const aBound = bindingByType[a.type] ? 1 : 0;
+            const bBound = bindingByType[b.type] ? 1 : 0;
+            return bBound - aBound;
+          }).map((ch) => {
             const bound = bindingByType[ch.type];
             const isConnecting = connectingType === ch.type;
             const isIm = IM_CHANNEL_TYPES.includes(ch.type);
@@ -1819,7 +1823,7 @@ function ChannelBindingsPanel({ agentId }: { agentId: string }) {
 
 // ─── Context Panel ────────────────────────────────────────────────────────────
 
-function AgentContextPanel({ config, agentId }: { config: AgentConfig; agentId: string }) {
+function AgentContextPanel({ config, agentId, restaurant }: { config: AgentConfig; agentId: string; restaurant?: Restaurant | null }) {
   const { t } = useTranslation();
   return (
     <div className="w-60 xl:w-64 flex-shrink-0 border-l border-border bg-card overflow-y-auto hidden lg:flex flex-col">
@@ -1827,6 +1831,31 @@ function AgentContextPanel({ config, agentId }: { config: AgentConfig; agentId: 
         <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">{config.role}</p>
         <p className="text-sm text-muted-foreground leading-relaxed">{config.description}</p>
       </div>
+      {agentId === "expert" && restaurant && (
+        <div className="px-4 py-3 border-b border-border space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Restaurant</p>
+          <p className="text-sm font-medium text-foreground">{restaurant.name}</p>
+          {restaurant.rating && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Rating:</span>
+              <span className="text-xs font-semibold text-foreground">{restaurant.rating} ⭐</span>
+              {restaurant.reviewCount && (
+                <span className="text-xs text-muted-foreground">({restaurant.reviewCount})</span>
+              )}
+            </div>
+          )}
+          {restaurant.googleUrl && (
+            <a
+              href={restaurant.googleUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline break-all"
+            >
+              Google Maps →
+            </a>
+          )}
+        </div>
+      )}
       {config.contextStats.length > 0 && (
         <div className="px-4 py-3 border-b border-border">
           <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">{t("agents_page.context_key_metrics")}</p>
@@ -2642,7 +2671,7 @@ export default function AgentChatPage() {
           </div>
 
           {/* Right panel */}
-          <AgentContextPanel config={config} agentId={agentId} />
+          <AgentContextPanel config={config} agentId={agentId} restaurant={restaurantData?.restaurants?.[0]} />
         </div>
       </div>
     </AdminLayout>

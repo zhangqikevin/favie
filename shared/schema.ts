@@ -82,6 +82,8 @@ export const restaurants = pgTable("restaurants", {
   cuisine: text("cuisine"),
   rating: text("rating"),
   reviewCount: integer("review_count"),
+  googleUrl: text("google_url"),
+  yelpUrl: text("yelp_url"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

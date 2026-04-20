@@ -1319,15 +1319,40 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     res.json({ restaurants: list });
   });
 
+  // Google Places text search proxy
+  app.get("/api/places/search", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    const query = req.query.query as string;
+    if (!query) return res.status(400).json({ message: "query required" });
+    try {
+      const apiKey = process.env.GOOGLE_PLACES_API_KEY || "AIzaSyDOAK5YiHO6ljJOZ73AAbhuCxZE-UJeJ8U";
+      const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.googleMapsUri,places.types",
+        },
+        body: JSON.stringify({ textQuery: query, includedType: "restaurant" }),
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   app.post("/api/restaurants", async (req, res) => {
     if (!req.isAuthenticated() || !req.user)
       return res.status(401).json({ message: "Not authenticated" });
     try {
-      const { name, address, rating, reviewCount } = z.object({
+      const { name, address, rating, reviewCount, googleUrl, yelpUrl } = z.object({
         name: z.string().min(2),
         address: z.string().min(5),
         rating: z.string().optional(),
         reviewCount: z.number().optional(),
+        googleUrl: z.string().optional(),
+        yelpUrl: z.string().optional(),
       }).parse(req.body);
 
       const restaurant = await storage.createRestaurant({
@@ -1336,6 +1361,8 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         address,
         rating: rating ?? null,
         reviewCount: reviewCount ?? null,
+        googleUrl: googleUrl ?? null,
+        yelpUrl: yelpUrl ?? null,
       });
 
       await storage.updateUserCurrentRestaurant(req.user.id, restaurant.id);
