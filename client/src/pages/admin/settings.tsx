@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/lib/auth-context";
 import AdminLayout from "@/components/admin-layout";
 import {
   User, Users, Bell, CreditCard, Shield, CheckCircle2, AlertCircle,
@@ -605,6 +606,7 @@ function SystemConfigSection() {
 
 export default function AdminSettings() {
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   const sections = [
     {
@@ -612,9 +614,8 @@ export default function AdminSettings() {
       icon: User,
       title: t("settings.section_account"),
       fields: [
-        { label: t("settings.field_email"), value: "kevin@goldenwok.com" },
-        { label: t("settings.field_account_owner"), value: "Kevin Zhang" },
-        { label: t("settings.field_role"), value: t("settings.role_admin") },
+        { label: t("settings.field_email"), value: user?.email ?? "—" },
+        { label: t("settings.field_role"), value: "Owner" },
       ],
     },
     {
@@ -644,8 +645,7 @@ export default function AdminSettings() {
       icon: Users,
       title: t("settings.section_team"),
       fields: [
-        { label: "kevin@goldenwok.com", value: t("settings.role_admin") },
-        { label: "ops@goldenwok.com", value: t("settings.role_manager") },
+        { label: user?.email ?? "—", value: "Owner" },
       ],
     },
     {
