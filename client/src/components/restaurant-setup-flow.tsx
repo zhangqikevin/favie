@@ -68,6 +68,7 @@ export default function RestaurantSetupFlow({ onComplete, compact }: RestaurantS
     defaultValues: { name: "", address: "" },
   });
 
+  const [createError, setCreateError] = useState<string | null>(null);
   const createMutation = useMutation({
     mutationFn: async (data: {
       name: string; address: string; rating?: string; reviewCount?: number;
@@ -77,12 +78,16 @@ export default function RestaurantSetupFlow({ onComplete, compact }: RestaurantS
       return res.json();
     },
     onSuccess: (data) => {
+      setCreateError(null);
       queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       setStep("done");
       setTimeout(() => {
         onComplete?.(data.restaurant);
       }, 1200);
+    },
+    onError: (err: Error) => {
+      setCreateError(err.message || "Failed to save restaurant");
     },
   });
 
@@ -184,6 +189,9 @@ export default function RestaurantSetupFlow({ onComplete, compact }: RestaurantS
               : "You can add it manually or try a different search"}
           </p>
         </div>
+        {createError && (
+          <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded">{createError}</p>
+        )}
 
         {places.length > 0 ? (
           <div className="space-y-2">
