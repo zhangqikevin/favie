@@ -1355,15 +1355,31 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         yelpUrl: z.string().optional(),
       }).parse(req.body);
 
-      const restaurant = await storage.createRestaurant({
-        userId: req.user.id,
-        name,
-        address,
-        rating: rating ?? null,
-        reviewCount: reviewCount ?? null,
-        googleUrl: googleUrl ?? null,
-        yelpUrl: yelpUrl ?? null,
-      });
+      let restaurant;
+      try {
+        restaurant = await storage.createRestaurant({
+          userId: req.user.id,
+          name,
+          address,
+          rating: rating ?? null,
+          reviewCount: reviewCount ?? null,
+          ...(googleUrl ? { googleUrl } : {}),
+          ...(yelpUrl ? { yelpUrl } : {}),
+        });
+      } catch (dbErr: any) {
+        // Fallback: retry without URL fields if columns don't exist yet
+        if (dbErr?.message?.includes("google_url") || dbErr?.message?.includes("yelp_url")) {
+          restaurant = await storage.createRestaurant({
+            userId: req.user.id,
+            name,
+            address,
+            rating: rating ?? null,
+            reviewCount: reviewCount ?? null,
+          });
+        } else {
+          throw dbErr;
+        }
+      }
 
       await storage.updateUserCurrentRestaurant(req.user.id, restaurant.id);
 
