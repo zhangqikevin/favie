@@ -322,7 +322,7 @@ function RestaurantManagementSection() {
 
 const SYSTEM_CONFIG_PASSWORD = "123456";
 
-const AGENT_IDS = ["operation", "chef", "social", "customer", "finance", "legal"] as const;
+const AGENT_IDS = ["operation", "chef", "social", "customer", "finance", "legal", "expert"] as const;
 type AgentId = typeof AGENT_IDS[number];
 const AGENT_LABELS: Record<AgentId, string> = {
   operation: "Operation Agent",
@@ -331,6 +331,7 @@ const AGENT_LABELS: Record<AgentId, string> = {
   customer:  "Customer Service Agent",
   finance:   "Finance Agent",
   legal:     "Legal & HR Agent",
+  expert:    "Restaurant Expert",
 };
 
 type ConfigForm = Record<string, string>;
