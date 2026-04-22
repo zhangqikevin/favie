@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import ReactMarkdown from "react-markdown";
+import { ChatMarkdown } from "@/components/chat-markdown";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Send, Utensils, Zap, ChevronDown, CheckCircle2,
@@ -51,27 +51,6 @@ const CHIPS = [
   "Which menu items should I push?",
   "Why do customers leave bad reviews?",
 ];
-
-// ─── Markdown renderer ────────────────────────────────────────────────────────
-
-function MdContent({ text }: { text: string }) {
-  return (
-    <ReactMarkdown
-      components={{
-        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-        ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
-        ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
-        li: ({ children }) => <li className="text-sm">{children}</li>,
-        strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-        code: ({ children }) => (
-          <code className="bg-muted text-foreground rounded px-1 py-0.5 text-xs font-mono">{children}</code>
-        ),
-      }}
-    >
-      {text}
-    </ReactMarkdown>
-  );
-}
 
 // ─── Typing indicator ─────────────────────────────────────────────────────────
 
@@ -398,7 +377,7 @@ function ChatDashboard({
                       : "bg-[#06C167] text-white"
                   )}
                 >
-                  {msg.role === "ai" ? <MdContent text={msg.text} /> : msg.text}
+                  {msg.role === "ai" ? <ChatMarkdown text={msg.text} /> : msg.text}
                 </div>
               </div>
             ))}

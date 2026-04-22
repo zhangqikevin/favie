@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import ReactMarkdown from "react-markdown";
+import { ChatMarkdown } from "@/components/chat-markdown";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { SiTelegram, SiWechat, SiWhatsapp } from "react-icons/si";
@@ -2591,24 +2591,7 @@ export default function AgentChatPage() {
                     </div>
                     <div className={cn("rounded-xl px-4 py-3 text-sm leading-relaxed",
                       msg.role === "ai" ? "bg-card border border-border text-foreground" : "bg-primary text-primary-foreground")}>
-                      {msg.role === "ai" ? (
-                        <ReactMarkdown
-                          components={{
-                            p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
-                            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                            ul: ({ children }) => <ul className="list-disc pl-4 mb-1.5 space-y-0.5">{children}</ul>,
-                            ol: ({ children }) => <ol className="list-decimal pl-4 mb-1.5 space-y-0.5">{children}</ol>,
-                            li: ({ children }) => <li className="leading-snug">{children}</li>,
-                            h1: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
-                            h2: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
-                            h3: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
-                            code: ({ children }) => <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono">{children}</code>,
-                            img: ({ src, alt }) => <img src={src} alt={alt || ""} className="max-w-[60%] rounded-lg my-1" />,
-                          }}
-                        >
-                          {msg.text}
-                        </ReactMarkdown>
-                      ) : msg.text}
+                      {msg.role === "ai" ? <ChatMarkdown text={msg.text} /> : msg.text}
                     </div>
                     {msg.content && <div>{msg.content}</div>}
                     {msg.id === "init-0" && (

@@ -16,6 +16,7 @@ import {
   Star, TrendingUp, AlertCircle, ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ChatMarkdown } from "@/components/chat-markdown";
 import { cn } from "@/lib/utils";
 
 // ─── Agent Config ─────────────────────────────────────────────────────────────
@@ -991,7 +992,7 @@ export default function Dashboard() {
 
                     <div className={cn("rounded-xl px-4 py-3 text-sm leading-relaxed",
                       msg.role === "ai" ? "bg-card border border-border text-foreground" : "bg-primary text-primary-foreground")}>
-                      {msg.text}
+                      {msg.role === "ai" ? <ChatMarkdown text={msg.text} /> : msg.text}
                     </div>
 
                     {msg.blocks?.map((b) => <Block key={b} type={b} />)}
