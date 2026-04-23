@@ -240,6 +240,24 @@ export async function sendMessageViaSocket(
 }
 
 /**
+ * Send an image or video by URL. Baileys fetches the URL server-side.
+ */
+export async function sendMediaViaSocket(
+  bindingId: string,
+  chatId: string,
+  kind: "image" | "video",
+  url: string,
+  caption?: string,
+): Promise<void> {
+  const conn = activeConnections.get(bindingId);
+  if (!conn) throw new Error(`No active WhatsApp connection for binding=${bindingId}`);
+  const content = kind === "video"
+    ? { video: { url }, caption }
+    : { image: { url }, caption };
+  await conn.socket.sendMessage(chatId, content);
+}
+
+/**
  * Restore all active WhatsApp connections on server start.
  */
 export async function restoreAllConnections(): Promise<void> {
@@ -335,6 +353,7 @@ const manager = {
   startConnection,
   stopConnection,
   sendMessage: sendMessageViaSocket,
+  sendMedia: sendMediaViaSocket,
   restoreAllConnections,
   cleanupAuth,
 };

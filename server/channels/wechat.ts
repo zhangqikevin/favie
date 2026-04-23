@@ -1,4 +1,7 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type { Request } from "express";
 import sharp from "sharp";
 import {
@@ -6,12 +9,14 @@ import {
   type UploadedFileInfo,
   sendText as ilinkSendText,
   sendImage as ilinkSendImage,
+  sendMediaFile as ilinkSendMediaFile,
   CDN_BASE_URL,
   UploadMediaType,
   encryptAesEcb,
   aesEcbPaddedSize,
   buildCdnUploadUrl,
 } from "wechat-ilink-client";
+import { parseMarkdownMedia } from "../media-markdown";
 
 const ILINK_LOGIN_BASE = "https://ilinkai.weixin.qq.com";
 const ILINK_MSG_BASE   = "https://api.weixin.qq.com";
@@ -80,23 +85,6 @@ export async function checkQrStatus(
 
 export function parseIncoming(_req: Request): null {
   return null; // WeChat uses long-polling, not webhooks
-}
-
-/**
- * Extract image URLs and clean markdown from a response string.
- */
-function parseMarkdownImages(raw: string): { cleanText: string; imageUrls: string[] } {
-  const imageUrls: string[] = [];
-  let text = raw.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, _alt, url) => {
-    imageUrls.push(url.trim());
-    return "";
-  });
-  text = text.replace(/(?<!\()(https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp|bmp|svg)(?:\?\S*)?)/gi, (url) => {
-    imageUrls.push(url.trim());
-    return "";
-  });
-  const cleanText = text.replace(/\n{3,}/g, "\n\n").trim();
-  return { cleanText, imageUrls };
 }
 
 /**
@@ -281,13 +269,46 @@ async function uploadImageFromUrl(
   return null;
 }
 
+/**
+ * Download a video URL to a temp file and send via ilink sendMediaFile.
+ * Falls back to sending the URL as plain text on any failure.
+ */
+async function sendVideoFromUrl(
+  videoUrl: string,
+  chatId: string,
+  api: ApiClient,
+  ctx: string,
+): Promise<void> {
+  let tmpPath: string | null = null;
+  try {
+    const res = await fetch(videoUrl);
+    if (!res.ok) {
+      console.warn("[wechat-vid] download failed:", res.status, videoUrl.slice(0, 80));
+      await ilinkSendText(api, chatId, videoUrl, ctx);
+      return;
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    tmpPath = path.join(os.tmpdir(), `favie-video-${crypto.randomBytes(6).toString("hex")}.mp4`);
+    fs.writeFileSync(tmpPath, buf);
+    console.log("[wechat-vid] downloaded:", JSON.stringify({ size: buf.length, path: tmpPath, url: videoUrl.slice(0, 80) }));
+
+    await ilinkSendMediaFile(api, chatId, tmpPath, ctx);
+    console.log("[wechat-vid] native video sent to", chatId);
+  } catch (e: any) {
+    console.warn("[wechat-vid] send failed, fallback to URL:", e?.message ?? e);
+    try { await ilinkSendText(api, chatId, videoUrl, ctx); } catch { /* swallow */ }
+  } finally {
+    if (tmpPath) { try { fs.unlinkSync(tmpPath); } catch { /* swallow */ } }
+  }
+}
+
 export async function sendMessage(
   chatId: string,
   text: string,
   config: { botToken: string; baseurl?: string; latestContextToken?: string },
 ): Promise<void> {
-  const { cleanText, imageUrls } = parseMarkdownImages(text);
-  console.log("[wechat-send] parsed:", JSON.stringify({ hasText: !!cleanText.trim(), imageCount: imageUrls.length, rawLen: text.length, preview: text.slice(0, 120) }));
+  const { cleanText, images: imageUrls, videos: videoUrls } = parseMarkdownMedia(text);
+  console.log("[wechat-send] parsed:", JSON.stringify({ hasText: !!cleanText.trim(), imageCount: imageUrls.length, videoCount: videoUrls.length, rawLen: text.length, preview: text.slice(0, 120) }));
 
   const api = getClient(config.botToken, config.baseurl);
   const ctx = config.latestContextToken ?? "";
@@ -314,6 +335,12 @@ export async function sendMessage(
       console.log("[wechat-send] upload failed, sending URL as text fallback");
       await ilinkSendText(api, chatId, url, ctx);
     }
+  }
+
+  // Send videos: download to temp, ilink sendMediaFile (routes to native video by MIME)
+  for (const url of videoUrls) {
+    console.log("[wechat-send] processing video:", url.slice(0, 80));
+    await sendVideoFromUrl(url, chatId, api, ctx);
   }
 }
 

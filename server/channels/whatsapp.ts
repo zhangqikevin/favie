@@ -1,4 +1,5 @@
 import type { Request } from "express";
+import { parseMarkdownMedia } from "../media-markdown";
 
 /**
  * WhatsApp channel handler — uses Baileys (WhatsApp Web protocol).
@@ -26,7 +27,30 @@ export async function sendMessage(
     console.warn("[whatsapp] sendMessage called without _bindingId in config");
     return;
   }
-  await mgr.sendMessage(bindingId, chatId, text);
+
+  const { cleanText, images, videos } = parseMarkdownMedia(text);
+
+  if (cleanText.trim()) {
+    await mgr.sendMessage(bindingId, chatId, cleanText);
+  }
+
+  for (const url of images) {
+    try {
+      await mgr.sendMedia(bindingId, chatId, "image", url);
+    } catch (e: any) {
+      console.warn("[whatsapp] sendMedia(image) failed, fallback to URL text:", e?.message ?? e);
+      await mgr.sendMessage(bindingId, chatId, url);
+    }
+  }
+
+  for (const url of videos) {
+    try {
+      await mgr.sendMedia(bindingId, chatId, "video", url);
+    } catch (e: any) {
+      console.warn("[whatsapp] sendMedia(video) failed, fallback to URL text:", e?.message ?? e);
+      await mgr.sendMessage(bindingId, chatId, url);
+    }
+  }
 }
 
 export async function registerWebhook(

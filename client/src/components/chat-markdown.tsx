@@ -53,9 +53,22 @@ export function ChatMarkdown({ text, className }: { text: string; className?: st
           tr: ({ children }) => <tr className="border-b border-border last:border-0">{children}</tr>,
           th: ({ children }) => <th className="text-left font-semibold px-2 py-1.5 border-b border-border">{children}</th>,
           td: ({ children }) => <td className="px-2 py-1.5 align-top">{children}</td>,
-          img: ({ src, alt }) => (
-            <img src={src} alt={alt || ""} className="max-w-full rounded-lg my-2" />
-          ),
+          img: ({ src, alt }) => {
+            const url = typeof src === "string" ? src : "";
+            if (/\.(?:mp4|webm|mov|m4v)(?:\?|#|$)/i.test(url)) {
+              return (
+                <video
+                  src={url}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="max-w-full rounded-lg my-2"
+                  aria-label={alt || undefined}
+                />
+              );
+            }
+            return <img src={url} alt={alt || ""} className="max-w-full rounded-lg my-2" />;
+          },
         }}
       >
         {text}

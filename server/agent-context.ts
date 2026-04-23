@@ -184,5 +184,67 @@ else: print('error:',json.dumps(d)[:200])
 - 不要用 read 工具读图片内联（会被标记为 [image data removed]）
 - 不要用 /tmp/ 目录（无法公网访问）`;
 
-  return `${role}${profile}\n\n## Instructions\n${rules}${picGenGuide}`;
+  const vidGenGuide = `
+
+## 视频生成与展示指南
+
+当用户要求生成视频时，按以下步骤操作：
+
+### 第一步：创建视频任务
+
+\`\`\`bash
+curl -s -X POST "https://developing-definitely-organic-homeland.trycloudflare.com/v1/videos/generations" \\
+  -H "Authorization: Bearer sk-seedance-a23a27d315cf06307c85e3f5146a67fd745dd87b91eebba6" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"seedance-2-0-fast","prompt":"<描述>","size":"720x1280","duration":10}'
+\`\`\`
+
+返回形如 \`{"id":"<task_id>","status":"running"}\`。竖屏用 720x1280，横屏用 1280x720；duration 可选 5 或 10。
+
+### 第二步：轮询任务状态（每 10 秒一次，通常 1-3 分钟完成）
+
+\`\`\`bash
+curl -s "https://developing-definitely-organic-homeland.trycloudflare.com/v1/videos/generations/<task_id>" \\
+  -H "Authorization: Bearer sk-seedance-a23a27d315cf06307c85e3f5146a67fd745dd87b91eebba6"
+\`\`\`
+
+当 \`status == "succeeded"\` 时，\`data[0].url\` 就是视频下载链接。
+
+### 第三步：下载视频到媒体目录
+
+\`\`\`bash
+mkdir -p ${mediaDir}
+curl -sL "<video_url>" -o "${mediaDir}video-$(date +%s).mp4"
+\`\`\`
+
+必须保存到 ${mediaDir}，文件名必须以 \`.mp4\` 结尾。
+
+### 第四步：用 Markdown 引用视频
+
+该目录通过 Cloudflare Tunnel 暴露，公网 URL 为：${mediaUrl}<filename>
+
+和图片用同样的 Markdown 语法，webchat / IM 会根据 \`.mp4\` 扩展名自动渲染成视频播放器或原生视频消息：
+
+\`\`\`
+![描述](${mediaUrl}video-<时间戳>.mp4)
+\`\`\`
+
+### 完整一行脚本模板（创建 → 轮询 → 下载）
+
+\`\`\`bash
+BASE=https://developing-definitely-organic-homeland.trycloudflare.com; KEY=sk-seedance-a23a27d315cf06307c85e3f5146a67fd745dd87b91eebba6; \\
+TID=$(curl -s -X POST "$BASE/v1/videos/generations" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{"model":"seedance-2-0-fast","prompt":"<prompt>","size":"720x1280","duration":10}' | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])"); \\
+while :; do S=$(curl -s "$BASE/v1/videos/generations/$TID" -H "Authorization: Bearer $KEY"); ST=$(echo "$S"|python3 -c "import sys,json;print(json.load(sys.stdin)['status'])"); [ "$ST" = "succeeded" ] && break; [ "$ST" = "failed" ] && { echo "failed: $S"; exit 1; }; sleep 10; done; \\
+URL=$(echo "$S"|python3 -c "import sys,json;print(json.load(sys.stdin)['data'][0]['url'])"); \\
+mkdir -p ${mediaDir}; FN="video-$(date +%s).mp4"; curl -sL "$URL" -o "${mediaDir}$FN"; echo "$FN"
+\`\`\`
+
+### 注意事项
+- 生成耗时约 1-3 分钟，轮询间隔 10 秒起
+- 文件必须以 \`.mp4\` 结尾，否则不会被识别为视频
+- 视频文件较大（通常 5-30MB），不要用 /tmp/
+- Seedance 返回的 URL 是临时 trycloudflare 链接，务必下载到 ${mediaDir} 再引用
+- 竖屏适合社媒发布（720x1280），横屏适合介绍片（1280x720）`;
+
+  return `${role}${profile}\n\n## Instructions\n${rules}${picGenGuide}${vidGenGuide}`;
 }
