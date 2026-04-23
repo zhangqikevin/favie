@@ -1009,7 +1009,7 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center gap-2.5">
                 <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && sendFreeText()}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
                   placeholder="Ask the team anything — delivery, menu, content, reviews…"
                   style={{ minHeight: "52px" }}
                   className="flex-1 text-sm px-4 py-3 rounded-xl border border-border/80 bg-muted/30 text-foreground placeholder:text-muted-foreground/75 outline-none ring-2 ring-primary/25 focus:ring-primary/40 focus:border-primary/50 transition-colors"

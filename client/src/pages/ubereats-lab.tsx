@@ -282,13 +282,6 @@ function ChatDashboard({
     }
   }, [isTyping, storeId]);
 
-  const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(input);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* ── Top bar ── */}
@@ -419,7 +412,6 @@ function ChatDashboard({
                 rows={1}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKey}
                 placeholder="Ask Favie anything about your UberEats performance…"
                 className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none min-h-[36px] max-h-[160px]"
                 style={{ fieldSizing: "content" } as any}

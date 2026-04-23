@@ -2637,7 +2637,7 @@ export default function AgentChatPage() {
               </div>
               <div className="flex items-center gap-2.5">
                 <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && !isLoading && handleFreeText()}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
                   placeholder={isLoading ? t("agents_page.chat_thinking", { name: config.name }) : t("agents_page.chat_placeholder", { name: config.name })}
                   disabled={isLoading}
                   style={{ minHeight: '52px' }}
