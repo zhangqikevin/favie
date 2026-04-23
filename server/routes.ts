@@ -533,6 +533,24 @@ export async function registerRoutes(
     }
   });
 
+  // DELETE /api/chat/:agentId/:messageId — delete one chat message
+  app.delete("/api/chat/:agentId/:messageId", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    try {
+      const { agentId, messageId } = z.object({
+        agentId: z.enum(["operation", "chef", "social", "customer", "finance", "legal", "expert"]),
+        messageId: z.string().regex(/^\d+$/).transform(Number),
+      }).parse(req.params);
+      const deleted = await storage.deleteChatMessage(req.user.id, agentId, messageId);
+      if (!deleted) return res.status(404).json({ message: "Message not found" });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Invalid request" });
+    }
+  });
+
   // POST /api/task-market/run — run a Task Market AI task
   app.post("/api/task-market/run", async (req, res) => {
     if (!req.isAuthenticated() || !req.user) {

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatMarkdown } from "@/components/chat-markdown";
+import { MessageBubble } from "@/components/message-bubble";
 import { cn } from "@/lib/utils";
 
 // ─── Agent Config ─────────────────────────────────────────────────────────────
@@ -990,10 +991,13 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    <div className={cn("rounded-xl px-4 py-3 text-sm leading-relaxed",
-                      msg.role === "ai" ? "bg-card border border-border text-foreground" : "bg-primary text-primary-foreground")}>
+                    <MessageBubble
+                      className={cn("rounded-xl px-4 py-3 text-sm leading-relaxed",
+                        msg.role === "ai" ? "bg-card border border-border text-foreground" : "bg-primary text-primary-foreground")}
+                      onDelete={() => setMessages((prev) => prev.filter((m) => m.id !== msg.id))}
+                    >
                       {msg.role === "ai" ? <ChatMarkdown text={msg.text} /> : msg.text}
-                    </div>
+                    </MessageBubble>
 
                     {msg.blocks?.map((b) => <Block key={b} type={b} />)}
                   </div>

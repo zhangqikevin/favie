@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChatMarkdown } from "@/components/chat-markdown";
+import { MessageBubble } from "@/components/message-bubble";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Send, Utensils, Zap, ChevronDown, CheckCircle2,
@@ -362,16 +363,17 @@ function ChatDashboard({
                     <Zap className="w-4 h-4 text-white" />
                   </div>
                 )}
-                <div
+                <MessageBubble
                   className={cn(
                     "max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
                     msg.role === "ai"
                       ? "bg-card border border-border text-foreground"
                       : "bg-[#06C167] text-white"
                   )}
+                  onDelete={() => setMessages((prev) => prev.filter((m) => m.id !== msg.id))}
                 >
                   {msg.role === "ai" ? <ChatMarkdown text={msg.text} /> : msg.text}
-                </div>
+                </MessageBubble>
               </div>
             ))}
 

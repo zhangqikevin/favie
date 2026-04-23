@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { ChatMarkdown } from "@/components/chat-markdown";
+import { MessageBubble } from "@/components/message-bubble";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { SiTelegram, SiWechat, SiWhatsapp } from "react-icons/si";
@@ -2338,6 +2339,15 @@ export default function AgentChatPage() {
       .catch(() => {});
   };
 
+  // Delete one message: persisted ones (id prefixed "saved-") also hit the server.
+  const deleteMessage = (messageId: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    if (messageId.startsWith("saved-")) {
+      const serverId = messageId.slice("saved-".length);
+      fetch(`/api/chat/${agentId}/${serverId}`, { method: "DELETE" }).catch(() => {});
+    }
+  };
+
   // Load older messages (pagination)
   const loadMoreHistory = () => {
     const firstSavedMsg = messages.find(m => m.id.startsWith("saved-"));
@@ -2589,10 +2599,13 @@ export default function AgentChatPage() {
                       <span className="text-sm font-semibold text-foreground">{msg.role === "ai" ? config.name : t("agents_page.chat_you")}</span>
                       <span className="text-sm text-muted-foreground">{msg.ts}</span>
                     </div>
-                    <div className={cn("rounded-xl px-4 py-3 text-sm leading-relaxed",
-                      msg.role === "ai" ? "bg-card border border-border text-foreground" : "bg-primary text-primary-foreground")}>
+                    <MessageBubble
+                      className={cn("rounded-xl px-4 py-3 text-sm leading-relaxed",
+                        msg.role === "ai" ? "bg-card border border-border text-foreground" : "bg-primary text-primary-foreground")}
+                      onDelete={() => deleteMessage(msg.id)}
+                    >
                       {msg.role === "ai" ? <ChatMarkdown text={msg.text} /> : msg.text}
-                    </div>
+                    </MessageBubble>
                     {msg.content && <div>{msg.content}</div>}
                     {msg.id === "init-0" && (
                       <AgentIntroContent

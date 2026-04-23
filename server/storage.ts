@@ -35,6 +35,7 @@ export interface IStorage {
   saveChatMessage(data: InsertChatMessage): Promise<ChatMessage>;
   saveChatMessages(data: InsertChatMessage[]): Promise<void>;
   clearChatHistory(userId: string, agentId: string): Promise<void>;
+  deleteChatMessage(userId: string, agentId: string, messageId: number): Promise<boolean>;
   getSystemConfig(): Promise<Record<string, string>>;
   setSystemConfig(updates: Record<string, string>): Promise<void>;
   getChannelBinding(userId: string, restaurantId: string, agentId: string, channelType: string): Promise<ChannelBinding | undefined>;
@@ -246,6 +247,18 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(chatMessages)
       .where(and(eq(chatMessages.userId, userId), eq(chatMessages.agentId, agentId)));
+  }
+
+  async deleteChatMessage(userId: string, agentId: string, messageId: number): Promise<boolean> {
+    const result = await db
+      .delete(chatMessages)
+      .where(and(
+        eq(chatMessages.id, messageId),
+        eq(chatMessages.userId, userId),
+        eq(chatMessages.agentId, agentId),
+      ))
+      .returning({ id: chatMessages.id });
+    return result.length > 0;
   }
 
   async getSystemConfig(): Promise<Record<string, string>> {
