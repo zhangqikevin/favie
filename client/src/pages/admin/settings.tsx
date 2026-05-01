@@ -634,7 +634,6 @@ function OpenclawAgentMappingSection() {
         <span className="font-semibold text-sm text-foreground">{t("settings.openclaw_agents_title")}</span>
       </div>
       <div className="px-5 py-4">
-        <p className="text-sm text-muted-foreground mb-3">{t("settings.openclaw_agents_desc")}</p>
         <ul className="divide-y divide-border">
           {mappings.map(({ favieId, favieLabel, ocAgentId }) => {
             const isCopied = copied === ocAgentId;
