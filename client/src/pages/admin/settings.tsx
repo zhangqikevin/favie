@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useAuth } from "@/lib/auth-context";
 import AdminLayout from "@/components/admin-layout";
 import {
   User, Users, Bell, CreditCard, Shield, CheckCircle2, AlertCircle,
   Circle, Building2, Plus, Trash2, Loader2, MapPin, ChevronDown, ChevronRight, Link2,
-  Settings2, Lock, Eye, EyeOff, Save, Bot, ChevronUp, Globe,
+  Settings2, Lock, Eye, EyeOff, Save, Bot, ChevronUp, Globe, Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -601,6 +601,77 @@ function SystemConfigSection() {
   );
 }
 
+// ─── Openclaw Agent Mapping ───────────────────────────────────────────────────
+
+function OpenclawAgentMappingSection() {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const [copied, setCopied] = useState<string | null>(null);
+
+  if (!user?.id) return null;
+
+  const userPrefix = user.id.slice(0, 8);
+  const mappings = AGENT_IDS.map((id) => ({
+    favieId: id,
+    favieLabel: AGENT_LABELS[id],
+    ocAgentId: `favie2-${userPrefix}-${id}`,
+  }));
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(text);
+      setTimeout(() => setCopied(null), 1500);
+    });
+  };
+
+  return (
+    <div
+      className="bg-card border border-border rounded-xl overflow-hidden"
+      data-testid="section-settings-openclaw-agents"
+    >
+      <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border">
+        <Bot className="w-4 h-4 text-muted-foreground" />
+        <span className="font-semibold text-sm text-foreground">{t("settings.openclaw_agents_title")}</span>
+      </div>
+      <div className="px-5 py-4">
+        <p className="text-sm text-muted-foreground mb-3">{t("settings.openclaw_agents_desc")}</p>
+        <ul className="divide-y divide-border">
+          {mappings.map(({ favieId, favieLabel, ocAgentId }) => {
+            const isCopied = copied === ocAgentId;
+            return (
+              <li
+                key={favieId}
+                className="flex items-center justify-between gap-3 py-2.5"
+                data-testid={`row-openclaw-mapping-${favieId}`}
+              >
+                <span className="text-sm font-medium text-foreground flex-shrink-0">{favieLabel}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="text-sm font-mono text-muted-foreground truncate"
+                    data-testid={`text-openclaw-id-${favieId}`}
+                  >
+                    {ocAgentId}
+                  </span>
+                  <button
+                    onClick={() => handleCopy(ocAgentId)}
+                    className="p-1 text-muted-foreground hover-elevate active-elevate-2 rounded-md flex-shrink-0"
+                    title={isCopied ? t("settings.openclaw_agents_copied") : t("settings.openclaw_agents_copy")}
+                    data-testid={`button-copy-openclaw-id-${favieId}`}
+                  >
+                    {isCopied
+                      ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                      : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 // ─── Settings sections ─────────────────────────────────────────────────────────
 
 // Sections are built inside the component using t() for i18n
@@ -691,23 +762,26 @@ export default function AdminSettings() {
         {sections.map((section) => {
           const Icon = section.icon;
           return (
-            <div key={section.id} className="bg-card border border-border rounded-xl overflow-hidden" data-testid={`section-settings-${section.id}`}>
-              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-                <div className="flex items-center gap-2.5">
-                  <Icon className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-semibold text-sm text-foreground">{section.title}</span>
+            <Fragment key={section.id}>
+              <div className="bg-card border border-border rounded-xl overflow-hidden" data-testid={`section-settings-${section.id}`}>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-semibold text-sm text-foreground">{section.title}</span>
+                  </div>
+                  <Button size="sm" variant="outline" className="text-sm">{t("settings.edit")}</Button>
                 </div>
-                <Button size="sm" variant="outline" className="text-sm">{t("settings.edit")}</Button>
+                <ul className="divide-y divide-border">
+                  {section.fields.map((f) => (
+                    <li key={f.label} className="flex items-center justify-between px-5 py-3">
+                      <span className="text-sm text-muted-foreground">{f.label}</span>
+                      <span className="text-sm font-medium text-foreground">{f.value}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="divide-y divide-border">
-                {section.fields.map((f) => (
-                  <li key={f.label} className="flex items-center justify-between px-5 py-3">
-                    <span className="text-sm text-muted-foreground">{f.label}</span>
-                    <span className="text-sm font-medium text-foreground">{f.value}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+              {section.id === "account" && <OpenclawAgentMappingSection />}
+            </Fragment>
           );
         })}
 
