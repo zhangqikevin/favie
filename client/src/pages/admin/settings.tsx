@@ -614,7 +614,7 @@ function OpenclawAgentMappingSection() {
   const mappings = AGENT_IDS.map((id) => ({
     favieId: id,
     favieLabel: AGENT_LABELS[id],
-    ocAgentId: `favie2-${userPrefix}-${id}`,
+    ocAgentId: `${userPrefix}-${id}`,
   }));
 
   const handleCopy = (text: string) => {

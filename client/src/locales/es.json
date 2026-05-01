@@ -359,7 +359,7 @@
     "connected_count_label": "conectados",
     "add_new_restaurant": "Añadir un nuevo restaurante",
     "cancel": "Cancelar",
-    "openclaw_agents_title": "Agentes de Openclaw",
+    "openclaw_agents_title": "Agentes",
     "openclaw_agents_desc": "Cada agente de Favie está vinculado a un agente único en Openclaw, asociado a tu cuenta.",
     "openclaw_agents_favie_col": "Agente de Favie",
     "openclaw_agents_oc_col": "ID del Agente en Openclaw",
