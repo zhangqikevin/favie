@@ -2467,7 +2467,7 @@ export default function AgentChatPage() {
     return (
       <AdminLayout chatMode>
         <div className="flex flex-col flex-1 overflow-hidden h-full items-center justify-center">
-          <div className="w-full max-w-md mx-auto px-6 py-12">
+          <div className="w-full max-w-2xl mx-auto px-6 py-12">
             <div className="bg-card border border-border rounded-2xl p-8 shadow-lg">
               <div className="mb-6 text-center">
                 <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3", config.avatar)}>
