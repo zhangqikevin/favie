@@ -1836,11 +1836,13 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const { userId, agentId } = req.params;
       // Validate against the target user's effective Openclaw API key (with
       // global fallback). OpenClaw sends: Authorization: Bearer <webhookToken>
+      // Strict match: when an expected key exists we require the exact bearer
+      // header — a missing or wrong header is rejected.
       const { apiKey: expectedKey } = await getEffectiveOpenclawConfig(userId);
       const trimmedKey = expectedKey.trim();
       const authHeader = (req.headers.authorization ?? "").trim();
-      if (trimmedKey && authHeader && authHeader !== `Bearer ${trimmedKey}`) {
-        console.warn(`[cron-webhook] unauthorized for userId=${userId}`);
+      if (!trimmedKey || authHeader !== `Bearer ${trimmedKey}`) {
+        console.warn(`[cron-webhook] unauthorized for userId=${userId}: expectedLen=${trimmedKey.length} gotHeader=${authHeader.slice(0, 20)}...`);
         return;
       }
 
