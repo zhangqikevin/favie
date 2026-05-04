@@ -184,14 +184,11 @@ export async function syncOpencrawAgent(
   _restaurantName: string,
   _cuisine: string,
   _fullSystemPrompt: string,
-  cfg: Record<string, string>,
+  resolved: { baseUrl: string; apiKey: string; appBaseUrl: string },
 ): Promise<string> {
   const ocAgentId = `favie2-${userId.slice(0, 8)}-${agentId}`;
 
-  const appBaseUrl = cfg["app_base_url"] || "https://favieai.replit.app";
-  const apiKey = cfg["openclaw_api_key"] ?? "";
-  const baseUrl = cfg["openclaw_base_url"] || "https://openclaw.kevinzhang.fun";
-
+  const { baseUrl, apiKey, appBaseUrl } = resolved;
   if (!appBaseUrl || !apiKey || !baseUrl) {
     return ocAgentId;
   }

@@ -147,6 +147,22 @@ export const systemConfig = pgTable("system_config", {
 
 export type SystemConfig = typeof systemConfig.$inferSelect;
 
+// ─── Per-user Openclaw connection settings ─────────────────────────────────────
+// Each user can override the global Openclaw base URL / API key for their own
+// agents, channel deliveries, and webhook auth. NULL columns mean "inherit
+// global system_config value (or hardcoded default)".
+
+export const userOpenclawSettings = pgTable("user_openclaw_settings", {
+  userId: varchar("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  baseUrl: text("base_url"),
+  apiKey: text("api_key"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertUserOpenclawSettingsSchema = createInsertSchema(userOpenclawSettings).omit({ updatedAt: true });
+export type InsertUserOpenclawSettings = z.infer<typeof insertUserOpenclawSettingsSchema>;
+export type UserOpenclawSettings = typeof userOpenclawSettings.$inferSelect;
+
 // ─── Channel Bindings ──────────────────────────────────────────────────────────
 
 export const channelBindings = pgTable("channel_bindings", {

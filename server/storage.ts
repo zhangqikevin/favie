@@ -10,6 +10,7 @@ import {
   chatMessages, type ChatMessage, type InsertChatMessage,
   systemConfig,
   channelBindings, type ChannelBinding, type InsertChannelBinding,
+  userOpenclawSettings, type UserOpenclawSettings,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -38,6 +39,8 @@ export interface IStorage {
   deleteChatMessage(userId: string, agentId: string, messageId: number): Promise<boolean>;
   getSystemConfig(): Promise<Record<string, string>>;
   setSystemConfig(updates: Record<string, string>): Promise<void>;
+  getUserOpenclawSettings(userId: string): Promise<UserOpenclawSettings | undefined>;
+  setUserOpenclawSettings(userId: string, updates: { baseUrl?: string | null; apiKey?: string | null }): Promise<void>;
   getChannelBinding(userId: string, restaurantId: string, agentId: string, channelType: string): Promise<ChannelBinding | undefined>;
   getChannelBindings(userId: string, restaurantId: string, agentId: string): Promise<ChannelBinding[]>;
   getChannelBindingByToken(channelType: string, token: string): Promise<ChannelBinding | undefined>;
@@ -272,6 +275,33 @@ export class DatabaseStorage implements IStorage {
         .insert(systemConfig)
         .values({ key, value })
         .onConflictDoUpdate({ target: systemConfig.key, set: { value, updatedAt: new Date() } });
+    }
+  }
+
+  async getUserOpenclawSettings(userId: string): Promise<UserOpenclawSettings | undefined> {
+    const [row] = await db.select().from(userOpenclawSettings).where(eq(userOpenclawSettings.userId, userId));
+    return row;
+  }
+
+  async setUserOpenclawSettings(
+    userId: string,
+    updates: { baseUrl?: string | null; apiKey?: string | null },
+  ): Promise<void> {
+    const existing = await this.getUserOpenclawSettings(userId);
+    const next = {
+      baseUrl: updates.baseUrl !== undefined ? updates.baseUrl : (existing?.baseUrl ?? null),
+      apiKey:  updates.apiKey  !== undefined ? updates.apiKey  : (existing?.apiKey  ?? null),
+    };
+    if (existing) {
+      await db.update(userOpenclawSettings)
+        .set({ baseUrl: next.baseUrl, apiKey: next.apiKey, updatedAt: new Date() })
+        .where(eq(userOpenclawSettings.userId, userId));
+    } else {
+      await db.insert(userOpenclawSettings).values({
+        userId,
+        baseUrl: next.baseUrl,
+        apiKey: next.apiKey,
+      });
     }
   }
 

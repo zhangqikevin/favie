@@ -10,6 +10,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { storage } from "./storage";
 import { callOpenclaw, syncOpencrawAgent } from "./openclaw";
+import { getEffectiveOpenclawConfig } from "./openclaw-config";
 import { getAgentSystemPrompt, type AgentId } from "./agent-context";
 import { withDeliveryInstructions } from "./delivery-instructions";
 
@@ -308,10 +309,9 @@ async function processMessage(
   };
   const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides, userId);
 
-  const baseUrl = cfg["openclaw_base_url"] || "https://openclaw.kevinzhang.fun";
-  const apiKey = cfg["openclaw_api_key"] ?? "";
+  const { baseUrl, apiKey } = await getEffectiveOpenclawConfig(userId);
   if (!apiKey) {
-    console.warn(`[whatsapp] openclaw not configured, skipping reply`);
+    console.warn(`[whatsapp] openclaw not configured for user=${userId}, skipping reply`);
     return;
   }
 
@@ -324,12 +324,14 @@ async function processMessage(
     { role: "user", content: text },
   ];
 
+  const appBaseUrl = cfg["app_base_url"] || "https://favieai.replit.app";
+
   const ocAgentId = await syncOpencrawAgent(
     userId, restaurantId, agentId, restaurant.name,
-    restaurant.cuisine ?? "", systemPrompt, cfg,
+    restaurant.cuisine ?? "", systemPrompt,
+    { baseUrl, apiKey, appBaseUrl },
   );
 
-  const appBaseUrl = cfg["app_base_url"] || "https://favieai.replit.app";
   const enrichedPrompt = withDeliveryInstructions(systemPrompt, userId, agentId, appBaseUrl, apiKey);
 
   const replyText = await callOpenclaw(baseUrl, apiKey, ocAgentId, userId, enrichedPrompt, ocMessages, 2048);

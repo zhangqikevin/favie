@@ -17,11 +17,11 @@ import {
   buildAuthUrl,
 } from "./ubereats-api";
 import { syncOpencrawAgent, callOpenclaw } from "./openclaw";
+import { getEffectiveOpenclawConfig, DEFAULT_OPENCLAW_BASE_URL, maskApiKey } from "./openclaw-config";
 import { getChannelHandler } from "./channels/index";
 import { getLogs } from "./log-buffer";
 
 // Default config values (used when system_config entries are not set)
-const DEFAULT_OPENCLAW_BASE_URL = "https://openclaw.kevinzhang.fun";
 const DEFAULT_APP_BASE_URL = "https://favieai.replit.app";
 import * as wechat from "./channels/wechat";
 import { startPolling, stopPolling, restoreAllPollers } from "./wechat-poller";
@@ -68,10 +68,8 @@ ${block}`;
 async function runMemorySyncForUser(
   userId: string,
   since: Date,
-  cfg: Record<string, string>,
 ): Promise<void> {
-  const baseUrl = cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL;
-  const apiKey = cfg["openclaw_api_key"] ?? "";
+  const { baseUrl, apiKey } = await getEffectiveOpenclawConfig(userId);
   if (!baseUrl || !apiKey) return;
 
   const msgs = await storage.getAllChatHistorySince(userId, since);
@@ -118,9 +116,9 @@ async function triggerExpertOnboarding(
   restaurant: { id: string; name: string; address: string; rating: string | null; reviewCount: number | null },
   cfg: Record<string, string>,
 ): Promise<void> {
-  const baseUrl = cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL;
-  const apiKey = cfg["openclaw_api_key"] ?? "";
+  const { baseUrl, apiKey } = await getEffectiveOpenclawConfig(userId);
   if (!baseUrl || !apiKey) return;
+  const appBaseUrl = cfg["app_base_url"] || DEFAULT_APP_BASE_URL;
 
   const ratingLine = restaurant.rating
     ? `Current rating: ${restaurant.rating}${restaurant.reviewCount ? ` (${restaurant.reviewCount} reviews)` : ""}.`
@@ -142,7 +140,8 @@ Be warm and concise. Do NOT explain what you will do after they answer — just 
   // Initialize the agent on openclaw (creates it + writes SOUL.md on first use)
   const ocAgentId = await syncOpencrawAgent(
     userId, restaurant.id, "expert",
-    restaurant.name, "", systemPrompt, cfg,
+    restaurant.name, "", systemPrompt,
+    { baseUrl, apiKey, appBaseUrl },
   );
 
   let text: string;
@@ -458,11 +457,13 @@ export async function registerRoutes(
       };
       const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides, userId);
 
-      const ocId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurant.name, restaurant.cuisine ?? "", systemPrompt, cfg);
-      const enrichedPrompt = withDeliveryInstructions(systemPrompt, userId, agentId, cfg["app_base_url"] || DEFAULT_APP_BASE_URL, cfg["openclaw_api_key"] ?? "");
+      const oc = await getEffectiveOpenclawConfig(userId);
+      const appBaseUrl = cfg["app_base_url"] || DEFAULT_APP_BASE_URL;
+      const ocId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurant.name, restaurant.cuisine ?? "", systemPrompt, { ...oc, appBaseUrl });
+      const enrichedPrompt = withDeliveryInstructions(systemPrompt, userId, agentId, appBaseUrl, oc.apiKey);
       const text = await callOpenclaw(
-        cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL,
-        cfg["openclaw_api_key"] || "",
+        oc.baseUrl,
+        oc.apiKey,
         ocId,
         userId,
         enrichedPrompt,
@@ -1100,11 +1101,13 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         ? { name: currentRestaurant.name, cuisine: currentRestaurant.cuisine ?? null, address: currentRestaurant.address ?? null, rating: currentRestaurant.rating ?? null, reviewCount: currentRestaurant.reviewCount ?? null }
         : { name: "your restaurant", cuisine: null, address: null, rating: null, reviewCount: null };
 
-      const ocId = await syncOpencrawAgent(req.user.id, restaurantId, taskAgentId, restaurantInfo.name, restaurantInfo.cuisine ?? "", systemPrompt, cfg);
-      const enrichedPromptTask = withDeliveryInstructions(systemPrompt, req.user.id, taskAgentId, cfg["app_base_url"] || DEFAULT_APP_BASE_URL, cfg["openclaw_api_key"] ?? "");
+      const oc = await getEffectiveOpenclawConfig(req.user.id);
+      const appBaseUrl = cfg["app_base_url"] || DEFAULT_APP_BASE_URL;
+      const ocId = await syncOpencrawAgent(req.user.id, restaurantId, taskAgentId, restaurantInfo.name, restaurantInfo.cuisine ?? "", systemPrompt, { ...oc, appBaseUrl });
+      const enrichedPromptTask = withDeliveryInstructions(systemPrompt, req.user.id, taskAgentId, appBaseUrl, oc.apiKey);
       const text = await callOpenclaw(
-        cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL,
-        cfg["openclaw_api_key"] || "",
+        oc.baseUrl,
+        oc.apiKey,
         ocId,
         req.user.id,
         enrichedPromptTask,
@@ -1306,10 +1309,12 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const restaurants = await storage.getRestaurants(req.user.id);
       const currentRestaurant = restaurants.find(r => r.id === req.user!.currentRestaurantId) ?? restaurants[0];
       const restaurantId = currentRestaurant?.id ?? "default";
-      const ocId = await syncOpencrawAgent(req.user.id, restaurantId, "operation", currentRestaurant?.name ?? "your restaurant", currentRestaurant?.cuisine ?? "", systemPrompt, cfg);
+      const oc = await getEffectiveOpenclawConfig(req.user.id);
+      const appBaseUrl = cfg["app_base_url"] || DEFAULT_APP_BASE_URL;
+      const ocId = await syncOpencrawAgent(req.user.id, restaurantId, "operation", currentRestaurant?.name ?? "your restaurant", currentRestaurant?.cuisine ?? "", systemPrompt, { ...oc, appBaseUrl });
       const text = await callOpenclaw(
-        cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL,
-        cfg["openclaw_api_key"] || "",
+        oc.baseUrl,
+        oc.apiKey,
         ocId,
         req.user.id,
         systemPrompt,
@@ -1405,7 +1410,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
 
       // Fire-and-forget: Expert Agent personalized onboarding questions
       storage.getSystemConfig().then((cfg) => {
-        triggerExpertOnboarding(req.user.id, restaurant, cfg).catch((e: Error) =>
+        triggerExpertOnboarding(req.user!.id, restaurant, cfg).catch((e: Error) =>
           console.warn("[expert-onboard] failed:", e.message)
         );
       });
@@ -1445,6 +1450,9 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
   });
 
   // ─── System Config API ──────────────────────────────────────────────────────
+  // Note: openclaw_base_url / openclaw_api_key are still readable here as the
+  // GLOBAL fallback (used as placeholder/default when a user has no per-user
+  // override). Per-user reads/writes go through /api/user/openclaw-settings.
   app.get("/api/system-config", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
     const cfg = await storage.getSystemConfig();
@@ -1455,7 +1463,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       openclaw_api_key:  cfg["openclaw_api_key"]  ?? "",
     };
     if (effective["openclaw_api_key"]) {
-      effective["openclaw_api_key"] = "••••••" + effective["openclaw_api_key"].slice(-6);
+      effective["openclaw_api_key"] = maskApiKey(effective["openclaw_api_key"]);
     }
     // Per-agent config — include defaults for role/rules if not overridden
     for (const id of Object.keys(AGENT_META) as AgentId[]) {
@@ -1473,7 +1481,9 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const updates: Record<string, string> = {};
       // app base URL
       if (body.app_base_url !== undefined) updates["app_base_url"] = body.app_base_url;
-      // openclaw settings
+      // openclaw global settings — kept here so an admin can still seed the
+      // global fallback. Per-user overrides should be set via
+      // /api/user/openclaw-settings instead.
       if (body.openclaw_base_url)               updates["openclaw_base_url"] = body.openclaw_base_url;
       if (body.openclaw_api_key && !body.openclaw_api_key.startsWith("••••••")) {
         updates["openclaw_api_key"] = body.openclaw_api_key;
@@ -1490,6 +1500,56 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       await storage.setSystemConfig(updates);
       res.json({ ok: true });
     } catch (err: any) {
+      res.status(400).json({ message: err.message || "Invalid input" });
+    }
+  });
+
+  // ─── Per-user Openclaw connection settings ────────────────────────────────
+  // GET returns the current user's override (masked) plus the global fallback
+  // (also masked) so the UI can render it as a placeholder.
+  app.get("/api/user/openclaw-settings", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    const userId = req.user.id;
+    const [userSettings, cfg] = await Promise.all([
+      storage.getUserOpenclawSettings(userId),
+      storage.getSystemConfig(),
+    ]);
+    const fallbackBaseUrl = cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL;
+    const fallbackApiKey  = cfg["openclaw_api_key"]  ?? "";
+    res.json({
+      baseUrl: userSettings?.baseUrl ?? "",
+      apiKey: userSettings?.apiKey ? maskApiKey(userSettings.apiKey) : "",
+      fallbackBaseUrl,
+      fallbackApiKey: maskApiKey(fallbackApiKey),
+    });
+  });
+
+  app.patch("/api/user/openclaw-settings", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const body = z.object({
+        baseUrl: z.string().optional(),
+        apiKey: z.string().optional(),
+      }).parse(req.body);
+
+      const updates: { baseUrl?: string | null; apiKey?: string | null } = {};
+      if (body.baseUrl !== undefined) {
+        const trimmed = body.baseUrl.trim();
+        updates.baseUrl = trimmed === "" ? null : trimmed;
+      }
+      if (body.apiKey !== undefined) {
+        // Skip if the value is just the masked placeholder being echoed back.
+        if (!body.apiKey.startsWith("••••••")) {
+          const trimmed = body.apiKey.trim();
+          updates.apiKey = trimmed === "" ? null : trimmed;
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        await storage.setUserOpenclawSettings(req.user.id, updates);
+      }
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err?.name === "ZodError") return res.status(400).json({ message: err.errors[0]?.message || "Invalid input" });
       res.status(400).json({ message: err.message || "Invalid input" });
     }
   });
@@ -1739,11 +1799,13 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const allMessages = [...historyMessages, { role: "user" as const, content: incoming.text }];
 
       // Call openclaw
-      const ocId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurantInfo.name, restaurantInfo.cuisine ?? "", systemPrompt, cfg);
-      const enrichedPromptTg = withDeliveryInstructions(systemPrompt, userId, agentId, cfg["app_base_url"] || DEFAULT_APP_BASE_URL, cfg["openclaw_api_key"] ?? "");
+      const oc = await getEffectiveOpenclawConfig(userId);
+      const appBaseUrl = cfg["app_base_url"] || DEFAULT_APP_BASE_URL;
+      const ocId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurantInfo.name, restaurantInfo.cuisine ?? "", systemPrompt, { ...oc, appBaseUrl });
+      const enrichedPromptTg = withDeliveryInstructions(systemPrompt, userId, agentId, appBaseUrl, oc.apiKey);
       const replyText = await callOpenclaw(
-        cfg["openclaw_base_url"] || DEFAULT_OPENCLAW_BASE_URL,
-        cfg["openclaw_api_key"] || "",
+        oc.baseUrl,
+        oc.apiKey,
         ocId,
         userId,
         enrichedPromptTg,
@@ -1771,16 +1833,17 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
   app.post("/api/openclaw/cron-webhook/:userId/:agentId", async (req, res) => {
     res.json({ ok: true });
     try {
-      const cfg = await storage.getSystemConfig();
-      const expectedKey = (cfg["openclaw_api_key"] ?? "").trim();
+      const { userId, agentId } = req.params;
+      // Validate against the target user's effective Openclaw API key (with
+      // global fallback). OpenClaw sends: Authorization: Bearer <webhookToken>
+      const { apiKey: expectedKey } = await getEffectiveOpenclawConfig(userId);
+      const trimmedKey = expectedKey.trim();
       const authHeader = (req.headers.authorization ?? "").trim();
-      // OpenClaw sends: Authorization: Bearer <webhookToken>
-      if (expectedKey && authHeader && authHeader !== `Bearer ${expectedKey}`) {
-        console.warn(`[cron-webhook] unauthorized`);
+      if (trimmedKey && authHeader && authHeader !== `Bearer ${trimmedKey}`) {
+        console.warn(`[cron-webhook] unauthorized for userId=${userId}`);
         return;
       }
 
-      const { userId, agentId } = req.params;
       const body = req.body as Record<string, unknown>;
       console.log(`[cron-webhook] received: userId=${userId} agentId=${agentId} status=${body.status} jobName=${body.jobName}`);
 
@@ -1820,17 +1883,19 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
   app.post("/api/openclaw/deliver", async (req, res) => {
     res.json({ ok: true }); // respond immediately
     try {
-      const cfg = await storage.getSystemConfig();
-      const expectedKey = (cfg["openclaw_api_key"] ?? "").trim();
-      const authHeader = (req.headers.authorization ?? "").trim();
-      if (!expectedKey || authHeader !== `Bearer ${expectedKey}`) {
-        console.warn(`[deliver] unauthorized: expectedLen=${expectedKey.length} gotHeader=${authHeader.slice(0, 20)}...`);
-        return;
-      }
-
+      // Parse body first so we know which user the delivery targets, then
+      // validate auth against THAT user's effective Openclaw API key.
       const { userId, agentId, text } = z
         .object({ userId: z.string(), agentId: z.string(), text: z.string().min(1) })
         .parse(req.body);
+
+      const { apiKey: expectedKey } = await getEffectiveOpenclawConfig(userId);
+      const trimmedKey = expectedKey.trim();
+      const authHeader = (req.headers.authorization ?? "").trim();
+      if (!trimmedKey || authHeader !== `Bearer ${trimmedKey}`) {
+        console.warn(`[deliver] unauthorized for userId=${userId}: expectedLen=${trimmedKey.length} gotHeader=${authHeader.slice(0, 20)}...`);
+        return;
+      }
 
       // Save to chat_messages
       const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -1879,9 +1944,9 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
   app.get("/api/shared-memory/trigger-sync", async (req, res) => {
     if (!req.isAuthenticated() || !req.user) return res.status(401).json({ error: "unauthorized" });
     const userId = (req.user as any).id as string;
-    const cfg = await storage.getSystemConfig();
-    // Use epoch 0 so all chat history is included in the manual trigger
-    runMemorySyncForUser(userId, new Date(0), cfg)
+    // Use epoch 0 so all chat history is included in the manual trigger.
+    // runMemorySyncForUser resolves per-user Openclaw config internally.
+    runMemorySyncForUser(userId, new Date(0))
       .then(() => console.log(`[memsync] manual trigger done for ${userId}`))
       .catch((e: Error) => console.warn(`[memsync] manual trigger failed:`, e.message));
     res.json({ ok: true, message: "Memory sync triggered, running in background." });
@@ -1892,8 +1957,6 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     console.log("[memsync] Starting incremental memory sync...");
     try {
       const cfg = await storage.getSystemConfig();
-      if (!cfg["openclaw_base_url"] || !cfg["openclaw_api_key"]) return;
-
       const lastRunStr = cfg["memory_sync_last_run"];
       const since = lastRunStr
         ? new Date(lastRunStr)
@@ -1901,7 +1964,7 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
 
       const allUsers = await storage.getAllUsers();
       await Promise.all(allUsers.map((user) =>
-        runMemorySyncForUser(user.id, since, cfg).catch((e: Error) =>
+        runMemorySyncForUser(user.id, since).catch((e: Error) =>
           console.warn(`[memsync] failed for ${user.id}:`, e.message)
         )
       ));

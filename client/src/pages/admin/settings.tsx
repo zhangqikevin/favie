@@ -408,6 +408,13 @@ function AgentCard({ agentId, form, setForm, editing }: {
   );
 }
 
+type UserOpenclawForm = {
+  baseUrl: string;
+  apiKey: string;
+  fallbackBaseUrl: string;
+  fallbackApiKey: string;
+};
+
 function SystemConfigSection() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -418,9 +425,15 @@ function SystemConfigSection() {
   const [showKey, setShowKey] = useState(false);
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState<ConfigForm>({});
+  const [openclawForm, setOpenclawForm] = useState<{ baseUrl: string; apiKey: string }>({ baseUrl: "", apiKey: "" });
 
   const { data: cfg, isLoading } = useQuery<ConfigForm>({
     queryKey: ["/api/system-config"],
+    enabled: unlocked,
+  });
+
+  const { data: userOpenclaw } = useQuery<UserOpenclawForm>({
+    queryKey: ["/api/user/openclaw-settings"],
     enabled: unlocked,
   });
 
@@ -428,12 +441,25 @@ function SystemConfigSection() {
     if (cfg) setForm(cfg);
   }, [cfg]);
 
+  useEffect(() => {
+    if (userOpenclaw) {
+      setOpenclawForm({ baseUrl: userOpenclaw.baseUrl ?? "", apiKey: userOpenclaw.apiKey ?? "" });
+    }
+  }, [userOpenclaw]);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/system-config", form);
+      // Strip any openclaw_* keys from the global save — those now live in
+      // /api/user/openclaw-settings (per-user override).
+      const { openclaw_base_url, openclaw_api_key, ...globalForm } = form;
+      await Promise.all([
+        apiRequest("POST", "/api/system-config", globalForm),
+        apiRequest("PATCH", "/api/user/openclaw-settings", openclawForm),
+      ]);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/system-config"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/openclaw-settings"] });
       setEditing(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -447,6 +473,7 @@ function SystemConfigSection() {
 
   function handleCancel() {
     if (cfg) setForm(cfg);
+    if (userOpenclaw) setOpenclawForm({ baseUrl: userOpenclaw.baseUrl ?? "", apiKey: userOpenclaw.apiKey ?? "" });
     setEditing(false);
     setShowKey(false);
   }
@@ -531,22 +558,29 @@ function SystemConfigSection() {
             )}
           </div>
 
-          {/* ── openclaw Group ── */}
+          {/* ── openclaw Group (per-user override) ── */}
           <div className="px-5 py-5 space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("settings.section_openclaw")}</p>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("settings.section_openclaw")}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("settings.openclaw_per_user_hint")}</p>
+            </div>
 
             {!editing ? (
               <ul className="space-y-0 -mx-5 divide-y divide-border">
                 <li className="flex items-center justify-between px-5 py-3">
                   <span className="text-sm text-muted-foreground">{t("settings.base_url")}</span>
-                  <span className="text-sm font-medium text-foreground font-mono truncate max-w-[260px]">
-                    {form.openclaw_base_url || <span className="text-muted-foreground italic font-sans">{t("settings.not_set")}</span>}
+                  <span className="text-sm font-medium text-foreground font-mono truncate max-w-[260px]" data-testid="text-openclaw-base-url">
+                    {openclawForm.baseUrl
+                      ? openclawForm.baseUrl
+                      : <span className="text-muted-foreground italic font-sans">{t("settings.openclaw_inherited", { value: userOpenclaw?.fallbackBaseUrl || "—" })}</span>}
                   </span>
                 </li>
                 <li className="flex items-center justify-between px-5 py-3">
                   <span className="text-sm text-muted-foreground">{t("settings.api_key")}</span>
-                  <span className="text-sm font-medium text-foreground font-mono">
-                    {form.openclaw_api_key || <span className="text-muted-foreground italic font-sans">{t("settings.not_set")}</span>}
+                  <span className="text-sm font-medium text-foreground font-mono" data-testid="text-openclaw-api-key">
+                    {openclawForm.apiKey
+                      ? openclawForm.apiKey
+                      : <span className="text-muted-foreground italic font-sans">{t("settings.openclaw_inherited", { value: userOpenclaw?.fallbackApiKey || t("settings.not_set") })}</span>}
                   </span>
                 </li>
               </ul>
@@ -555,21 +589,25 @@ function SystemConfigSection() {
                 <div>
                   <label className="text-sm text-muted-foreground mb-1 block">{t("settings.base_url")}</label>
                   <Input
-                    value={form.openclaw_base_url ?? ""}
-                    onChange={(e) => setForm(f => ({ ...f, openclaw_base_url: e.target.value }))}
-                    placeholder="https://your-openclaw-host"
+                    value={openclawForm.baseUrl}
+                    onChange={(e) => setOpenclawForm(f => ({ ...f, baseUrl: e.target.value }))}
+                    placeholder={userOpenclaw?.fallbackBaseUrl || "https://your-openclaw-host"}
                     className="text-sm font-mono"
+                    data-testid="input-openclaw-base-url"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">{t("settings.openclaw_inherited_placeholder")}</p>
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground mb-1 block">{t("settings.api_key")}</label>
                   <Input
                     type="password"
-                    value={form.openclaw_api_key ?? ""}
-                    onChange={(e) => setForm(f => ({ ...f, openclaw_api_key: e.target.value }))}
-                    placeholder="API key"
+                    value={openclawForm.apiKey}
+                    onChange={(e) => setOpenclawForm(f => ({ ...f, apiKey: e.target.value }))}
+                    placeholder={userOpenclaw?.fallbackApiKey || "API key"}
                     className="text-sm font-mono"
+                    data-testid="input-openclaw-api-key"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">{t("settings.openclaw_inherited_placeholder")}</p>
                 </div>
               </div>
             )}

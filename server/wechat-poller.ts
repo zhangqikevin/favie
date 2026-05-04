@@ -1,6 +1,7 @@
 import { storage } from "./storage";
 import * as wechat from "./channels/wechat";
 import { callOpenclaw, syncOpencrawAgent } from "./openclaw";
+import { getEffectiveOpenclawConfig } from "./openclaw-config";
 import { getAgentSystemPrompt, type AgentId } from "./agent-context";
 import { withDeliveryInstructions } from "./delivery-instructions";
 
@@ -90,10 +91,9 @@ async function processMessage(
   };
   const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides, userId);
 
-  const baseUrl = cfg["openclaw_base_url"] || "https://openclaw.kevinzhang.fun";
-  const apiKey  = cfg["openclaw_api_key"]  ?? "";
+  const { baseUrl, apiKey } = await getEffectiveOpenclawConfig(userId);
   if (!apiKey) {
-    console.warn(`[wechat-poll] openclaw not configured (missing openclaw_api_key in system_config), skipping reply`);
+    console.warn(`[wechat-poll] openclaw not configured for user=${userId} (no per-user override and no global key), skipping reply`);
     return;
   }
 
@@ -109,7 +109,7 @@ async function processMessage(
   const appBaseUrl = cfg["app_base_url"] || "https://favieai.replit.app";
   const enrichedPrompt = withDeliveryInstructions(systemPrompt, userId, agentId, appBaseUrl, apiKey);
 
-  const ocAgentId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurant.name, restaurant.cuisine ?? "", systemPrompt, cfg);
+  const ocAgentId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurant.name, restaurant.cuisine ?? "", systemPrompt, { baseUrl, apiKey, appBaseUrl });
   const replyText = await callOpenclaw(baseUrl, apiKey, ocAgentId, userId, enrichedPrompt, ocMessages, 2048);
 
   const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
