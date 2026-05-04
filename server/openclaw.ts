@@ -153,7 +153,11 @@ async function ensureSoulInit(
 
   inFlightInits.set(ocAgentId, promise);
   // Always clear in-flight slot, win or lose, so a failed init can be retried later.
-  promise.finally(() => inFlightInits.delete(ocAgentId));
+  // Note: `.finally()` on a rejecting promise returns a NEW rejecting promise.
+  // If we don't attach a `.catch()` to that chain, the rejection becomes an
+  // unhandled-promise-rejection and Node 20 will crash the process — even
+  // though the actual caller already awaits & catches the original promise.
+  promise.finally(() => inFlightInits.delete(ocAgentId)).catch(() => {});
 
   return promise;
 }
