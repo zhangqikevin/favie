@@ -535,7 +535,7 @@ function ContextPanel({ restaurantName }: { restaurantName: string }) {
         <p className="text-sm font-bold text-foreground">{restaurantName || "—"}</p>
         <div className="flex items-center gap-1.5 mt-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-          <span className="text-sm text-green-700 font-medium" data-testid="text-active-plan">{getPlanById(ACTIVE_PLAN_ID)?.name} · Active</span>
+          <span className="text-sm text-green-700 font-medium" data-testid="text-active-plan">{getPlanById(ACTIVE_PLAN_ID)?.name ?? "—"} · Active</span>
         </div>
       </div>
 

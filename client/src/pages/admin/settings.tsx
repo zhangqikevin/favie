@@ -680,6 +680,11 @@ export default function AdminSettings() {
   const { t } = useTranslation();
   const { user } = useAuth();
 
+  const activePlan = getPlanById(ACTIVE_PLAN_ID);
+  const activePlanLabel = activePlan
+    ? `${activePlan.name} · ${activePlan.price}${t("common.month")}`
+    : "—";
+
   const sections = [
     {
       id: "account",
@@ -725,7 +730,7 @@ export default function AdminSettings() {
       icon: CreditCard,
       title: t("settings.section_billing"),
       fields: [
-        { label: t("settings.field_active_plan"), value: (() => { const p = getPlanById(ACTIVE_PLAN_ID); return p ? `${p.name} · ${p.price}${t("common.month")}` : ""; })() },
+        { label: t("settings.field_active_plan"), value: activePlanLabel },
         { label: t("settings.field_next_billing"), value: "April 1, 2026" },
         { label: t("settings.field_payment_method"), value: "Visa ending in 4242" },
       ],
