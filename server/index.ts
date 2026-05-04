@@ -8,6 +8,13 @@ import { setupAuth } from "./auth";
 const app = express();
 const httpServer = createServer(app);
 
+// Allow long-running API calls (e.g. agent chat with multi-step tool use) to
+// outlive Node's defaults. Most upstream timeouts (Replit / Cloudflare Tunnel)
+// are still shorter — for truly long ops the agent must use async cron delivery.
+httpServer.requestTimeout = 10 * 60 * 1000;  // 10 min (default 5)
+httpServer.headersTimeout = 11 * 60 * 1000;  // must be >= requestTimeout
+httpServer.keepAliveTimeout = 65 * 1000;     // > typical proxy 60s
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;

@@ -1,7 +1,12 @@
 /**
  * Call openclaw for a chat completion.
  * Full systemPrompt is passed as messages[0] (system role) — authoritative context for this call.
+ *
+ * Bounded by an 8-minute AbortController so a stalled upstream surfaces as a
+ * clean timeout error instead of hanging on the request socket forever.
  */
+const OPENCLAW_FETCH_TIMEOUT_MS = 8 * 60 * 1000;
+
 export async function callOpenclaw(
   baseUrl: string,
   apiKey: string,
@@ -21,14 +26,30 @@ export async function callOpenclaw(
     ],
   };
 
-  const res = await fetch(`${baseUrl}/v1/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), OPENCLAW_FETCH_TIMEOUT_MS);
+  const startedAt = Date.now();
+
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (e: any) {
+    const elapsed = Date.now() - startedAt;
+    if (e?.name === "AbortError") {
+      throw new Error(`openclaw chat timed out after ${elapsed}ms (limit ${OPENCLAW_FETCH_TIMEOUT_MS}ms). Long-running operations like video generation must use async cron delivery, not block the chat HTTP request.`);
+    }
+    throw new Error(`openclaw chat fetch error after ${elapsed}ms: ${e?.message ?? e}`);
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     const text = await res.text();
@@ -39,7 +60,7 @@ export async function callOpenclaw(
     choices: { message: { content: string | null; tool_calls?: any[] } }[];
   };
   const msg = data.choices[0]?.message;
-  console.log("[openclaw] response:", JSON.stringify({ content: msg?.content?.slice(0, 200) ?? null, hasToolCalls: !!msg?.tool_calls?.length, choiceCount: data.choices?.length }));
+  console.log("[openclaw] response:", JSON.stringify({ elapsedMs: Date.now() - startedAt, content: msg?.content?.slice(0, 200) ?? null, hasToolCalls: !!msg?.tool_calls?.length, choiceCount: data.choices?.length }));
   return msg?.content ?? "";
 }
 

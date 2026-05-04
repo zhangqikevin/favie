@@ -186,11 +186,11 @@ else: print('error:',json.dumps(d)[:200])
 
   const vidGenGuide = `
 
-## 视频生成与展示指南
+## 视频生成与展示指南（必须异步，不要同步等待）
 
-当用户要求生成视频时，按以下步骤操作：
+视频生成耗时 1-3 分钟，远超过单次 chat 响应允许的最长时间。**严禁在一次回复里同步轮询等待**——必须用 cron 异步处理，先即时回复用户"生成中"，结果通过 webhook 推回。
 
-### 第一步：创建视频任务
+### 第 1 步：提交生成任务（同步、几秒返回）
 
 \`\`\`bash
 curl -s -X POST "https://seedance.favie.us/v1/videos/generations" \\
@@ -199,52 +199,47 @@ curl -s -X POST "https://seedance.favie.us/v1/videos/generations" \\
   -d '{"model":"seedance-2-0-fast","prompt":"<描述>","size":"720x1280","duration":10}'
 \`\`\`
 
-返回形如 \`{"id":"<task_id>","status":"running"}\`。竖屏用 720x1280，横屏用 1280x720；duration 可选 5 或 10。
+返回形如 \`{"id":"<task_id>","status":"running"}\`。竖屏 720x1280，横屏 1280x720；duration 可选 5 或 10。**记住 task_id**。
 
-### 第二步：轮询任务状态（每 10 秒一次，通常 1-3 分钟完成）
+### 第 2 步：立刻回复用户（同一回合内）
 
-\`\`\`bash
-curl -s "https://seedance.favie.us/v1/videos/generations/<task_id>" \\
-  -H "Authorization: Bearer sk-seedance-a23a27d315cf06307c85e3f5146a67fd745dd87b91eebba6"
+只回一句话，例如：
+> 🎬 视频生成中，约 1-3 分钟完成，做好后会自动发给你。
+
+不要提 task_id、cron、webhook 等技术细节。
+
+### 第 3 步：调度 cron job 在 90 秒后自检
+
+使用 cron 工具创建 once-job（delivery webhook URL 见上面 "Scheduled Reminders & Tasks" 章节）：
+
+\`\`\`json
+{
+  "action": "add",
+  "job": {
+    "name": "video-poll-<task_id>",
+    "enabled": true,
+    "schedule": { "kind": "once", "at": "<现在 +90s 的 ISO 8601 时间戳>" },
+    "sessionTarget": "isolated",
+    "payload": {
+      "kind": "systemEvent",
+      "text": "[VIDEO_POLL task_id=<task_id> attempt=1] 按以下步骤处理：\\n1. curl -s 'https://seedance.favie.us/v1/videos/generations/<task_id>' -H 'Authorization: Bearer sk-seedance-a23a27d315cf06307c85e3f5146a67fd745dd87b91eebba6'\\n2. 如果 status==succeeded：把 data[0].url 用 curl -sL 下载到 ${mediaDir}video-$(date +%s).mp4，然后回复 ![视频](${mediaUrl}video-<刚才的时间戳>.mp4)\\n3. 如果 status==running 且 attempt<8：用 cron 在 30s 后再调度一次 video-poll-<task_id>，attempt 自加 1\\n4. 如果 status==failed 或 attempt>=8：回复 '❌ 视频生成失败，请稍后重试'\\n5. 不要在回复里提 task_id / attempt / cron"
+    },
+    "delivery": { "mode": "webhook", "to": "<上面 Scheduled Reminders 章节里的 webhookUrl>" }
+  }
+}
 \`\`\`
 
-当 \`status == "succeeded"\` 时，\`data[0].url\` 就是视频下载链接。
+### 第 4 步（cron 触发后才执行，不在原对话里做）
 
-### 第三步：下载视频到媒体目录
-
-\`\`\`bash
-mkdir -p ${mediaDir}
-curl -sL "<video_url>" -o "${mediaDir}video-$(date +%s).mp4"
-\`\`\`
-
-必须保存到 ${mediaDir}，文件名必须以 \`.mp4\` 结尾。
-
-### 第四步：用 Markdown 引用视频
-
-该目录通过 Cloudflare Tunnel 暴露，公网 URL 为：${mediaUrl}<filename>
-
-和图片用同样的 Markdown 语法，webchat / IM 会根据 \`.mp4\` 扩展名自动渲染成视频播放器或原生视频消息：
-
-\`\`\`
-![描述](${mediaUrl}video-<时间戳>.mp4)
-\`\`\`
-
-### 完整一行脚本模板（创建 → 轮询 → 下载）
-
-\`\`\`bash
-BASE=https://seedance.favie.us; KEY=sk-seedance-a23a27d315cf06307c85e3f5146a67fd745dd87b91eebba6; \\
-TID=$(curl -s -X POST "$BASE/v1/videos/generations" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{"model":"seedance-2-0-fast","prompt":"<prompt>","size":"720x1280","duration":10}' | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])"); \\
-while :; do S=$(curl -s "$BASE/v1/videos/generations/$TID" -H "Authorization: Bearer $KEY"); ST=$(echo "$S"|python3 -c "import sys,json;print(json.load(sys.stdin)['status'])"); [ "$ST" = "succeeded" ] && break; [ "$ST" = "failed" ] && { echo "failed: $S"; exit 1; }; sleep 10; done; \\
-URL=$(echo "$S"|python3 -c "import sys,json;print(json.load(sys.stdin)['data'][0]['url'])"); \\
-mkdir -p ${mediaDir}; FN="video-$(date +%s).mp4"; curl -sL "$URL" -o "${mediaDir}$FN"; echo "$FN"
-\`\`\`
+cron 触发的 isolated session 会收到上面 payload.text 里的 systemEvent，照着步骤跑：轮询、下载、回复 markdown 视频引用，或重新调度自检，或回退失败信息。
 
 ### 注意事项
-- 生成耗时约 1-3 分钟，轮询间隔 10 秒起
-- 文件必须以 \`.mp4\` 结尾，否则不会被识别为视频
-- 视频文件较大（通常 5-30MB），不要用 /tmp/
-- Seedance 返回的 data[0].url 是临时下载链接（会过期），务必下载到 ${mediaDir} 再引用
-- 竖屏适合社媒发布（720x1280），横屏适合介绍片（1280x720）`;
+- 第 1 步 + 第 2 步 + 第 3 步必须在原 chat 回合里完成，不能阻塞等待视频结果
+- isolated session 没有上下文，cron payload 里要写完整指令（task_id、URL、文件名规则、回退逻辑）
+- 文件必须 \`.mp4\` 结尾，必须保存到 ${mediaDir}（公网 URL ${mediaUrl}<filename>）
+- Seedance 返回的 data[0].url 是临时链接，必须下载到本地再引用
+- 视频文件 5-30MB 常见，不要用 /tmp/
+- 总轮询次数封顶 8（90s 首检 + 7×30s = 5 分钟），超时回退失败提示`;
 
   return `${role}${profile}\n\n## Instructions\n${rules}${picGenGuide}${vidGenGuide}`;
 }
