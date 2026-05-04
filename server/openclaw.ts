@@ -44,46 +44,38 @@ export async function callOpenclaw(
 }
 
 /**
- * Track which agents have already had their SOUL.md initialized this server lifetime.
- * On first encounter, we fire a one-shot call asking the agent to write the delivery
- * config to its SOUL.md so it persists across all future sessions, including cron jobs.
+ * Tracks per-agent initialization state to prevent race conditions where
+ * concurrent first-time requests would all fire SOUL.md init in parallel
+ * (which is what caused the "agent dir exists but not in openclaw.json" bug).
+ *
+ * - `initializedSouls`: agent IDs that have completed init successfully this lifetime
+ * - `inFlightInits`: agent IDs currently initializing — concurrent callers share the same promise
  */
 const initializedSouls = new Set<string>();
+const inFlightInits = new Map<string, Promise<void>>();
 
 /**
- * Return a per-user openclaw agent ID for this request, and on first use
- * initialize the agent's SOUL.md with proactive delivery instructions.
+ * Run a single SOUL.md init attempt with retries. Concurrent callers for the
+ * same agent share the same promise (via inFlightInits map), so we never fire
+ * the init in parallel for the same agent.
  *
- * openclaw auto-creates a new agent the first time it sees an unknown agent ID,
- * so no explicit registration is needed. Agent IDs are scoped per-user × agentType,
- * giving each user a fully isolated workspace, session history, and memory on the
- * remote openclaw instance.
- *
- * Format: favie-{userId[0..7]}-{favieAgentId}
- * Example: favie-a1b2c3d4-operation
+ * On final failure, the agent is NOT marked initialized — the next call will
+ * retry. This guarantees agents reach a fully-registered state before users
+ * are allowed to chat with them, eliminating the "half-created" race.
  */
-export async function syncOpencrawAgent(
+async function ensureSoulInit(
+  ocAgentId: string,
+  baseUrl: string,
+  apiKey: string,
   userId: string,
-  _restaurantId: string,
-  agentId: string,
-  _restaurantName: string,
-  _cuisine: string,
-  _fullSystemPrompt: string,
-  cfg: Record<string, string>,
-): Promise<string> {
-  const ocAgentId = `favie2-${userId.slice(0, 8)}-${agentId}`;
+  webhookUrl: string,
+): Promise<void> {
+  if (initializedSouls.has(ocAgentId)) return;
 
-  const appBaseUrl = cfg["app_base_url"] || "https://favieai.replit.app";
-  const apiKey = cfg["openclaw_api_key"] ?? "";
-  const baseUrl = cfg["openclaw_base_url"] || "https://openclaw.kevinzhang.fun";
+  const existing = inFlightInits.get(ocAgentId);
+  if (existing) return existing;
 
-  // First time we see this agent: write delivery config to SOUL.md so it persists
-  // across all sessions including cron-triggered ones. Fire-and-forget.
-  if (appBaseUrl && apiKey && baseUrl && !initializedSouls.has(ocAgentId)) {
-    initializedSouls.add(ocAgentId);
-    const webhookUrl = `${appBaseUrl}/api/openclaw/cron-webhook/${userId}/${agentId}`;
-    console.log(`[soul-init] initializing SOUL.md for ${ocAgentId} → ${webhookUrl}`);
-
+  const promise = (async () => {
     const soulContent = [
       "# ⚠️ MANDATORY: Cron Delivery Config",
       "",
@@ -100,24 +92,99 @@ export async function syncOpencrawAgent(
       "This webhook forwards to the user's WeChat/Telegram. If you use announce, the message is LOST.",
     ].join("\n");
 
-    callOpenclaw(
-      baseUrl,
-      apiKey,
-      ocAgentId,
-      `${userId}-soul-init`,
-      "You are being initialized. Your only job right now is to write the provided content to your SOUL.md file using the Write tool. Reply only with 'Done.' after writing.",
-      [
-        {
-          role: "user",
-          content: `Please write the following content to your SOUL.md file now:\n\n${soulContent}`,
-        },
-      ],
-      50,
-    ).then((reply) =>
-      console.log(`[soul-init] success for ${ocAgentId}: ${reply?.slice(0, 80)}`),
-    ).catch((e: Error) =>
-      console.warn(`[soul-init] failed for ${ocAgentId}:`, e.message),
-    );
+    const maxAttempts = 3;
+    let lastErr: unknown = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`[soul-init] ${ocAgentId} attempt ${attempt}/${maxAttempts} → ${webhookUrl}`);
+        const reply = await callOpenclaw(
+          baseUrl,
+          apiKey,
+          ocAgentId,
+          `${userId}-soul-init`,
+          "You are being initialized. Your only job right now is to write the provided content to your SOUL.md file using the Write tool. Reply only with 'Done.' after writing.",
+          [
+            {
+              role: "user",
+              content: `Please write the following content to your SOUL.md file now:\n\n${soulContent}`,
+            },
+          ],
+          50,
+        );
+        initializedSouls.add(ocAgentId);
+        console.log(`[soul-init] ✅ ${ocAgentId} registered (attempt ${attempt}): ${reply?.slice(0, 80)}`);
+        return;
+      } catch (e) {
+        lastErr = e;
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn(`[soul-init] ❌ ${ocAgentId} attempt ${attempt}/${maxAttempts} failed: ${msg}`);
+        if (attempt < maxAttempts) {
+          // Exponential-ish backoff: 600ms, 1200ms
+          await new Promise((r) => setTimeout(r, 600 * attempt));
+        }
+      }
+    }
+    // All attempts failed — leave initializedSouls unset so the NEXT request retries.
+    // We re-throw so the caller can decide whether to surface the failure.
+    const errMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+    throw new Error(`soul-init failed for ${ocAgentId} after ${maxAttempts} attempts: ${errMsg}`);
+  })();
+
+  inFlightInits.set(ocAgentId, promise);
+  // Always clear in-flight slot, win or lose, so a failed init can be retried later.
+  promise.finally(() => inFlightInits.delete(ocAgentId));
+
+  return promise;
+}
+
+/**
+ * Return a per-user openclaw agent ID for this request, and on first use
+ * AWAIT initialization of the agent's SOUL.md before returning.
+ *
+ * Why we await: openclaw's auto-registration (writing the agent into
+ * openclaw.json) only happens reliably when the init call completes BEFORE any
+ * other concurrent chat call hits the same new agent. Previously this was
+ * fire-and-forget, which created a race where the user's actual chat request
+ * would arrive while init was still in-flight — leading to "half-created"
+ * agents that had a session directory on disk but no entry in openclaw.json.
+ *
+ * Concurrent callers for the same agent share one in-flight init promise.
+ * Init is retried up to 3 times with backoff. If init still fails, we log
+ * loudly and let the chat proceed anyway (better degraded service than total
+ * block); the next call will retry from scratch.
+ *
+ * Format: favie2-{userId[0..7]}-{favieAgentId}
+ * Example: favie2-a1b2c3d4-operation
+ */
+export async function syncOpencrawAgent(
+  userId: string,
+  _restaurantId: string,
+  agentId: string,
+  _restaurantName: string,
+  _cuisine: string,
+  _fullSystemPrompt: string,
+  cfg: Record<string, string>,
+): Promise<string> {
+  const ocAgentId = `favie2-${userId.slice(0, 8)}-${agentId}`;
+
+  const appBaseUrl = cfg["app_base_url"] || "https://favieai.replit.app";
+  const apiKey = cfg["openclaw_api_key"] ?? "";
+  const baseUrl = cfg["openclaw_base_url"] || "https://openclaw.kevinzhang.fun";
+
+  if (!appBaseUrl || !apiKey || !baseUrl) {
+    return ocAgentId;
+  }
+
+  if (!initializedSouls.has(ocAgentId)) {
+    const webhookUrl = `${appBaseUrl}/api/openclaw/cron-webhook/${userId}/${agentId}`;
+    try {
+      await ensureSoulInit(ocAgentId, baseUrl, apiKey, userId, webhookUrl);
+    } catch (e) {
+      // Init failed after retries — log loudly but don't block the user's chat.
+      // Next request for this agent will retry init from scratch.
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[soul-init] ⚠️  proceeding without confirmed init for ${ocAgentId}: ${msg}`);
+    }
   }
 
   return ocAgentId;
