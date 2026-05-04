@@ -2650,7 +2650,14 @@ export default function AgentChatPage() {
               </div>
               <div className="flex items-center gap-2.5">
                 <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if ((e.metaKey || e.altKey) && input.trim() && !isLoading) {
+                        handleFreeText();
+                      }
+                    }
+                  }}
                   placeholder={isLoading ? t("agents_page.chat_thinking", { name: config.name }) : t("agents_page.chat_placeholder", { name: config.name })}
                   disabled={isLoading}
                   style={{ minHeight: '52px' }}
@@ -2658,9 +2665,10 @@ export default function AgentChatPage() {
                   data-testid="input-agent-chat" />
                 <Button onClick={handleFreeText} disabled={!input.trim() || isLoading}
                   style={{ minHeight: '52px' }}
-                  className="flex-shrink-0 px-5 bg-primary text-primary-foreground font-semibold rounded-xl shadow-sm active:scale-95 transition-transform"
+                  className="flex-shrink-0 px-3.5 gap-2 bg-primary text-primary-foreground font-semibold rounded-xl shadow-sm active:scale-95 transition-transform"
                   data-testid="button-agent-send">
                   <Send className="w-4 h-4" />
+                  <span className="text-[10px] font-normal opacity-80 leading-none whitespace-nowrap">⌘/Alt + Enter</span>
                 </Button>
               </div>
             </div>

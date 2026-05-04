@@ -1013,16 +1013,24 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center gap-2.5">
                 <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if ((e.metaKey || e.altKey) && input.trim()) {
+                        sendFreeText();
+                      }
+                    }
+                  }}
                   placeholder="Ask the team anything — delivery, menu, content, reviews…"
                   style={{ minHeight: "52px" }}
                   className="flex-1 text-sm px-4 py-3 rounded-xl border border-border/80 bg-muted/30 text-foreground placeholder:text-muted-foreground/75 outline-none ring-2 ring-primary/25 focus:ring-primary/40 focus:border-primary/50 transition-colors"
                   data-testid="input-chat" />
                 <Button onClick={sendFreeText} disabled={!input.trim()}
                   style={{ minHeight: "52px" }}
-                  className="flex-shrink-0 px-5 bg-primary text-primary-foreground font-semibold rounded-xl shadow-sm active:scale-95 transition-transform"
+                  className="flex-shrink-0 px-3.5 gap-2 bg-primary text-primary-foreground font-semibold rounded-xl shadow-sm active:scale-95 transition-transform"
                   data-testid="button-chat-send">
                   <Send className="w-4 h-4" />
+                  <span className="text-[10px] font-normal opacity-80 leading-none whitespace-nowrap">⌘/Alt + Enter</span>
                 </Button>
               </div>
             </div>
