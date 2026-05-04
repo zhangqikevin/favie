@@ -153,8 +153,8 @@ async function ensureSoulInit(
  * loudly and let the chat proceed anyway (better degraded service than total
  * block); the next call will retry from scratch.
  *
- * Format: favie-{userId[0..7]}-{favieAgentId}
- * Example: favie-a1b2c3d4-operation
+ * Format: favie2-{userId[0..7]}-{favieAgentId}
+ * Example: favie2-a1b2c3d4-operation
  */
 export async function syncOpencrawAgent(
   userId: string,
@@ -165,7 +165,7 @@ export async function syncOpencrawAgent(
   _fullSystemPrompt: string,
   cfg: Record<string, string>,
 ): Promise<string> {
-  const ocAgentId = `favie-${userId.slice(0, 8)}-${agentId}`;
+  const ocAgentId = `favie2-${userId.slice(0, 8)}-${agentId}`;
 
   const appBaseUrl = cfg["app_base_url"] || "https://favieai.replit.app";
   const apiKey = cfg["openclaw_api_key"] ?? "";
