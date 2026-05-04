@@ -16,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import RestaurantSetupFlow from "@/components/restaurant-setup-flow";
 import type { Restaurant } from "@shared/schema";
+import { getPlanById, ACTIVE_PLAN_ID } from "@/data/plans";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/language-switcher";
 
@@ -724,7 +725,7 @@ export default function AdminSettings() {
       icon: CreditCard,
       title: t("settings.section_billing"),
       fields: [
-        { label: t("settings.field_active_plan"), value: "Growth Retainer · $299/mo" },
+        { label: t("settings.field_active_plan"), value: (() => { const p = getPlanById(ACTIVE_PLAN_ID); return p ? `${p.name} · ${p.price}${t("common.month")}` : ""; })() },
         { label: t("settings.field_next_billing"), value: "April 1, 2026" },
         { label: t("settings.field_payment_method"), value: "Visa ending in 4242" },
       ],

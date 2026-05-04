@@ -7,6 +7,7 @@ export interface AgentEntry {
 
 export interface Plan {
   id: string;
+  name: string;
   agentCount: number;
   price: string;
   priceNum: number;
@@ -18,9 +19,16 @@ export interface Plan {
   popular: boolean;
 }
 
+export const ACTIVE_PLAN_ID = "agent-2";
+
+export function getPlanById(id: string): Plan | undefined {
+  return plans.find((p) => p.id === id);
+}
+
 export const plans: Plan[] = [
   {
     id: "agent-1",
+    name: "Launch Sprint",
     agentCount: 1,
     price: "$199",
     priceNum: 199,
@@ -40,6 +48,7 @@ export const plans: Plan[] = [
   },
   {
     id: "agent-2",
+    name: "Growth Retainer",
     agentCount: 2,
     price: "$299",
     priceNum: 299,
@@ -60,6 +69,7 @@ export const plans: Plan[] = [
   },
   {
     id: "agent-3",
+    name: "Accelerator",
     agentCount: 3,
     price: "$399",
     priceNum: 399,
@@ -81,6 +91,7 @@ export const plans: Plan[] = [
   },
   {
     id: "agent-4",
+    name: "Super Power",
     agentCount: 4,
     price: "$459",
     priceNum: 459,

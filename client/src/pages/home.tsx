@@ -765,6 +765,29 @@ function PricingSection() {
 
                 <div className="px-6 pt-5 pb-6 flex flex-col flex-1">
 
+                  {/* Plan name */}
+                  <div className="mb-4">
+                    <p className={cn(
+                      "text-[10px] font-semibold uppercase tracking-[0.18em] mb-1",
+                      plan.popular ? "text-primary" : "text-amber-600 dark:text-amber-400"
+                    )}>
+                      {t("pricing.plan_eyebrow")}
+                    </p>
+                    <h3
+                      className={cn(
+                        "font-serif text-2xl font-bold leading-tight tracking-tight",
+                        plan.popular ? "text-primary" : "text-foreground"
+                      )}
+                      data-testid={`text-home-plan-name-${plan.id}`}
+                    >
+                      {plan.name}
+                    </h3>
+                    <div className={cn(
+                      "mt-1.5 h-0.5 w-8 rounded-full",
+                      plan.popular ? "bg-primary" : "bg-amber-500/70"
+                    )} />
+                  </div>
+
                   {/* Agent dots */}
                   <AgentDots count={plan.agentCount} />
 

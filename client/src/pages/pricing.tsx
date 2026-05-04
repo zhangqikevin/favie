@@ -107,14 +107,15 @@ export default function Pricing() {
                     <div
                       key={plan.id}
                       className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium",
+                        "flex items-center gap-2 px-4 py-2 rounded-full border text-sm",
                         plan.popular
                           ? "bg-primary text-primary-foreground border-primary"
                           : "bg-background border-border text-foreground"
                       )}
+                      data-testid={`pill-plan-${plan.id}`}
                     >
-                      <span className="font-serif font-bold">{plan.agentCount}</span>
-                      <span className="text-xs opacity-70">{plan.agentCount === 1 ? t("common.agent") : t("common.agents")}</span>
+                      <span className="font-serif font-bold">{plan.name}</span>
+                      <span className="opacity-50">·</span>
                       <span className="font-bold">{plan.price}</span>
                       <span className="text-xs opacity-60">{t("common.month")}</span>
                     </div>
@@ -166,6 +167,29 @@ export default function Pricing() {
                       )}
 
                       <div className="px-7 pt-6 pb-7 flex flex-col flex-1">
+
+                        {/* Plan name (eyebrow + brand name) */}
+                        <div className="mb-5">
+                          <p className={cn(
+                            "text-[11px] font-semibold uppercase tracking-[0.18em] mb-1.5",
+                            plan.popular ? "text-primary" : "text-amber-600 dark:text-amber-400"
+                          )}>
+                            {t("pricing.plan_eyebrow")}
+                          </p>
+                          <h3
+                            className={cn(
+                              "font-serif text-3xl font-bold leading-tight tracking-tight",
+                              plan.popular ? "text-primary" : "text-foreground"
+                            )}
+                            data-testid={`text-plan-name-${plan.id}`}
+                          >
+                            {plan.name}
+                          </h3>
+                          <div className={cn(
+                            "mt-2 h-0.5 w-10 rounded-full",
+                            plan.popular ? "bg-primary" : "bg-amber-500/70"
+                          )} />
+                        </div>
 
                         {/* Agent dots */}
                         <AgentDots count={plan.agentCount} />
@@ -305,9 +329,14 @@ export default function Pricing() {
                           plan.popular && "bg-primary/5"
                         )}>
                           <div className="flex flex-col items-center gap-1">
-                            <span className="font-serif text-2xl">{plan.agentCount}</span>
+                            <span className={cn(
+                              "font-serif text-lg leading-tight",
+                              plan.popular ? "text-primary" : "text-foreground"
+                            )}>
+                              {plan.name}
+                            </span>
                             <span className="text-xs text-muted-foreground font-normal">
-                              {plan.agentCount === 1 ? t("common.agent") : t("common.agents")}
+                              {plan.agentCount} {plan.agentCount === 1 ? t("common.agent") : t("common.agents")}
                             </span>
                             {plan.popular && (
                               <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">{t("common.popular")}</span>

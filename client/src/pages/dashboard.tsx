@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { ChatMarkdown } from "@/components/chat-markdown";
 import { MessageBubble } from "@/components/message-bubble";
 import { cn } from "@/lib/utils";
+import { getPlanById, ACTIVE_PLAN_ID } from "@/data/plans";
 
 // ─── Agent Config ─────────────────────────────────────────────────────────────
 
@@ -534,7 +535,7 @@ function ContextPanel({ restaurantName }: { restaurantName: string }) {
         <p className="text-sm font-bold text-foreground">{restaurantName || "—"}</p>
         <div className="flex items-center gap-1.5 mt-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-          <span className="text-sm text-green-700 font-medium">Growth Retainer · Active</span>
+          <span className="text-sm text-green-700 font-medium" data-testid="text-active-plan">{getPlanById(ACTIVE_PLAN_ID)?.name} · Active</span>
         </div>
       </div>
 
