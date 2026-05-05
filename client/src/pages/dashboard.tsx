@@ -13,9 +13,19 @@ import {
   Zap, Send, CheckCircle2, ChevronRight, ChevronLeft,
   ArrowUpRight, ArrowDownRight, Minus, Circle,
   Briefcase, ChefHat, Megaphone, Headphones, Users2,
-  Star, TrendingUp, AlertCircle, ImageIcon,
+  Star, TrendingUp, AlertCircle, ImageIcon, Trash2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Tooltip as UITooltip,
   TooltipTrigger as UITooltipTrigger,
@@ -869,6 +879,26 @@ export default function Dashboard() {
   const [messages, setMessages] = useState<ChatMsg[]>(() => makeInitialMessages(""));
   const [input, setInput] = useState("");
   const [chipNav, setChipNav] = useState<ChipNav>({ level: "top", topIdx: null, subIdx: null });
+  // Multi-select mode for batch deleting messages.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const enterSelectMode = (id: string) => { setSelectMode(true); setSelectedIds(new Set([id])); };
+  const toggleSelectMessage = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const exitSelectMode = () => { setSelectMode(false); setSelectedIds(new Set()); };
+  const selectAllMessages = () => setSelectedIds(new Set(messages.map((m) => m.id)));
+  const deleteSelectedMessages = () => {
+    setMessages((prev) => prev.filter((m) => !selectedIds.has(m.id)));
+    setConfirmDeleteOpen(false);
+    exitSelectMode();
+  };
   const [isThinking, setIsThinking] = useState(() => {
     const flag = sessionStorage.getItem("fromLogin");
     if (flag) { sessionStorage.removeItem("fromLogin"); return true; }
@@ -966,6 +996,33 @@ export default function Dashboard() {
 
           {/* ── Chat thread ──────────────────────────────────────────────── */}
           <div className="flex-1 flex flex-col overflow-hidden">
+            {selectMode && (
+              <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 py-2.5 bg-muted/40 border-b border-border" data-testid="select-mode-bar">
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" onClick={exitSelectMode} data-testid="btn-cancel-select">
+                    <X className="w-4 h-4 mr-1" /> Cancel
+                  </Button>
+                  <span className="text-sm font-medium text-foreground" data-testid="text-selected-count">
+                    {selectedIds.size} selected
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={selectAllMessages} data-testid="btn-select-all">
+                    Select all
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={selectedIds.size === 0}
+                    onClick={() => setConfirmDeleteOpen(true)}
+                    data-testid="btn-delete-selected"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6" data-testid="chat-thread">
               {messages.map((msg) => (
                 <div key={msg.id}
@@ -1000,7 +1057,10 @@ export default function Dashboard() {
                     <MessageBubble
                       className={cn("rounded-xl px-4 py-3 text-sm leading-relaxed",
                         msg.role === "ai" ? "bg-card border border-border text-foreground" : "bg-primary text-primary-foreground")}
-                      onDelete={() => setMessages((prev) => prev.filter((m) => m.id !== msg.id))}
+                      selectMode={selectMode}
+                      selected={selectedIds.has(msg.id)}
+                      onLongPress={() => enterSelectMode(msg.id)}
+                      onToggleSelect={() => toggleSelectMessage(msg.id)}
                     >
                       {msg.role === "ai" ? <ChatMarkdown text={msg.text} /> : msg.text}
                     </MessageBubble>
@@ -1052,6 +1112,29 @@ export default function Dashboard() {
           {/* ── Right context panel ─────────────────────────────────────── */}
           <ContextPanel restaurantName={restaurantName} />
         </div>
+
+        <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+          <AlertDialogContent data-testid="dialog-confirm-delete">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Delete {selectedIds.size} {selectedIds.size === 1 ? "message" : "messages"}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently removes the selected messages from this chat.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="btn-confirm-cancel">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={deleteSelectedMessages}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="btn-confirm-delete"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );

@@ -13,6 +13,16 @@ import {
   TooltipTrigger as UITooltipTrigger,
   TooltipContent as UITooltipContent,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { ChatMarkdown } from "@/components/chat-markdown";
 import { MessageBubble } from "@/components/message-bubble";
@@ -2163,6 +2173,10 @@ export default function AgentChatPage() {
   const [paymentTask, setPaymentTask] = useState<PayableTask | null>(null);
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  // Multi-select mode for batch deleting messages.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const pendingTaskId = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -2217,6 +2231,8 @@ export default function AgentChatPage() {
     setHistoryLoaded(false);
     setHasSavedHistory(false);
     setAwaitingOnboarding(false);
+    setSelectMode(false);
+    setSelectedIds(new Set());
     setHasMoreHistory(false);
     pendingTaskId.current = null;
 
@@ -2351,6 +2367,39 @@ export default function AgentChatPage() {
       const serverId = messageId.slice("saved-".length);
       fetch(`/api/chat/${agentId}/${serverId}`, { method: "DELETE" }).catch(() => {});
     }
+  };
+
+  // ── Multi-select / batch delete ───────────────────────────────────────────
+  const enterSelectMode = (id: string) => {
+    setSelectMode(true);
+    setSelectedIds(new Set([id]));
+  };
+  const toggleSelectMessage = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+  const selectAllMessages = () => {
+    setSelectedIds(new Set(messages.map((m) => m.id)));
+  };
+  const deleteSelectedMessages = () => {
+    const ids = Array.from(selectedIds);
+    setMessages((prev) => prev.filter((m) => !selectedIds.has(m.id)));
+    for (const id of ids) {
+      if (id.startsWith("saved-")) {
+        const serverId = id.slice("saved-".length);
+        fetch(`/api/chat/${agentId}/${serverId}`, { method: "DELETE" }).catch(() => {});
+      }
+    }
+    setConfirmDeleteOpen(false);
+    exitSelectMode();
   };
 
   // Load older messages (pagination)
@@ -2541,6 +2590,33 @@ export default function AgentChatPage() {
 
           {/* Chat */}
           <div className="flex-1 flex flex-col overflow-hidden">
+            {selectMode && (
+              <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 py-2.5 bg-muted/40 border-b border-border" data-testid="select-mode-bar">
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" onClick={exitSelectMode} data-testid="btn-cancel-select">
+                    <X className="w-4 h-4 mr-1" /> {t("agents_page.chat_cancel")}
+                  </Button>
+                  <span className="text-sm font-medium text-foreground" data-testid="text-selected-count">
+                    {t("agents_page.chat_selected", { count: selectedIds.size })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={selectAllMessages} data-testid="btn-select-all">
+                    {t("agents_page.chat_select_all")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={selectedIds.size === 0}
+                    onClick={() => setConfirmDeleteOpen(true)}
+                    data-testid="btn-delete-selected"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    {t("agents_page.chat_delete")}
+                  </Button>
+                </div>
+              </div>
+            )}
             <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5" data-testid="agent-chat-thread">
               {!historyLoaded && (
                 <div className="flex items-center justify-center py-4">
@@ -2607,7 +2683,10 @@ export default function AgentChatPage() {
                     <MessageBubble
                       className={cn("rounded-xl px-4 py-3 text-sm leading-relaxed",
                         msg.role === "ai" ? "bg-card border border-border text-foreground" : "bg-primary text-primary-foreground")}
-                      onDelete={() => deleteMessage(msg.id)}
+                      selectMode={selectMode}
+                      selected={selectedIds.has(msg.id)}
+                      onLongPress={() => enterSelectMode(msg.id)}
+                      onToggleSelect={() => toggleSelectMessage(msg.id)}
                     >
                       {msg.role === "ai" ? <ChatMarkdown text={msg.text} /> : msg.text}
                     </MessageBubble>
@@ -2690,6 +2769,31 @@ export default function AgentChatPage() {
           <AgentContextPanel config={config} agentId={agentId} restaurant={restaurantData?.restaurants?.[0]} />
         </div>
       </div>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent data-testid="dialog-confirm-delete">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("agents_page.chat_delete_confirm_title", { count: selectedIds.size })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("agents_page.chat_delete_confirm_desc")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="btn-confirm-cancel">
+              {t("agents_page.chat_cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteSelectedMessages}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="btn-confirm-delete"
+            >
+              {t("agents_page.chat_delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }
