@@ -72,25 +72,23 @@ function HeroSection() {
           <img
             src={heroImages[imgIdx]}
             alt="Restaurant"
-            className="w-full h-full object-cover scale-105 blur-[2px]"
+            className="w-full h-full object-cover"
             loading="eager"
           />
         </motion.div>
       </AnimatePresence>
 
-      {/* Layered overlays for AAA-level text contrast:
-          1) Uniform deep tint across the whole hero
-          2) Bottom-up gradient that grounds the CTAs
-          3) Soft radial vignette that focuses attention on the headline */}
-      <div className="absolute inset-0 bg-black/55" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/30" />
+      {/* Image stays sharp. Readability comes from a soft radial vignette
+          right under the headline + a bottom-up gradient that grounds the
+          CTAs — without flattening the photograph behind. */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 70% 55% at 50% 45%, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 70%)",
+            "radial-gradient(ellipse 65% 50% at 50% 45%, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0) 75%)",
         }}
       />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
 
       {/* Image progress dots */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
