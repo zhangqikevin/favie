@@ -16,6 +16,11 @@ import {
   Star, TrendingUp, AlertCircle, ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip as UITooltip,
+  TooltipTrigger as UITooltipTrigger,
+  TooltipContent as UITooltipContent,
+} from "@/components/ui/tooltip";
 import { ChatMarkdown } from "@/components/chat-markdown";
 import { MessageBubble } from "@/components/message-bubble";
 import { cn } from "@/lib/utils";
@@ -1026,13 +1031,20 @@ export default function Dashboard() {
                   style={{ minHeight: "52px" }}
                   className="flex-1 text-sm px-4 py-3 rounded-xl border border-border/80 bg-muted/30 text-foreground placeholder:text-muted-foreground/75 outline-none ring-2 ring-primary/25 focus:ring-primary/40 focus:border-primary/50 transition-colors"
                   data-testid="input-chat" />
-                <Button onClick={sendFreeText} disabled={!input.trim()}
-                  style={{ minHeight: "52px" }}
-                  className="flex-shrink-0 px-3.5 gap-2 bg-primary text-primary-foreground font-semibold rounded-xl shadow-sm active:scale-95 transition-transform"
-                  data-testid="button-chat-send">
-                  <Send className="w-4 h-4" />
-                  <span className="text-[10px] font-normal opacity-80 leading-none whitespace-nowrap">⌘/Alt + Enter</span>
-                </Button>
+                <UITooltip>
+                  <UITooltipTrigger asChild>
+                    <Button onClick={sendFreeText} disabled={!input.trim()}
+                      size="icon"
+                      style={{ height: "52px", width: "52px" }}
+                      className="flex-shrink-0 bg-primary text-primary-foreground rounded-xl shadow-sm active:scale-95 transition-transform"
+                      data-testid="button-chat-send">
+                      <Send className="w-5 h-5" />
+                    </Button>
+                  </UITooltipTrigger>
+                  <UITooltipContent side="top">
+                    <span className="text-xs">Send · ⌘/Alt + Enter</span>
+                  </UITooltipContent>
+                </UITooltip>
               </div>
             </div>
           </div>
