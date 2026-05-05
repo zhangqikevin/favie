@@ -31,16 +31,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const user = data?.user ?? null;
 
+  // Seed the new user's auth state FIRST, then drop every OTHER cached query
+  // (restaurants, agents, chat history, etc.) so the next user doesn't see
+  // the previous user's data. We must NOT call queryClient.clear() here:
+  // clearing the auth query mid-flow causes the active /api/auth/me observer
+  // to refetch and race with the setQueryData call, which can briefly leave
+  // user === null. Pages like /admin/agents/:id watch user in a useEffect and
+  // bounce to /login the moment they see null — so the user lands on login
+  // right after a successful login until they refresh.
+  const swapUser = (user: AuthUser) => {
+    queryClient.setQueryData(["/api/auth/me"], { user });
+    queryClient.removeQueries({
+      predicate: (q) => q.queryKey[0] !== "/api/auth/me",
+    });
+  };
+
   const login = async (email: string, password: string): Promise<AuthUser> => {
     const res = await apiRequest("POST", "/api/auth/login", { email, password });
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || "Login failed");
-    // Wipe any cached data from a previously logged-in user (restaurants list,
-    // agents, chat history, etc.) before seeding the new user's auth state.
-    // Without this, switching users would keep showing the previous user's
-    // restaurant in the top-left until a manual page refresh.
-    queryClient.clear();
-    queryClient.setQueryData(["/api/auth/me"], { user: json.user });
+    swapUser(json.user);
     return json.user;
   };
 
@@ -48,8 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await apiRequest("POST", "/api/auth/register", { email, password });
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || "Registration failed");
-    queryClient.clear();
-    queryClient.setQueryData(["/api/auth/me"], { user: json.user });
+    swapUser(json.user);
     return json.user;
   };
 
