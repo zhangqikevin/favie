@@ -1,7 +1,7 @@
 import { storage } from "./storage";
 import * as wechat from "./channels/wechat";
 import { callOpenclaw, syncOpencrawAgent } from "./openclaw";
-import { getEffectiveOpenclawConfig } from "./openclaw-config";
+import { resolveOpenclawConfig } from "./openclaw-config";
 import { getAgentSystemPrompt, type AgentId } from "./agent-context";
 import { withDeliveryInstructions } from "./delivery-instructions";
 
@@ -43,8 +43,9 @@ async function pollLoop(bindingId: string, signal: AbortSignal): Promise<void> {
           );
         }
       }
-      // If no messages and response returned instantly, wait before next poll
-      if (messages.length === 0) await sleep(3000);
+      // No artificial sleep on empty result — getUpdates is itself a 30s long-poll,
+      // so it already throttles us. The previous 3s sleep added up to 3s of
+      // perceived latency on the FIRST message after an idle window.
     } catch (e: any) {
       if (signal.aborted) break;
       // ilink session expired (errcode -14) or token invalid — bind is dead, mark inactive & stop polling
@@ -68,17 +69,24 @@ async function processMessage(
   if (!text?.trim()) return;
 
   const chatId = msg.from_user_id;
-  // Persist chatId and latest context_token for reply threading
-  await storage.updateChannelBindingConfig(binding.id, {
-    chatId,
-    latestContextToken: msg.context_token,
-  });
-
-  const cfg = await storage.getSystemConfig();
   const { agentId, userId, restaurantId } = binding;
+
+  // Fan out the 5 independent DB reads in parallel — they used to run
+  // sequentially and added up to ~150–400ms of latency before we even started
+  // the openclaw call. The chatId/ctx persist write is fire-and-along too.
+  const [, cfg, restaurants, history, userSettings] = await Promise.all([
+    storage.updateChannelBindingConfig(binding.id, {
+      chatId,
+      latestContextToken: msg.context_token,
+    }),
+    storage.getSystemConfig(),
+    storage.getRestaurants(userId),
+    storage.getChatHistory(userId, agentId),
+    storage.getUserOpenclawSettings(userId),
+  ]);
+
   if (cfg[`agent_${agentId}_enabled`] === "false") return;
 
-  const restaurants = await storage.getRestaurants(userId);
   const restaurant = restaurants.find((r) => r.id === restaurantId) ?? restaurants[0];
   if (!restaurant) {
     console.warn(`[wechat-poll] no restaurant found for binding=${binding.id} userId=${userId}`);
@@ -91,15 +99,14 @@ async function processMessage(
   };
   const systemPrompt = getAgentSystemPrompt(agentId as AgentId, restaurant, overrides, userId);
 
-  const { baseUrl, apiKey } = await getEffectiveOpenclawConfig(userId);
+  const { baseUrl, apiKey } = resolveOpenclawConfig(cfg, userSettings);
   if (!apiKey) {
     console.warn(`[wechat-poll] openclaw not configured for user=${userId} (no per-user override and no global key), skipping reply`);
     return;
   }
 
-  const { messages: history } = await storage.getChatHistory(userId, agentId);
   const ocMessages = [
-    ...history.slice(-20).map((h) => ({
+    ...history.messages.slice(-20).map((h) => ({
       role: h.role === "ai" ? "assistant" : "user",
       content: h.text,
     })),
@@ -113,16 +120,18 @@ async function processMessage(
   const replyText = await callOpenclaw(baseUrl, apiKey, ocAgentId, userId, enrichedPrompt, ocMessages, 2048);
 
   const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  await storage.saveChatMessages([
-    { userId, agentId, role: "user", text, ts },
-    { userId, agentId, role: "ai", text: replyText, ts },
+  // Save + send in parallel — history write doesn't need to block the user's reply.
+  await Promise.all([
+    storage.saveChatMessages([
+      { userId, agentId, role: "user", text, ts },
+      { userId, agentId, role: "ai", text: replyText, ts },
+    ]),
+    wechat.sendMessage(chatId, replyText, {
+      botToken: config.botToken,
+      baseurl: config.baseurl,
+      latestContextToken: msg.context_token,
+    }),
   ]);
-
-  await wechat.sendMessage(chatId, replyText, {
-    botToken: config.botToken,
-    baseurl: config.baseurl,
-    latestContextToken: msg.context_token,
-  });
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────

@@ -74,6 +74,15 @@ export async function callOpenclaw(
  */
 const initializedSouls = new Set<string>();
 const inFlightInits = new Map<string, Promise<void>>();
+/**
+ * Negative cache: when soul-init fails after retries, remember the failure for
+ * a short window so the NEXT incoming chat message doesn't pay the same
+ * 3-attempt + backoff penalty (~1.8s minimum). After the window expires we
+ * try again. Keeps the user-facing latency near callOpenclaw's own RTT even
+ * when the upstream openclaw URL is misconfigured.
+ */
+const failedSoulInits = new Map<string, number>(); // ocAgentId → retryAfter (ms epoch)
+const FAILED_SOUL_INIT_TTL_MS = 60_000;
 
 /**
  * Run a single SOUL.md init attempt with retries. Concurrent callers for the
@@ -198,14 +207,23 @@ export async function syncOpencrawAgent(
   }
 
   if (!initializedSouls.has(ocAgentId)) {
+    // Negative cache: skip the (slow, failure-prone) init if we just failed.
+    const retryAfter = failedSoulInits.get(ocAgentId);
+    if (retryAfter && Date.now() < retryAfter) {
+      return ocAgentId;
+    }
+
     const webhookUrl = `${appBaseUrl}/api/openclaw/cron-webhook/${userId}/${agentId}`;
     try {
       await ensureSoulInit(ocAgentId, baseUrl, apiKey, userId, webhookUrl);
+      failedSoulInits.delete(ocAgentId);
     } catch (e) {
       // Init failed after retries — log loudly but don't block the user's chat.
-      // Next request for this agent will retry init from scratch.
+      // Mark the agent as "do not retry for FAILED_SOUL_INIT_TTL_MS" so the
+      // next incoming message doesn't pay the retry penalty again.
+      failedSoulInits.set(ocAgentId, Date.now() + FAILED_SOUL_INIT_TTL_MS);
       const msg = e instanceof Error ? e.message : String(e);
-      console.error(`[soul-init] ⚠️  proceeding without confirmed init for ${ocAgentId}: ${msg}`);
+      console.error(`[soul-init] ⚠️  proceeding without confirmed init for ${ocAgentId} (will retry after ${FAILED_SOUL_INIT_TTL_MS / 1000}s): ${msg}`);
     }
   }
 
