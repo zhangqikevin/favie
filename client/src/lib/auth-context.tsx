@@ -35,6 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await apiRequest("POST", "/api/auth/login", { email, password });
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || "Login failed");
+    // Wipe any cached data from a previously logged-in user (restaurants list,
+    // agents, chat history, etc.) before seeding the new user's auth state.
+    // Without this, switching users would keep showing the previous user's
+    // restaurant in the top-left until a manual page refresh.
+    queryClient.clear();
     queryClient.setQueryData(["/api/auth/me"], { user: json.user });
     return json.user;
   };
@@ -43,14 +48,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await apiRequest("POST", "/api/auth/register", { email, password });
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || "Registration failed");
+    queryClient.clear();
     queryClient.setQueryData(["/api/auth/me"], { user: json.user });
     return json.user;
   };
 
   const logout = async (): Promise<void> => {
     await apiRequest("POST", "/api/auth/logout", {});
-    queryClient.setQueryData(["/api/auth/me"], null);
-    queryClient.removeQueries({ queryKey: ["/api/auth/me"] });
+    // Drop EVERY cached query, not just /api/auth/me — otherwise the next
+    // user (or the login page) sees stale restaurant/agent/chat data.
+    queryClient.clear();
   };
 
   const selectPlan = async (planId: string): Promise<void> => {
