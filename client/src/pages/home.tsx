@@ -57,7 +57,8 @@ function HeroSection() {
   return (
     <section id="hero" className="relative min-h-screen flex items-center justify-center overflow-hidden" data-testid="section-hero">
 
-      {/* Crossfading background images */}
+      {/* Crossfading background images — softly blurred so they read as
+          atmosphere, not as competing focal points behind the headline. */}
       <AnimatePresence mode="sync">
         <motion.div
           key={imgIdx}
@@ -68,12 +69,28 @@ function HeroSection() {
           exit={{ opacity: 0 }}
           transition={{ duration: 1.2 }}
         >
-          <img src={heroImages[imgIdx]} alt="Restaurant" className="w-full h-full object-cover" loading="eager" />
+          <img
+            src={heroImages[imgIdx]}
+            alt="Restaurant"
+            className="w-full h-full object-cover scale-105 blur-[2px]"
+            loading="eager"
+          />
         </motion.div>
       </AnimatePresence>
 
-      {/* Gradient overlay — stronger at bottom */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/20" />
+      {/* Layered overlays for AAA-level text contrast:
+          1) Uniform deep tint across the whole hero
+          2) Bottom-up gradient that grounds the CTAs
+          3) Soft radial vignette that focuses attention on the headline */}
+      <div className="absolute inset-0 bg-black/55" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/30" />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 55% at 50% 45%, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 70%)",
+        }}
+      />
 
       {/* Image progress dots */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
@@ -103,7 +120,7 @@ function HeroSection() {
         {/* Headline with rotating word */}
         <motion.h1
           initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.1 }}
-          className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-white font-bold leading-tight"
+          className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-white font-bold leading-tight drop-shadow-lg"
           data-testid="text-hero-headline"
         >
           {t("home.hero_h1_1")}<br />
@@ -127,7 +144,7 @@ function HeroSection() {
         {/* Subheadline */}
         <motion.p
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.3 }}
-          className="mt-6 text-lg md:text-xl text-white/75 max-w-xl mx-auto leading-relaxed"
+          className="mt-6 text-lg md:text-xl text-white/90 max-w-xl mx-auto leading-relaxed drop-shadow-md"
           data-testid="text-hero-subhead"
         >
           {t("home.hero_sub")}
