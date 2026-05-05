@@ -78,10 +78,17 @@ function HeroSection() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Image stays sharp — readability comes from the glass panel below
-          the text, not from darkening the photo. A faint bottom-up gradient
-          just helps the page transition into the next section. */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+      {/* Image stays sharp. A wide, soft elliptical shadow centred on the
+          text gives readability without any hard rectangular edges, plus a
+          gentle bottom fade to ground the CTAs into the next section. */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 65% at 50% 50%, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.45) 35%, rgba(0,0,0,0.15) 70%, rgba(0,0,0,0) 100%)",
+        }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
       {/* Image progress dots */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
@@ -98,11 +105,6 @@ function HeroSection() {
       </div>
 
       <div className="relative z-10 text-center px-4 max-w-5xl mx-auto pt-32 pb-28">
-
-        {/* Glassmorphism content panel — keeps the photo sharp behind it
-            while guaranteeing AAA contrast for the headline + body copy.
-            (Like Linear / Vercel hero panels.) */}
-        <div className="inline-block max-w-3xl px-8 sm:px-12 py-10 sm:py-12 rounded-3xl bg-black/35 backdrop-blur-md border border-white/10 shadow-2xl">
 
         {/* Live badge */}
         <motion.div
@@ -179,7 +181,6 @@ function HeroSection() {
             </motion.div>
           ))}
         </motion.div>
-        </div>
       </div>
     </section>
   );
