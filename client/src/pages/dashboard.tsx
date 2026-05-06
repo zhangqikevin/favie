@@ -1036,7 +1036,7 @@ export default function Dashboard() {
                     </div>
                   )}
 
-                  <div className="flex-1 min-w-0">
+                  <div className={cn("flex-1 min-w-0", msg.role === "user" && "text-right")}>
                     <div className={cn("flex items-baseline gap-2 mb-1.5", msg.role === "user" && "flex-row-reverse")}>
                       {msg.role === "ai" && msg.agentId ? (
                         <>

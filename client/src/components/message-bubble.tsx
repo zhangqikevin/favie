@@ -29,7 +29,7 @@ export function MessageBubble({
   const longPressHandlers = useLongPress(() => onLongPress?.(), 500);
 
   return (
-    <div className="relative inline-block max-w-full">
+    <div className="relative inline-block max-w-full text-left">
       <div
         className={cn(
           className,

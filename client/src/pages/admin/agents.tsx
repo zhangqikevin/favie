@@ -2450,21 +2450,43 @@ export default function AgentChatPage() {
     }));
   };
 
+  // Calls the agent endpoint with up to 3 attempts. Network/proxy disconnects
+  // on long-running LLM responses are common, so we retry transparently while
+  // the typing indicator stays visible — the user only sees an error after all
+  // attempts fail. 4xx responses (auth, validation, disabled) are NOT retried.
   const callKimi = async (userText: string, history: { role: "user" | "assistant"; content: string }[]) => {
-    const res = await fetch("/api/agent/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        agentId,
-        messages: [...history, { role: "user", content: userText }],
-      }),
+    const body = JSON.stringify({
+      agentId,
+      messages: [...history, { role: "user", content: userText }],
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({})) as any;
-      throw new Error(err.message || "API error");
+    let lastErr: unknown = new Error("Network error");
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch("/api/agent/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({})) as any;
+          const error = new Error(err.message || "API error");
+          // Definite client errors → don't retry, fail fast.
+          if (res.status >= 400 && res.status < 500) throw error;
+          lastErr = error;
+        } else {
+          const data = await res.json() as { text: string };
+          return data.text;
+        }
+      } catch (e: any) {
+        // Re-throw 4xx without retrying.
+        if (e?.message && /401|403|400|disabled|Not authenticated/i.test(e.message)) throw e;
+        lastErr = e;
+      }
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, (attempt + 1) * 3000));
+      }
     }
-    const data = await res.json() as { text: string };
-    return data.text;
+    throw lastErr;
   };
 
   const handleChip = async (chip: ChipDef) => {
@@ -2507,6 +2529,8 @@ export default function AgentChatPage() {
       setMessages((m) => [...m, aiMsg]);
       saveMessages(userMsg, aiMsg);
     } catch {
+      // After 3 retries already exhausted in callKimi — only now surface a fallback.
+      // We do NOT persist this error message to history.
       const aiMsg: ChatMsg = { id: makeId(), role: "ai", text: t("agents_page.chat_error_fallback"), ts: nowStr() };
       setMessages((m) => [...m, aiMsg]);
     } finally {
@@ -2675,7 +2699,7 @@ export default function AgentChatPage() {
                     </div>
                   )}
 
-                  <div className="flex-1 min-w-0">
+                  <div className={cn("flex-1 min-w-0", msg.role === "user" && "text-right")}>
                     <div className={cn("flex items-baseline gap-2 mb-1.5", msg.role === "user" && "flex-row-reverse")}>
                       <span className="text-sm font-semibold text-foreground">{msg.role === "ai" ? config.name : t("agents_page.chat_you")}</span>
                       <span className="text-sm text-muted-foreground">{msg.ts}</span>
