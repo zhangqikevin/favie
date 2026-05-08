@@ -49,6 +49,13 @@ export interface CronWebhookCapture {
   bodyPreview: string;         // JSON-stringified, truncated 1500 chars
   text: string;                // extracted summary || error
   textLength: number;
+  // ── agent compliance with delivery prompt ──
+  // intendedChannel = body.delivery.intended.channel (how the agent CONFIGURED
+  // the cron job's delivery). "webhook" = obeyed prompt; "last"/"announce"/
+  // anything else = disobeyed; null = field missing (cron-webhook callbacks
+  // for the /deliver endpoint, or older openclaw versions without this field).
+  intendedChannel: string | null;
+  agentObeyed: boolean | null;
   // ── outcome ──
   decision: CapDecision;
   bindingsFound: number;
@@ -75,9 +82,13 @@ export function startCapture(
   const auth = (req.headers.authorization ?? "").toString();
   let bodyKeys: string[] = [];
   let bodyPreview = "";
+  let intendedChannel: string | null = null;
   try {
     if (req.body && typeof req.body === "object") {
       bodyKeys = Object.keys(req.body);
+      const d = (req.body as any).delivery;
+      const ch = d?.intended?.channel;
+      if (typeof ch === "string") intendedChannel = ch;
     }
     bodyPreview = JSON.stringify(req.body ?? null).slice(0, 1500);
   } catch {
@@ -99,6 +110,8 @@ export function startCapture(
     bodyPreview,
     text: "",
     textLength: 0,
+    intendedChannel,
+    agentObeyed: intendedChannel === null ? null : intendedChannel === "webhook",
     decision: "pending",
     bindingsFound: 0,
     bindingResults: [],
@@ -123,20 +136,42 @@ export function getCaptureSummary(): {
   total: number;
   byDecision: Record<string, number>;
   byEndpoint: Record<string, number>;
-  recent: { ts: string; endpoint: string; userId: string; agentId: string; decision: CapDecision }[];
+  intendedChannel: Record<string, number>;
+  agentCompliance: { obeyed: number; disobeyed: number; unknown: number; disobeyRate: string };
+  recent: { ts: string; endpoint: string; userId: string; agentId: string; decision: CapDecision; intendedChannel: string | null }[];
 } {
   const byDecision: Record<string, number> = {};
   const byEndpoint: Record<string, number> = {};
+  const intendedChannel: Record<string, number> = {};
+  let obeyed = 0, disobeyed = 0, unknown = 0;
   for (const c of buffer) {
     byDecision[c.decision] = (byDecision[c.decision] ?? 0) + 1;
     byEndpoint[c.endpoint] = (byEndpoint[c.endpoint] ?? 0) + 1;
+    const k = c.intendedChannel ?? "(none)";
+    intendedChannel[k] = (intendedChannel[k] ?? 0) + 1;
+    if (c.agentObeyed === true) obeyed++;
+    else if (c.agentObeyed === false) disobeyed++;
+    else unknown++;
   }
+  const measurable = obeyed + disobeyed;
+  const disobeyRate = measurable === 0
+    ? "n/a (no measurable captures)"
+    : `${disobeyed}/${measurable} (${((disobeyed / measurable) * 100).toFixed(1)}%)`;
+
   const recent = buffer.slice(-10).map((c) => ({
     ts: c.ts,
     endpoint: c.endpoint,
     userId: c.userId.slice(0, 8),
     agentId: c.agentId,
     decision: c.decision,
+    intendedChannel: c.intendedChannel,
   }));
-  return { total: buffer.length, byDecision, byEndpoint, recent };
+  return {
+    total: buffer.length,
+    byDecision,
+    byEndpoint,
+    intendedChannel,
+    agentCompliance: { obeyed, disobeyed, unknown, disobeyRate },
+    recent,
+  };
 }
