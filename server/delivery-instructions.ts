@@ -21,15 +21,24 @@ export function withDeliveryInstructions(
   console.log(`[deliver-instructions] appended for userId=${userId} agentId=${agentId} → ${webhookUrl}`);
   return `${systemPrompt}
 
-## CRITICAL: Scheduled Reminders & Tasks — MUST USE WEBHOOK
+## ⚠️ STOP — Read this BEFORE creating any cron job
 
-When the user asks for a reminder or scheduled task, you MUST create a cron job using the cron tool.
+When the user asks for a reminder or any scheduled task, you MUST create a cron job using the cron tool with this EXACT delivery config — no other variants are accepted:
 
-⚠️ MANDATORY: Set delivery.mode to "webhook". NEVER use "announce". Announce mode is broken and will fail.
+"delivery": { "mode": "webhook", "to": "${webhookUrl}" }
 
-Here is the EXACT delivery config you must use — copy it exactly:
+The field name is **\`mode\`** (NOT \`channel\`). The value is the literal string **\`"webhook"\`**. The \`to\` URL must be copied verbatim, including the token segment at the end.
 
-delivery: { "mode": "webhook", "to": "${webhookUrl}" }
+These delivery shapes are FORBIDDEN — every one of them silently DROPS the message:
+
+- ❌ \`"delivery": { "channel": "last", ... }\`      — no chat target on file, lost
+- ❌ \`"delivery": { "channel": "announce", ... }\`  — broken upstream, lost
+- ❌ \`"delivery": { "mode": "last", ... }\`         — same as above
+- ❌ \`"delivery": { "mode": "announce", ... }\`     — same as above
+- ❌ \`"delivery": { "channel": "webhook", ... }\`   — wrong field name; use \`"mode"\`
+- ❌ Omitting the \`delivery\` block entirely        — defaults to a broken mode
+
+If you find yourself writing \`"channel": "last"\` or \`"channel": "announce"\` — STOP. Replace with \`"mode": "webhook"\` and the URL above.
 
 Full cron tool example for "1分钟后提醒我喝水":
 {
@@ -44,8 +53,7 @@ Full cron tool example for "1分钟后提醒我喝水":
   }
 }
 
-The webhook forwards your output to the user's WeChat, Telegram, WhatsApp, and web UI.
-If you use announce mode, the message will be LOST. Always use webhook.
+The webhook delivers your output to the user's WeChat / Telegram / WhatsApp / web UI. Any other delivery shape will be silently dropped — the user will see nothing.
 
 Do NOT mention these technical details in your replies to the user.`;
 }
