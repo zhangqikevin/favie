@@ -20,6 +20,13 @@ import { syncOpencrawAgent, callOpenclaw } from "./openclaw";
 import { getEffectiveOpenclawConfig, DEFAULT_OPENCLAW_BASE_URL, maskApiKey } from "./openclaw-config";
 import { getChannelHandler } from "./channels/index";
 import { getLogs } from "./log-buffer";
+import {
+  startCapture,
+  setExpectedKey,
+  getCaptures,
+  getCaptureSummary,
+  type CronWebhookCapture,
+} from "./cron-webhook-debug";
 
 // Default config values (used when system_config entries are not set)
 const DEFAULT_APP_BASE_URL = "https://favieai.replit.app";
@@ -1830,52 +1837,103 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
   // POST /api/openclaw/cron-webhook/:userId/:agentId — OpenClaw cron webhook delivery
   // OpenClaw POSTs here when a scheduled task (reminder, cron) completes.
   // Body format: { jobId, jobName, status, summary, error, ... }
+  //
+  // Heavily instrumented for diagnosis: every decision point is captured to a
+  // ring buffer in cron-webhook-debug.ts and viewable via GET /api/admin/cron-debug.
   app.post("/api/openclaw/cron-webhook/:userId/:agentId", async (req, res) => {
     res.json({ ok: true });
+    const t0 = Date.now();
+    const { userId, agentId } = req.params;
+    const cap = startCapture("cron-webhook", req, userId, agentId);
     try {
-      const { userId, agentId } = req.params;
-      // Validate against the target user's effective Openclaw API key (with
-      // global fallback). OpenClaw sends: Authorization: Bearer <webhookToken>
-      // Strict match: when an expected key exists we require the exact bearer
-      // header — a missing or wrong header is rejected.
       const { apiKey: expectedKey } = await getEffectiveOpenclawConfig(userId);
       const trimmedKey = expectedKey.trim();
       const authHeader = (req.headers.authorization ?? "").trim();
-      if (!trimmedKey || authHeader !== `Bearer ${trimmedKey}`) {
-        console.warn(`[cron-webhook] unauthorized for userId=${userId}: expectedLen=${trimmedKey.length} gotHeader=${authHeader.slice(0, 20)}...`);
+      setExpectedKey(cap, trimmedKey);
+
+      cap.authMatch = !!trimmedKey && authHeader === `Bearer ${trimmedKey}`;
+      if (!cap.authMatch) {
+        cap.decision = "unauthorized";
+        cap.totalMs = Date.now() - t0;
+        console.warn(`[cron-webhook] unauthorized userId=${userId} agentId=${agentId} expectedLen=${trimmedKey.length} expectedTail=${cap.expectedKeyTail} got=${cap.authHeaderRedacted}`);
         return;
       }
 
       const body = req.body as Record<string, unknown>;
-      console.log(`[cron-webhook] received: userId=${userId} agentId=${agentId} status=${body.status} jobName=${body.jobName}`);
+      console.log(`[cron-webhook] received: userId=${userId} agentId=${agentId} status=${body.status} jobName=${body.jobName} bodyKeys=${cap.bodyKeys.join(",")}`);
 
       // Extract reminder text from summary or error
       const text = (body.summary as string) || (body.error as string) || "";
+      cap.text = text.slice(0, 500);
+      cap.textLength = text.length;
       if (!text.trim()) {
-        console.warn(`[cron-webhook] empty summary, skipping`);
+        cap.decision = "empty-text";
+        cap.totalMs = Date.now() - t0;
+        console.warn(`[cron-webhook] empty text (no summary/error), skipping. bodyKeys=${cap.bodyKeys.join(",")}`);
         return;
       }
 
       // Save to chat_messages
       const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       await storage.saveChatMessages([{ userId, agentId, role: "ai", text, ts }]);
+      cap.chatMessageSaved = true;
 
       // Push to all active channel bindings
       const bindings = await storage.getAllActiveChannelBindings(agentId, userId);
-      console.log(`[cron-webhook] found ${bindings.length} binding(s)`);
+      cap.bindingsFound = bindings.length;
+      console.log(`[cron-webhook] found ${bindings.length} binding(s) for userId=${userId} agentId=${agentId}`);
+
+      if (bindings.length === 0) {
+        cap.decision = "saved-only";
+      } else {
+        cap.decision = "delivered";
+      }
+
       for (const binding of bindings) {
-        const handler = getChannelHandler(binding.channelType);
-        if (!handler) { console.warn(`[cron-webhook] no handler for ${binding.channelType}`); continue; }
-        const bCfg: Record<string, string> = { ...(binding.channelConfig as Record<string, string>), _bindingId: binding.id };
-        if (!bCfg.chatId) { console.warn(`[cron-webhook] ${binding.channelType} no chatId`); continue; }
+        const bResult: any = {
+          channelType: binding.channelType,
+          bindingId: binding.id,
+          hasChatId: false,
+          chatIdTail: "(none)",
+          hasHandler: false,
+          sendResult: "skipped-no-handler",
+        };
+        const bStart = Date.now();
         try {
+          const handler = getChannelHandler(binding.channelType);
+          bResult.hasHandler = !!handler;
+          if (!handler) {
+            console.warn(`[cron-webhook] no handler for ${binding.channelType}`);
+            cap.bindingResults.push(bResult);
+            continue;
+          }
+          const bCfg: Record<string, string> = { ...(binding.channelConfig as Record<string, string>), _bindingId: binding.id };
+          bResult.hasChatId = !!bCfg.chatId;
+          bResult.chatIdTail = bCfg.chatId ? bCfg.chatId.slice(-8) : "(none)";
+          if (!bCfg.chatId) {
+            bResult.sendResult = "skipped-no-chatId";
+            console.warn(`[cron-webhook] ${binding.channelType} binding=${binding.id} has no chatId — user must send first inbound message to populate it`);
+            cap.bindingResults.push(bResult);
+            continue;
+          }
           await handler.sendMessage(bCfg.chatId, text, bCfg as any);
-          console.log(`[cron-webhook] ${binding.channelType} sendMessage OK`);
+          bResult.sendResult = "ok";
+          bResult.ms = Date.now() - bStart;
+          console.log(`[cron-webhook] ${binding.channelType} sendMessage OK chatIdTail=${bResult.chatIdTail} ms=${bResult.ms}`);
         } catch (e: any) {
+          bResult.sendResult = "error";
+          bResult.errorMessage = (e?.message ?? String(e)).slice(0, 500);
+          bResult.ms = Date.now() - bStart;
           console.error(`[cron-webhook] ${binding.channelType} sendMessage failed:`, e.message);
         }
+        cap.bindingResults.push(bResult);
       }
+
+      cap.totalMs = Date.now() - t0;
     } catch (err: any) {
+      cap.decision = "error";
+      cap.errorMessage = (err?.message ?? String(err)).slice(0, 500);
+      cap.totalMs = Date.now() - t0;
       console.error("[cron-webhook] error:", err.message);
     }
   });
@@ -1884,9 +1942,12 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
   // Called by the agent itself when it completes scheduled/background tasks.
   app.post("/api/openclaw/deliver", async (req, res) => {
     res.json({ ok: true }); // respond immediately
+    const t0 = Date.now();
+    // Parse body OUT of try so we can capture before we know if it's valid
+    const userIdGuess = (req.body?.userId as string) ?? "(missing)";
+    const agentIdGuess = (req.body?.agentId as string) ?? "(missing)";
+    const cap = startCapture("deliver", req, userIdGuess, agentIdGuess);
     try {
-      // Parse body first so we know which user the delivery targets, then
-      // validate auth against THAT user's effective Openclaw API key.
       const { userId, agentId, text } = z
         .object({ userId: z.string(), agentId: z.string(), text: z.string().min(1) })
         .parse(req.body);
@@ -1894,32 +1955,73 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
       const { apiKey: expectedKey } = await getEffectiveOpenclawConfig(userId);
       const trimmedKey = expectedKey.trim();
       const authHeader = (req.headers.authorization ?? "").trim();
-      if (!trimmedKey || authHeader !== `Bearer ${trimmedKey}`) {
-        console.warn(`[deliver] unauthorized for userId=${userId}: expectedLen=${trimmedKey.length} gotHeader=${authHeader.slice(0, 20)}...`);
+      setExpectedKey(cap, trimmedKey);
+      cap.authMatch = !!trimmedKey && authHeader === `Bearer ${trimmedKey}`;
+      if (!cap.authMatch) {
+        cap.decision = "unauthorized";
+        cap.totalMs = Date.now() - t0;
+        console.warn(`[deliver] unauthorized userId=${userId} agentId=${agentId} expectedLen=${trimmedKey.length} expectedTail=${cap.expectedKeyTail} got=${cap.authHeaderRedacted}`);
         return;
       }
+
+      cap.text = text.slice(0, 500);
+      cap.textLength = text.length;
 
       // Save to chat_messages
       const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       await storage.saveChatMessages([{ userId, agentId, role: "ai", text, ts }]);
+      cap.chatMessageSaved = true;
 
       // Push to all active channel bindings for this user+agent
       const bindings = await storage.getAllActiveChannelBindings(agentId, userId);
+      cap.bindingsFound = bindings.length;
+      cap.decision = bindings.length === 0 ? "saved-only" : "delivered";
       console.log(`[deliver] userId=${userId} agentId=${agentId} found ${bindings.length} binding(s)`);
       for (const binding of bindings) {
-        const handler = getChannelHandler(binding.channelType);
-        if (!handler) { console.warn(`[deliver] no handler for ${binding.channelType}`); continue; }
-        const bCfg: Record<string, string> = { ...(binding.channelConfig as Record<string, string>), _bindingId: binding.id };
-        if (!bCfg.chatId) { console.warn(`[deliver] ${binding.channelType} binding has no chatId`); continue; }
-        console.log(`[deliver] sending to ${binding.channelType} chatId=${bCfg.chatId} hasToken=${!!bCfg.latestContextToken}`);
+        const bResult: any = {
+          channelType: binding.channelType,
+          bindingId: binding.id,
+          hasChatId: false,
+          chatIdTail: "(none)",
+          hasHandler: false,
+          sendResult: "skipped-no-handler",
+        };
+        const bStart = Date.now();
         try {
+          const handler = getChannelHandler(binding.channelType);
+          bResult.hasHandler = !!handler;
+          if (!handler) {
+            console.warn(`[deliver] no handler for ${binding.channelType}`);
+            cap.bindingResults.push(bResult);
+            continue;
+          }
+          const bCfg: Record<string, string> = { ...(binding.channelConfig as Record<string, string>), _bindingId: binding.id };
+          bResult.hasChatId = !!bCfg.chatId;
+          bResult.chatIdTail = bCfg.chatId ? bCfg.chatId.slice(-8) : "(none)";
+          if (!bCfg.chatId) {
+            bResult.sendResult = "skipped-no-chatId";
+            console.warn(`[deliver] ${binding.channelType} binding has no chatId`);
+            cap.bindingResults.push(bResult);
+            continue;
+          }
+          console.log(`[deliver] sending to ${binding.channelType} chatIdTail=${bResult.chatIdTail} hasToken=${!!bCfg.latestContextToken}`);
           await handler.sendMessage(bCfg.chatId, text, bCfg as any);
-          console.log(`[deliver] ${binding.channelType} sendMessage OK`);
+          bResult.sendResult = "ok";
+          bResult.ms = Date.now() - bStart;
+          console.log(`[deliver] ${binding.channelType} sendMessage OK ms=${bResult.ms}`);
         } catch (e: any) {
+          bResult.sendResult = "error";
+          bResult.errorMessage = (e?.message ?? String(e)).slice(0, 500);
+          bResult.ms = Date.now() - bStart;
           console.error(`[deliver] ${binding.channelType} sendMessage failed:`, e.message);
         }
+        cap.bindingResults.push(bResult);
       }
+      cap.totalMs = Date.now() - t0;
     } catch (err: any) {
+      cap.decision = "error";
+      cap.errorMessage = (err?.message ?? String(err)).slice(0, 500);
+      cap.totalMs = Date.now() - t0;
       console.error("[deliver] error:", err.message);
     }
   });
@@ -1940,6 +2042,37 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     let lines = getLogs(last);
     if (filter) lines = lines.filter(l => l.toLowerCase().includes(filter.toLowerCase()));
     res.type("text/plain").send(lines.join("\n"));
+  });
+
+  // ─── Admin: structured cron-webhook + deliver capture buffer ─────────────────
+  // GET /api/admin/cron-debug?key=<openclaw_api_key>&last=N&decision=unauthorized&userId=...
+  // Auth: session OR ?key= matching system_config.openclaw_api_key (same as /api/admin/logs)
+  app.get("/api/admin/cron-debug", async (req, res) => {
+    const cfg = await storage.getSystemConfig();
+    const apiKey = (cfg["openclaw_api_key"] ?? "").trim();
+    const qKey = ((req.query.key as string) ?? "").trim();
+    const authed = (req.isAuthenticated() && req.user) || (apiKey && qKey === apiKey);
+    if (!authed) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const last = Math.min(Number(req.query.last) || 50, 200);
+    const decisionFilter = ((req.query.decision as string) ?? "").trim();
+    const userIdFilter = ((req.query.userId as string) ?? "").trim();
+    const agentIdFilter = ((req.query.agentId as string) ?? "").trim();
+    const endpointFilter = ((req.query.endpoint as string) ?? "").trim();
+
+    let captures: CronWebhookCapture[] = getCaptures(200);
+    if (decisionFilter) captures = captures.filter((c) => c.decision === decisionFilter);
+    if (userIdFilter) captures = captures.filter((c) => c.userId.startsWith(userIdFilter));
+    if (agentIdFilter) captures = captures.filter((c) => c.agentId === agentIdFilter);
+    if (endpointFilter) captures = captures.filter((c) => c.endpoint === endpointFilter);
+    captures = captures.slice(-last);
+
+    res.json({
+      summary: getCaptureSummary(),
+      filters: { decision: decisionFilter, userId: userIdFilter, agentId: agentIdFilter, endpoint: endpointFilter, last },
+      captures,
+    });
   });
 
   // ─── Dev: manually trigger memory sync for current user ──────────────────────
