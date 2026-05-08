@@ -1834,108 +1834,132 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
     }
   });
 
-  // POST /api/openclaw/cron-webhook/:userId/:agentId — OpenClaw cron webhook delivery
+  // ─── Cron webhook delivery ──────────────────────────────────────────────────
   // OpenClaw POSTs here when a scheduled task (reminder, cron) completes.
   // Body format: { jobId, jobName, status, summary, error, ... }
   //
-  // Heavily instrumented for diagnosis: every decision point is captured to a
-  // ring buffer in cron-webhook-debug.ts and viewable via GET /api/admin/cron-debug.
-  app.post("/api/openclaw/cron-webhook/:userId/:agentId", async (req, res) => {
+  // Auth is via path token: /api/openclaw/cron-webhook/:userId/:agentId/:token
+  // where :token == the user's effective openclaw API key. We use a path token
+  // (instead of an Authorization header) because openclaw's cron callbacks do
+  // NOT inject a Bearer header — capture data confirmed `hasAuthHeader: false`
+  // for every cron callback, so header-based auth would always reject.
+  //
+  // Heavily instrumented: every decision point captured to ring buffer
+  // (cron-webhook-debug.ts) and viewable via GET /api/admin/cron-debug.
+
+  async function processCronPayload(
+    cap: CronWebhookCapture,
+    userId: string,
+    agentId: string,
+    body: Record<string, unknown>,
+    t0: number,
+  ): Promise<void> {
+    console.log(`[cron-webhook] received: userId=${userId} agentId=${agentId} status=${body.status} jobName=${body.jobName} bodyKeys=${cap.bodyKeys.join(",")}`);
+
+    const text = (body.summary as string) || (body.error as string) || "";
+    cap.text = text.slice(0, 500);
+    cap.textLength = text.length;
+    if (!text.trim()) {
+      cap.decision = "empty-text";
+      cap.totalMs = Date.now() - t0;
+      console.warn(`[cron-webhook] empty text (no summary/error), skipping. bodyKeys=${cap.bodyKeys.join(",")}`);
+      return;
+    }
+
+    const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    await storage.saveChatMessages([{ userId, agentId, role: "ai", text, ts }]);
+    cap.chatMessageSaved = true;
+
+    const bindings = await storage.getAllActiveChannelBindings(agentId, userId);
+    cap.bindingsFound = bindings.length;
+    console.log(`[cron-webhook] found ${bindings.length} binding(s) for userId=${userId} agentId=${agentId}`);
+    cap.decision = bindings.length === 0 ? "saved-only" : "delivered";
+
+    for (const binding of bindings) {
+      const bResult: any = {
+        channelType: binding.channelType,
+        bindingId: binding.id,
+        hasChatId: false,
+        chatIdTail: "(none)",
+        hasHandler: false,
+        sendResult: "skipped-no-handler",
+      };
+      const bStart = Date.now();
+      try {
+        const handler = getChannelHandler(binding.channelType);
+        bResult.hasHandler = !!handler;
+        if (!handler) {
+          console.warn(`[cron-webhook] no handler for ${binding.channelType}`);
+          cap.bindingResults.push(bResult);
+          continue;
+        }
+        const bCfg: Record<string, string> = { ...(binding.channelConfig as Record<string, string>), _bindingId: binding.id };
+        bResult.hasChatId = !!bCfg.chatId;
+        bResult.chatIdTail = bCfg.chatId ? bCfg.chatId.slice(-8) : "(none)";
+        if (!bCfg.chatId) {
+          bResult.sendResult = "skipped-no-chatId";
+          console.warn(`[cron-webhook] ${binding.channelType} binding=${binding.id} has no chatId — user must send first inbound message to populate it`);
+          cap.bindingResults.push(bResult);
+          continue;
+        }
+        await handler.sendMessage(bCfg.chatId, text, bCfg as any);
+        bResult.sendResult = "ok";
+        bResult.ms = Date.now() - bStart;
+        console.log(`[cron-webhook] ${binding.channelType} sendMessage OK chatIdTail=${bResult.chatIdTail} ms=${bResult.ms}`);
+      } catch (e: any) {
+        bResult.sendResult = "error";
+        bResult.errorMessage = (e?.message ?? String(e)).slice(0, 500);
+        bResult.ms = Date.now() - bStart;
+        console.error(`[cron-webhook] ${binding.channelType} sendMessage failed:`, e.message);
+      }
+      cap.bindingResults.push(bResult);
+    }
+    cap.totalMs = Date.now() - t0;
+  }
+
+  // PRIMARY route — token in path
+  app.post("/api/openclaw/cron-webhook/:userId/:agentId/:token", async (req, res) => {
     res.json({ ok: true });
     const t0 = Date.now();
-    const { userId, agentId } = req.params;
+    const { userId, agentId, token } = req.params;
     const cap = startCapture("cron-webhook", req, userId, agentId);
     try {
       const { apiKey: expectedKey } = await getEffectiveOpenclawConfig(userId);
       const trimmedKey = expectedKey.trim();
-      const authHeader = (req.headers.authorization ?? "").trim();
+      const pathToken = (token ?? "").trim();
       setExpectedKey(cap, trimmedKey);
-
-      cap.authMatch = !!trimmedKey && authHeader === `Bearer ${trimmedKey}`;
+      cap.authMatch = !!trimmedKey && pathToken === trimmedKey;
       if (!cap.authMatch) {
         cap.decision = "unauthorized";
         cap.totalMs = Date.now() - t0;
-        console.warn(`[cron-webhook] unauthorized userId=${userId} agentId=${agentId} expectedLen=${trimmedKey.length} expectedTail=${cap.expectedKeyTail} got=${cap.authHeaderRedacted}`);
+        const gotTail = pathToken.length >= 6 ? pathToken.slice(-6) : `(short, len=${pathToken.length})`;
+        console.warn(`[cron-webhook] unauthorized (path-token) userId=${userId} agentId=${agentId} expectedLen=${trimmedKey.length} expectedTail=${cap.expectedKeyTail} gotLen=${pathToken.length} gotTail=${gotTail}`);
         return;
       }
-
-      const body = req.body as Record<string, unknown>;
-      console.log(`[cron-webhook] received: userId=${userId} agentId=${agentId} status=${body.status} jobName=${body.jobName} bodyKeys=${cap.bodyKeys.join(",")}`);
-
-      // Extract reminder text from summary or error
-      const text = (body.summary as string) || (body.error as string) || "";
-      cap.text = text.slice(0, 500);
-      cap.textLength = text.length;
-      if (!text.trim()) {
-        cap.decision = "empty-text";
-        cap.totalMs = Date.now() - t0;
-        console.warn(`[cron-webhook] empty text (no summary/error), skipping. bodyKeys=${cap.bodyKeys.join(",")}`);
-        return;
-      }
-
-      // Save to chat_messages
-      const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      await storage.saveChatMessages([{ userId, agentId, role: "ai", text, ts }]);
-      cap.chatMessageSaved = true;
-
-      // Push to all active channel bindings
-      const bindings = await storage.getAllActiveChannelBindings(agentId, userId);
-      cap.bindingsFound = bindings.length;
-      console.log(`[cron-webhook] found ${bindings.length} binding(s) for userId=${userId} agentId=${agentId}`);
-
-      if (bindings.length === 0) {
-        cap.decision = "saved-only";
-      } else {
-        cap.decision = "delivered";
-      }
-
-      for (const binding of bindings) {
-        const bResult: any = {
-          channelType: binding.channelType,
-          bindingId: binding.id,
-          hasChatId: false,
-          chatIdTail: "(none)",
-          hasHandler: false,
-          sendResult: "skipped-no-handler",
-        };
-        const bStart = Date.now();
-        try {
-          const handler = getChannelHandler(binding.channelType);
-          bResult.hasHandler = !!handler;
-          if (!handler) {
-            console.warn(`[cron-webhook] no handler for ${binding.channelType}`);
-            cap.bindingResults.push(bResult);
-            continue;
-          }
-          const bCfg: Record<string, string> = { ...(binding.channelConfig as Record<string, string>), _bindingId: binding.id };
-          bResult.hasChatId = !!bCfg.chatId;
-          bResult.chatIdTail = bCfg.chatId ? bCfg.chatId.slice(-8) : "(none)";
-          if (!bCfg.chatId) {
-            bResult.sendResult = "skipped-no-chatId";
-            console.warn(`[cron-webhook] ${binding.channelType} binding=${binding.id} has no chatId — user must send first inbound message to populate it`);
-            cap.bindingResults.push(bResult);
-            continue;
-          }
-          await handler.sendMessage(bCfg.chatId, text, bCfg as any);
-          bResult.sendResult = "ok";
-          bResult.ms = Date.now() - bStart;
-          console.log(`[cron-webhook] ${binding.channelType} sendMessage OK chatIdTail=${bResult.chatIdTail} ms=${bResult.ms}`);
-        } catch (e: any) {
-          bResult.sendResult = "error";
-          bResult.errorMessage = (e?.message ?? String(e)).slice(0, 500);
-          bResult.ms = Date.now() - bStart;
-          console.error(`[cron-webhook] ${binding.channelType} sendMessage failed:`, e.message);
-        }
-        cap.bindingResults.push(bResult);
-      }
-
-      cap.totalMs = Date.now() - t0;
+      await processCronPayload(cap, userId, agentId, req.body as Record<string, unknown>, t0);
     } catch (err: any) {
       cap.decision = "error";
       cap.errorMessage = (err?.message ?? String(err)).slice(0, 500);
       cap.totalMs = Date.now() - t0;
       console.error("[cron-webhook] error:", err.message);
     }
+  });
+
+  // LEGACY route — old /:userId/:agentId path (no token). Returns 410 so
+  // operators see a clear signal that the cron job needs to be recreated.
+  // Still captured to debug buffer with decision=deprecated-url.
+  app.post("/api/openclaw/cron-webhook/:userId/:agentId", async (req, res) => {
+    const t0 = Date.now();
+    const { userId, agentId } = req.params;
+    const cap = startCapture("cron-webhook", req, userId, agentId);
+    cap.decision = "deprecated-url";
+    cap.totalMs = Date.now() - t0;
+    console.warn(`[cron-webhook] DEPRECATED URL hit by userId=${userId} agentId=${agentId} — recreate the cron job using the new /:userId/:agentId/:token URL`);
+    res.status(410).json({
+      message: "This cron-webhook URL is deprecated. Recreate the cron job with the new URL pattern that includes a path token.",
+      newUrlPattern: "/api/openclaw/cron-webhook/:userId/:agentId/:token (token = the user's openclaw API key)",
+      received: { userId, agentId },
+    });
   });
 
   // POST /api/openclaw/deliver — openclaw agent pushes a proactive message to Favie

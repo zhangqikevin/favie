@@ -213,7 +213,8 @@ export async function syncOpencrawAgent(
       return ocAgentId;
     }
 
-    const webhookUrl = `${appBaseUrl}/api/openclaw/cron-webhook/${userId}/${agentId}`;
+    // Token in path — openclaw cron callbacks don't send Authorization headers.
+    const webhookUrl = `${appBaseUrl}/api/openclaw/cron-webhook/${userId}/${agentId}/${encodeURIComponent(apiKey)}`;
     try {
       await ensureSoulInit(ocAgentId, baseUrl, apiKey, userId, webhookUrl);
       failedSoulInits.delete(ocAgentId);

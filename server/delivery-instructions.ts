@@ -14,7 +14,10 @@ export function withDeliveryInstructions(
     console.log(`[deliver-instructions] SKIPPED: appBaseUrl=${!!appBaseUrl} apiKey=${!!apiKey}`);
     return systemPrompt;
   }
-  const webhookUrl = `${appBaseUrl}/api/openclaw/cron-webhook/${userId}/${agentId}`;
+  // Token in path — openclaw cron callbacks don't send Authorization headers,
+  // so we authenticate via the URL itself. The token is the user's openclaw
+  // API key; encodeURIComponent guards against any non-URL-safe chars.
+  const webhookUrl = `${appBaseUrl}/api/openclaw/cron-webhook/${userId}/${agentId}/${encodeURIComponent(apiKey)}`;
   console.log(`[deliver-instructions] appended for userId=${userId} agentId=${agentId} → ${webhookUrl}`);
   return `${systemPrompt}
 

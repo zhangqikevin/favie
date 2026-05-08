@@ -15,9 +15,10 @@ const MAX_CAPTURES = 200;
 export type CapDecision =
   | "pending"
   | "unauthorized"
+  | "deprecated-url"  // hit the old /:userId/:agentId path that no longer accepts deliveries
   | "empty-text"
-  | "delivered"     // saved to chat_messages and (attempted) channel push
-  | "saved-only"    // saved but zero active bindings
+  | "delivered"       // saved to chat_messages and (attempted) channel push
+  | "saved-only"      // saved but zero active bindings
   | "error";
 
 export interface BindingResult {
