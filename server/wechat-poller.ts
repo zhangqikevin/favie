@@ -70,6 +70,15 @@ async function processMessage(
 
   const chatId = msg.from_user_id;
   const { agentId, userId, restaurantId } = binding;
+  const procStart = Date.now();
+  console.log("[wechat-poll] processing", JSON.stringify({
+    bindingId: binding.id,
+    userTail: userId.slice(-8),
+    agentId,
+    chatIdTail: chatId.slice(-8),
+    textLen: text.length,
+    textPreview: text.slice(0, 200),
+  }));
 
   // Fan out the 5 independent DB reads in parallel — they used to run
   // sequentially and added up to ~150–400ms of latency before we even started
@@ -118,6 +127,12 @@ async function processMessage(
 
   const ocAgentId = await syncOpencrawAgent(userId, restaurantId, agentId, restaurant.name, restaurant.cuisine ?? "", systemPrompt, { baseUrl, apiKey, appBaseUrl });
   const replyText = await callOpenclaw(baseUrl, apiKey, ocAgentId, userId, enrichedPrompt, ocMessages, 2048);
+  console.log("[wechat-poll] reply ready", JSON.stringify({
+    bindingId: binding.id,
+    elapsedMs: Date.now() - procStart,
+    replyLen: replyText.length,
+    replyPreview: replyText.slice(0, 200),
+  }));
 
   const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   // Save + send in parallel — history write doesn't need to block the user's reply.
@@ -132,6 +147,7 @@ async function processMessage(
       latestContextToken: msg.context_token,
     }),
   ]);
+  console.log("[wechat-poll] done", JSON.stringify({ bindingId: binding.id, totalMs: Date.now() - procStart }));
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────

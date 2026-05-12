@@ -30,6 +30,21 @@ export async function callOpenclaw(
   const timer = setTimeout(() => controller.abort(), OPENCLAW_FETCH_TIMEOUT_MS);
   const startedAt = Date.now();
 
+  const lastMsg = messages.at(-1);
+  console.log("[openclaw] request:", JSON.stringify({
+    baseUrl,
+    apiKeyTail: apiKey ? apiKey.slice(-6) : "(none)",
+    apiKeyLen: apiKey.length,
+    model: body.model,
+    sessionTail: sessionId.slice(-8),
+    systemPromptLen: systemPrompt.length,
+    msgCount: messages.length,
+    lastMsgRole: lastMsg?.role,
+    lastMsgLen: lastMsg?.content?.length ?? 0,
+    lastMsgPreview: lastMsg?.content?.slice(0, 200) ?? "",
+    maxTokens,
+  }));
+
   let res: Response;
   try {
     res = await fetch(`${baseUrl}/v1/chat/completions`, {
@@ -53,6 +68,7 @@ export async function callOpenclaw(
 
   if (!res.ok) {
     const text = await res.text();
+    console.warn("[openclaw] http error:", JSON.stringify({ status: res.status, ms: Date.now() - startedAt, bodyPreview: text.slice(0, 500) }));
     throw new Error(`openclaw chat failed: ${res.status} ${text}`);
   }
 

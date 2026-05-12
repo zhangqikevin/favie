@@ -447,6 +447,14 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Not authenticated" });
       }
       const userId = req.user.id;
+      const lastMsg = messages.at(-1);
+      console.log("[chat-api] /api/agent/chat", JSON.stringify({
+        userTail: userId.slice(-8),
+        agentId,
+        msgCount: messages.length,
+        lastRole: lastMsg?.role,
+        lastPreview: lastMsg?.content?.slice(0, 200) ?? "",
+      }));
       const restaurants = await storage.getRestaurants(userId);
       const currentRestaurant = restaurants.find(r => r.id === req.user!.currentRestaurantId) ?? restaurants[0];
       const restaurantId = currentRestaurant?.id ?? "default";
@@ -484,7 +492,7 @@ export async function registerRoutes(
           .status(400)
           .json({ message: err.errors[0]?.message || "Invalid request" });
       }
-      console.error("Agent chat error:", err);
+      console.error("[chat-api] error:", err?.stack ?? err?.message ?? JSON.stringify(err));
       res.status(500).json({ message: err.message || "Internal server error" });
     }
   });
@@ -1758,12 +1766,19 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
   app.post("/api/channel/:channelType/webhook/:token", async (req, res) => {
     res.json({ ok: true }); // Respond immediately so Telegram doesn't retry
     const { channelType, token } = req.params;
+    const whStart = Date.now();
     try {
       const handler = getChannelHandler(channelType);
-      if (!handler) return;
+      if (!handler) {
+        console.warn(`[channel webhook] no handler for ${channelType}`);
+        return;
+      }
 
       const incoming = handler.parseIncoming(req);
-      if (!incoming) return;
+      if (!incoming) {
+        console.log(`[channel webhook] ${channelType} parseIncoming returned null (non-message event)`);
+        return;
+      }
 
       const binding = await storage.getChannelBindingByToken(channelType, token);
 
@@ -1771,6 +1786,14 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         console.warn(`[channel webhook] no binding found for ${channelType} token=${token.slice(0, 8)}...`);
         return;
       }
+      console.log(`[channel webhook] ${channelType} incoming`, JSON.stringify({
+        bindingId: binding.id,
+        userTail: binding.userId.slice(-8),
+        agentId: binding.agentId,
+        chatIdTail: incoming.chatId.slice(-8),
+        textLen: incoming.text.length,
+        textPreview: incoming.text.slice(0, 200),
+      }));
 
       // Persist chatId so proactive deliver endpoint can push back to this chat
       const channelConfigNow = binding.channelConfig as Record<string, string>;
@@ -1819,6 +1842,12 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
         allMessages,
         2048,
       );
+      console.log(`[channel webhook] ${channelType} reply ready`, JSON.stringify({
+        bindingId: binding.id,
+        elapsedMs: Date.now() - whStart,
+        replyLen: replyText.length,
+        replyPreview: replyText.slice(0, 200),
+      }));
 
       // Save both turns
       const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -1829,8 +1858,9 @@ Create a full negotiation package: market analysis, leverage assessment, specifi
 
       // Send reply back to user
       await handler.sendMessage(incoming.chatId, replyText, channelConfig as any);
+      console.log(`[channel webhook] ${channelType} done`, JSON.stringify({ bindingId: binding.id, totalMs: Date.now() - whStart }));
     } catch (err: any) {
-      console.error(`[channel webhook] ${channelType} error:`, err.message);
+      console.error(`[channel webhook] ${channelType} error:`, err?.stack ?? err?.message ?? JSON.stringify(err));
     }
   });
 
