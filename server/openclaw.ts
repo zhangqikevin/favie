@@ -60,7 +60,32 @@ export async function callOpenclaw(
     choices: { message: { content: string | null; tool_calls?: any[] } }[];
   };
   const msg = data.choices[0]?.message;
-  console.log("[openclaw] response:", JSON.stringify({ elapsedMs: Date.now() - startedAt, content: msg?.content?.slice(0, 200) ?? null, hasToolCalls: !!msg?.tool_calls?.length, choiceCount: data.choices?.length }));
+  const toolCalls = Array.isArray(msg?.tool_calls) ? msg!.tool_calls : [];
+  console.log("[openclaw] response:", JSON.stringify({ elapsedMs: Date.now() - startedAt, content: msg?.content?.slice(0, 200) ?? null, hasToolCalls: toolCalls.length > 0, toolCallCount: toolCalls.length, choiceCount: data.choices?.length }));
+  // Per-tool-call detail — capture the exact args the agent sent. For cron jobs
+  // this lets us see the `delivery` block the agent chose (webhook vs channel:last
+  // etc.) so we can diagnose "no chat target" failures without trusting agent self-reports.
+  for (let i = 0; i < toolCalls.length; i++) {
+    const tc: any = toolCalls[i];
+    const name = tc?.function?.name ?? tc?.name ?? "(unknown)";
+    const rawArgs = tc?.function?.arguments ?? tc?.arguments ?? "";
+    let parsed: unknown = null;
+    let parseErr: string | null = null;
+    if (typeof rawArgs === "string") {
+      try { parsed = JSON.parse(rawArgs); } catch (e: any) { parseErr = e?.message ?? String(e); }
+    } else {
+      parsed = rawArgs;
+    }
+    const argsStr = parsed != null ? JSON.stringify(parsed) : rawArgs;
+    const delivery = (parsed as any)?.job?.delivery ?? (parsed as any)?.delivery ?? null;
+    console.log(`[openclaw] tool_call[${i}]:`, JSON.stringify({
+      name,
+      argsLen: typeof rawArgs === "string" ? rawArgs.length : -1,
+      parseErr,
+      argsPreview: typeof argsStr === "string" ? argsStr.slice(0, 2000) : null,
+      delivery,
+    }));
+  }
   return msg?.content ?? "";
 }
 
