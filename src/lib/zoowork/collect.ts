@@ -128,7 +128,12 @@ async function insertAction(run: typeof schema.agentRuns.$inferSelect, actionDat
   category: (typeof schema.actionCategoryEnum.enumValues)[number], title: string, reason: string, needsAttention: boolean,
   extra: Partial<typeof schema.agentActions.$inferInsert> = {}) {
   await db.insert(schema.agentActions).values({
-    runId: run.id, restaurantId: run.restaurantId, restaurantAgentId: run.restaurantAgentId, platform, actionDate, category, title, reason, needsAttention, ...extra,
+    runId: run.id, restaurantId: run.restaurantId, restaurantAgentId: run.restaurantAgentId, platform, actionDate, category, title, reason, needsAttention,
+    // Stamp the moment the run ended, not the moment we happened to collect it.
+    occurredAt: run.finishedAt ?? run.startedAt ?? new Date(),
+    // Purely technical outcomes are for sysadmins; owners only see what happened on their platforms.
+    internal: category === 'run_unparsed' || category === 'interrupted',
+    ...extra,
   })
 }
 
@@ -136,7 +141,7 @@ export async function materializeSummary(run: typeof schema.agentRuns.$inferSele
   // The agent's sandbox clock is UTC, so its run_date can be a day ahead of the restaurant. Trust ours.
   const date = run.runDate ?? s.run_date
   if (s.aborted_early) {
-    await insertAction(run, date, 'none', 'no_action', 'Run ended early', `Reason: ${s.abort_reason ?? 'unspecified'}.`, false)
+    await insertAction(run, date, 'none', 'no_action', 'Run ended early', `Reason: ${s.abort_reason ?? 'unspecified'}.`, false, { internal: true })
     // A verify/confirm turn that never got going must not leave the connection spinning.
     if (run.kind === 'verify') {
       await db.update(schema.platformConnections)

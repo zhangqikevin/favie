@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte } from 'drizzle-orm'
+import { sql, and, desc, eq, gte, lte } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 
 export type ActionRow = typeof schema.agentActions.$inferSelect
@@ -21,7 +21,7 @@ export function todayLocal(timezone: string) {
 export async function getActionsForMonth(restaurantId: string, ym: string) {
   const { start, end } = monthBounds(ym)
   return db.select().from(schema.agentActions)
-    .where(and(eq(schema.agentActions.restaurantId, restaurantId), gte(schema.agentActions.actionDate, start), lte(schema.agentActions.actionDate, end)))
+    .where(and(eq(schema.agentActions.restaurantId, restaurantId), eq(schema.agentActions.internal, false), gte(schema.agentActions.actionDate, start), lte(schema.agentActions.actionDate, end)))
     .orderBy(desc(schema.agentActions.occurredAt))
 }
 
@@ -29,7 +29,11 @@ export async function getRunsForMonth(restaurantId: string, ym: string) {
   const { start, end } = monthBounds(ym)
   return db.select({ id: schema.agentRuns.id, runDate: schema.agentRuns.runDate, status: schema.agentRuns.status, kind: schema.agentRuns.kind, outcome: schema.agentRuns.outcome, toolErrorCount: schema.agentRuns.toolErrorCount })
     .from(schema.agentRuns)
-    .where(and(eq(schema.agentRuns.restaurantId, restaurantId), gte(schema.agentRuns.runDate, start), lte(schema.agentRuns.runDate, end)))
+    .where(and(
+      eq(schema.agentRuns.restaurantId, restaurantId), gte(schema.agentRuns.runDate, start), lte(schema.agentRuns.runDate, end),
+      // Owners see runs that are still going or that produced something for them; technical failures stay in /admin.
+      sql`(${schema.agentRuns.status} in ('discovered','running','finished') or exists (select 1 from agent_actions a where a.run_id = ${schema.agentRuns.id} and a.internal = false))`,
+    ))
 }
 
 export async function getRun(restaurantId: string, runId: string) {

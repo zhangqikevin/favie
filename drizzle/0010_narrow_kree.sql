@@ -1,0 +1,1 @@
+ALTER TABLE "agent_actions" ADD COLUMN "internal" boolean DEFAULT false NOT NULL;

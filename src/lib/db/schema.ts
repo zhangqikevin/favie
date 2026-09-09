@@ -154,6 +154,7 @@ export const agentActions = pgTable('agent_actions', {
   after: jsonb('after'),
   amountCents: integer('amount_cents'),
   needsAttention: boolean('needs_attention').notNull().default(false),
+  internal: boolean('internal').notNull().default(false), // technical outcome (unreachable context, unparsed report, interrupted run): admin-only, hidden from owners
   ...timestamps,
 }, (t) => [index('agent_actions_restaurant_date_idx').on(t.restaurantId, t.actionDate)])
 
