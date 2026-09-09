@@ -1,0 +1,1 @@
+ALTER TABLE "daily_metrics" ADD COLUMN "ad_attributed_sales_cents" integer;

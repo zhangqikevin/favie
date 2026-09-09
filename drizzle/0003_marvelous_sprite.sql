@@ -1,0 +1,1 @@
+ALTER TABLE "restaurants" ADD COLUMN "browser_login_label" text;

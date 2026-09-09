@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "zoowork-managed-agents": {
+      "source": "SerendipityOneInc/zoowork-sdk-skills",
+      "sourceType": "github",
+      "skillPath": "skills/zoowork-managed-agents/SKILL.md",
+      "computedHash": "d29bde294e10ccc7bffb85469668fe5ac0f0d9ad30b9b44154af34f9d34c6e6e"
+    }
+  }
+}

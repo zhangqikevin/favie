@@ -1,0 +1,79 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@theme {
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #d9e6ff;
+  --color-brand-200: #bcd2ff;
+  --color-brand-300: #8eb4ff;
+  --color-brand-400: #598aff;
+  --color-brand-500: #2f66ff;
+  --color-brand-600: #1f4df5;
+  --color-brand-700: #1a3de0;
+  --color-brand-800: #1b34b5;
+  --color-brand-900: #1c318e;
+
+  --color-ink-900: #0b0f19;
+  --color-ink-800: #141a29;
+  --color-ink-700: #1f2739;
+  --color-ink-500: #4b5568;
+  --color-ink-300: #a3adbf;
+  --color-ink-100: #eef1f6;
+
+  --color-uber: #06c167;
+  --color-doordash: #ff3008;
+
+  --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-card: 0 1px 2px rgb(11 15 25 / 0.04), 0 8px 24px -12px rgb(11 15 25 / 0.18);
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white text-ink-900 antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+.container-x {
+  @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+}
+@utility btn-primary {
+  @apply btn bg-brand-500 text-white hover:bg-brand-600;
+}
+@utility btn-ghost {
+  @apply btn border border-white/25 bg-white/10 text-white backdrop-blur hover:bg-white/20;
+}
+@utility btn-secondary {
+  @apply btn border border-ink-100 bg-white text-ink-900 hover:bg-ink-100;
+}
+
+.card {
+  @apply rounded-2xl border border-ink-100 bg-white shadow-card;
+}
+
+.input {
+  @apply w-full rounded-xl border border-ink-100 bg-white px-4 py-3 text-sm text-ink-900 placeholder:text-ink-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100;
+}
+
+.label {
+  @apply mb-1.5 block text-sm font-medium text-ink-700;
+}
+
+@keyframes favie-flow {
+  to { stroke-dashoffset: -44; }
+}
+.flow-line {
+  animation: favie-flow 1.4s linear infinite;
+}

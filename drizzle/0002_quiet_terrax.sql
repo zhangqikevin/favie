@@ -1,0 +1,1 @@
+ALTER TABLE "platform_connections" ADD COLUMN "progress_note" text;

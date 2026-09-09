@@ -1,0 +1,1 @@
+ALTER TABLE "restaurants" ADD COLUMN "daily_schedule_paused" boolean DEFAULT false NOT NULL;
