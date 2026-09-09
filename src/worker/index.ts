@@ -15,12 +15,16 @@ import { collectRuns, staleRuns } from '@/lib/zoowork/collect'
 import { decommissionAgent } from '@/lib/zoowork/teardown'
 import { zoodataSync } from '@/lib/zoodata'
 import { weeklyDigest } from './jobs/weeklyDigest'
+import { prepareZoowork } from '@/lib/zoowork/client'
+import { refreshSettings } from '@/server/settings'
 
 const url = process.env.DATABASE_URL
 if (!url) throw new Error('DATABASE_URL is not set')
 const boss = new PgBoss({ connectionString: url, schema: 'pgboss', max: 4 })
 boss.on('error', (e) => console.error('[pg-boss]', e))
 await boss.start()
+await prepareZoowork()
+setInterval(() => { refreshSettings().catch(() => {}) }, 60_000).unref()
 
 for (const name of Object.values(JOBS)) await boss.createQueue(name).catch(() => {})
 

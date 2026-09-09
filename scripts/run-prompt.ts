@@ -9,6 +9,8 @@ import { sql } from 'drizzle-orm'
 import { toolCall } from '@zoowork-ai/sdk'
 import { db, schema } from '../src/lib/db/client'
 import { runManualPrompt } from '../src/lib/zoowork/manual'
+import { prepareZoowork } from '../src/lib/zoowork/client'
+await prepareZoowork()
 
 const [idArg, file] = process.argv.slice(2)
 if (!idArg || !file) { console.error('usage: run-prompt.ts <restaurantId|prefix> <prompt.md>'); process.exit(1) }

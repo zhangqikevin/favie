@@ -8,12 +8,13 @@
 import 'dotenv/config'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { createZooworkClient } from '@zoowork-ai/sdk'
 import JSZip from 'jszip'
 import { renderSkill, activePrompt, defaultOperatingPrompt } from '../src/lib/zoowork/skill-publish'
+import { zoowork, prepareZoowork } from '../src/lib/zoowork/client'
 
 const NAME = 'favie-ops'
-const zc = createZooworkClient()
+await prepareZoowork()
+const zc = zoowork()
 const active = await activePrompt().catch(() => null)
 const skillMd = renderSkill(active?.body ?? defaultOperatingPrompt())
 writeFileSync(join('skills', NAME, 'SKILL.md'), skillMd) // keep the rendered file in the repo for reading

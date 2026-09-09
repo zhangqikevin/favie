@@ -4,6 +4,10 @@ import { db, schema } from '@/lib/db/client'
 import { activePrompt, promptHistory, defaultOperatingPrompt } from '@/lib/zoowork/skill-publish'
 import { PromptEditor } from './PromptEditor'
 import { rollbackPrompt } from './actions'
+import { PlatformSettings } from './PlatformSettings'
+import { getSetting, SETTING_KEYS } from '@/server/settings'
+import { zoowork, currentZooworkKey } from '@/lib/zoowork/client'
+import { isNotNull } from 'drizzle-orm'
 
 export default async function AdminIndex() {
   const [active, history, rows] = await Promise.all([
@@ -22,6 +26,18 @@ export default async function AdminIndex() {
       .leftJoin(schema.users, eq(schema.users.id, schema.restaurants.ownerUserId))
       .orderBy(desc(schema.restaurants.createdAt)),
   ])
+  const [savedKey, defaultModel, models, agentCount] = await Promise.all([
+    getSetting(SETTING_KEYS.zooworkApiKey),
+    getSetting(SETTING_KEYS.zooworkDefaultModel),
+    zoowork().listModels().catch(() => [] as { model: string; label?: string }[]),
+    db.$count(schema.restaurantAgents, isNotNull(schema.restaurantAgents.zooworkAgentId)),
+  ])
+  const keyInUse = currentZooworkKey()
+  const keyInfo = {
+    source: savedKey ? ('database' as const) : keyInUse ? ('environment' as const) : ('none' as const),
+    last4: keyInUse ? keyInUse.slice(-4) : null,
+    updatedAt: savedKey?.updatedAt.toISOString() ?? null,
+  }
 
   return (
     <div className="space-y-8">
@@ -55,6 +71,14 @@ export default async function AdminIndex() {
             </ul>
           </div>
         )}
+      </section>
+
+      <section>
+        <h2 className="font-display text-xl font-bold tracking-tight">Platform settings</h2>
+        <p className="mt-1 text-sm text-ink-500">Credentials and defaults for the ZooWork organization that hosts every customer agent.</p>
+        <div className="mt-4">
+          <PlatformSettings keyInfo={keyInfo} models={models.map((m) => ({ model: m.model, label: (m as { label?: string }).label }))} defaultModel={defaultModel?.value ?? null} agentCount={agentCount} />
+        </div>
       </section>
 
       <section>

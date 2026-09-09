@@ -31,6 +31,9 @@ Decisions that are not derivable from the code. Newest at the bottom. Dates are 
 - Restaurants **without their own key get deterministic sample data**. The global test token is never attributed to a customer.
 - All run/action dates are the **restaurant's local day**, computed by us. The agent's own `run_date` is ignored (its sandbox clock is UTC).
 
+## Runtime settings (09-09)
+- Sysadmin-editable settings live in `app_settings` (`src/server/settings.ts`): the **ZooWork organization key** (encrypted with `FAVIE_ENCRYPTION_KEY`) and the **default agent model**. A saved key overrides `ZOOWORK_API_KEY`; the env var is only the bootstrap fallback. Every process re-reads settings every 60s; the ZooWork client is rebuilt when the key changes. New agents get the default model; "Apply to existing agents" calls `updateAgent({ model })` on every provisioned agent.
+
 ## Dev environment
 - Each developer runs an **isolated environment**: own Supabase project, own Postgres, own tunnel host (`NEXT_PUBLIC_APP_URL`). Shared: the ZooWork org key and `FAVIE_OPS_SKILL_ID`, the Zoodata test token. Agents are per-restaurant-row, so separate databases mean separate agents.
 - Publishing a prompt/skill version affects **every** agent in the org (all developers' test restaurants and, later, customers). Coordinate before publishing.

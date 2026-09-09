@@ -5,7 +5,7 @@ Every developer runs their own database, auth project and tunnel. What is shared
 ## 1. Accounts you need from Kevin
 | Item | Why | Shared or yours |
 |---|---|---|
-| `ZOOWORK_API_KEY` | creates/starts agents, publishes the skill | shared (org key, server-side only) |
+| `ZOOWORK_API_KEY` | creates/starts agents, publishes the skill. Bootstrap only: a key saved in `/admin` overrides it | shared (org key, server-side only) |
 | `FAVIE_OPS_SKILL_ID` | the org skill every agent installs. **Never run the first-time upload again** — use this id | shared |
 | `ZOODATA_MCP_TOKEN` (optional) | test restaurant data | shared |
 | Supabase project | Postgres + Auth | **yours** (free tier is fine) |

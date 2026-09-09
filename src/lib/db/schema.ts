@@ -276,3 +276,13 @@ export const agentPromptVersions = pgTable('agent_prompt_versions', {
   createdByUserId: uuid('created_by_user_id').references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// Sysadmin-editable runtime settings (ZooWork key, default model, …). Secrets are stored encrypted
+// with FAVIE_ENCRYPTION_KEY; environment variables remain the bootstrap fallback.
+export const appSettings = pgTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(), // ciphertext when is_secret
+  isSecret: boolean('is_secret').notNull().default(false),
+  updatedByUserId: uuid('updated_by_user_id').references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})

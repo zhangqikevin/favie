@@ -7,9 +7,10 @@
 import 'dotenv/config'
 import { eq } from 'drizzle-orm'
 import { db, schema } from '../src/lib/db/client'
-import { zoowork } from '../src/lib/zoowork/client'
+import { zoowork, prepareZoowork } from '../src/lib/zoowork/client'
 import { buildPersona } from '../src/lib/zoowork/provisioning'
 import { newToken, sha256 } from '../src/lib/crypto'
+await prepareZoowork()
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL
 if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL required')
