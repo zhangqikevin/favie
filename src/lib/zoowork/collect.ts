@@ -76,18 +76,31 @@ export async function collectRun(run: typeof schema.agentRuns.$inferSelect, time
   let toolErrors = 0
   let usage: unknown = null
   let startedAt: Date | undefined
+  // Text the agent tried to deliver through `message` / `sessions_yield` instead of replying. In cron
+  // sessions there is no recipient, so the report would otherwise be lost; we read it from the tool args.
+  const misdelivered: string[] = []
   for (const e of events) {
     if (!inRun(e)) continue
     if (e.eventType === 'run.started' && e.createdAt) startedAt = new Date(e.createdAt)
     text += assistantText(e)
     const call = toolCall(e)
     if (call?.phase === 'end' && call.isError) toolErrors += 1
+    if (e.eventType === 'agent.tool') {
+      const p = e.payload as { toolName?: string; args?: { message?: unknown } }
+      if ((p.toolName === 'message' || p.toolName === 'sessions_yield') && typeof p.args?.message === 'string') misdelivered.push(p.args.message)
+    }
     if (e.eventType === 'agent.assistant') {
       const u = (e.payload as { message?: { usage?: unknown } })?.message?.usage
       if (u) usage = u
     }
   }
-  const parsed = parseFavieSummary(text)
+  let parsed = parseFavieSummary(text)
+  if ('error' in parsed && misdelivered.length) {
+    const alt = misdelivered.join('\n\n')
+    const altParsed = parseFavieSummary(alt)
+    if (!('error' in altParsed)) { parsed = altParsed; text = text ? `${text}\n\n${alt}` : alt }
+    else if (!text.trim()) text = alt // at least keep the agent's words for the run report
+  }
   const runDate = run.runDate ?? localDate(finished?.createdAt ? new Date(finished.createdAt) : new Date(), timezone)
   const base = {
     outcome: (outcome ?? null) as 'succeeded' | 'failed' | 'aborted' | null,
@@ -107,7 +120,7 @@ export async function collectRun(run: typeof schema.agentRuns.$inferSelect, time
       `Favie could not parse the agent's summary (${parsed.error}). Open the transcript to see what happened.`, true)
     return
   }
-  await db.update(schema.agentRuns).set({ ...base, status: 'collected', summaryJson: parsed.summary as object, runDate }).where(eq(schema.agentRuns.id, run.id))
+  await db.update(schema.agentRuns).set({ ...base, status: 'collected', summaryJson: parsed.summary as object, summaryParseError: null, runDate }).where(eq(schema.agentRuns.id, run.id))
   await materializeSummary(run, parsed.summary)
 }
 

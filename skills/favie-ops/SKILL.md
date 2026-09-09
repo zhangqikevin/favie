@@ -160,6 +160,11 @@ owner's language given by the context's `language` field (the restaurant owner r
 all keys, `category` values, `platform` values and store names exactly as specified — those are
 parsed by the backend.
 
+Write the report as your **reply text**. Never send it through the `message` or `sessions_yield`
+tools: scheduled runs are isolated sessions with no recipient, and only your final assistant text is
+collected. If the context URL is unreachable after 3 tries, stop and still reply with the block below
+(`aborted_early: true`, `abort_reason: "context_unreachable"`).
+
 Your final message must END with exactly one fenced block and nothing after it:
 
 ````
