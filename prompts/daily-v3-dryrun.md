@@ -1,0 +1,1 @@
+Run the daily Favie ops routine using the favie-ops skill: fetch the context URL from AGENTS.md, log into Uber Eats Manager and DoorDash Merchant Portal, apply the marketing playbook within the monthly marketing cap (ads + promotions), close the browser session, and end with the favie-summary block.

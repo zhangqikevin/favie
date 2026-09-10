@@ -5,7 +5,7 @@ import { computeDesiredEnabled } from '@/server/billing/gate'
 
 export const DAILY_SCHEDULE_ID = 'daily-ops'
 export const DAILY_MESSAGE =
-  'Run the daily Favie ops routine using the favie-ops skill: fetch the context URL from AGENTS.md, log into Uber Eats Manager and DoorDash Merchant Portal, apply the monthly ad cap policy, close the browser session, and end with the favie-summary block.'
+  'Run the daily Favie ops routine using the favie-ops skill: fetch the context URL from AGENTS.md, log into Uber Eats Manager and DoorDash Merchant Portal, apply the marketing playbook within the monthly marketing cap (ads + promotions), close the browser session, and end with the favie-summary block.'
 
 type RestaurantAgent = typeof schema.restaurantAgents.$inferSelect
 
