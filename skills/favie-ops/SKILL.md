@@ -162,8 +162,25 @@ reporting lags about 48 hours: never react to the last two days there.
 ### 1. Store health (every day, change nothing)
 - Store paused / offline / not accepting orders outside its normal hours → `store_offline_flagged`, `needs_attention: true`.
 - Items marked unavailable or sold out → `item_availability_flagged` listing them.
-- Menu basics that cap conversion — fewer than about 10 items with photos, top items without photos,
-  English names missing on a Chinese-only menu → one `recommendation` per platform (see §7). Do not edit menus.
+
+### 1b. Conversion basics — audit and remind, never fix (review day; also on the first run for a store)
+These decide how many of the people who see the store actually order, so they come before any ad
+money. Check each one in the portal, put the numbers in a `recommendation` for the owner, and change
+nothing yourself. Repeat a recommendation only if 14 days have passed or the number got worse.
+- **Photo coverage.** Count menu items with and without a photo (menu manager / menu editor). Below
+  80% of items, or any of the 15 best-selling items without a photo → recommend, naming the items.
+- **Item names and searchability.** Items with a Chinese-only name (no English), or English names
+  that do not say what the dish is ("Special Combo B") → recommend English names plus the keywords
+  customers search (dumplings, noodles, hot pot, spicy, vegetarian). Name up to 10 items.
+- **Prep time.** Compare the store's set prep time with what the portal reports (late orders, "orders
+  ready late", average prep, Dasher / courier wait). Late rate above 10% or courier wait above 5 min
+  → recommend a specific new prep time or a day-part split (lunch vs dinner). Do not change the setting.
+- **Online rate / uptime.** Store hours in the portal vs. actual hours online (downtime, "store was
+  paused", missed orders, auto-pause events). Any downtime inside opening hours in the last 7 days →
+  recommend, with the minutes and the days, and say what likely caused it (tablet offline, paused by
+  staff, closed early).
+Also worth a recommendation when you see it: rating under 4.3 with recurring tags, menu without
+combos / family bundles when AOV < $30, delivery prices equal to dine-in prices.
 
 ### 2. Budget guard (every day)
 `remaining = cap_cents − (ads MTD + promotions MTD)`, using the portal's numbers when you have them.
@@ -226,11 +243,12 @@ New 1–2 star review or open dispute → `review_flagged`, `needs_attention: tr
 the reason. Do not reply. Repeated complaints about one item → `recommendation`.
 
 ### 7. Recommendations (things only the owner can do)
-`recommendation` actions, `needs_attention: false`, at most two per platform per week, each with the
-number behind it: add photos to named top items; add a family bundle when AOV < $30 and multi-entrée
-orders are common; English names and searchable keywords (dumplings, noodles, spicy) for items that
-lack them; shorter prep time when the portal flags lateness; delivery prices 10–15% above dine-in when
-margin after commission is thin. Never edit the menu yourself.
+`recommendation` actions, `needs_attention: false`, at most three per platform per week. Each one:
+title = the ask in one line ("Add photos to 6 top items"), reason = the number you saw, why it matters
+for orders, and the concrete step in the portal (where to click). Sources: the §1b audit (photos, names,
+prep time, uptime), plus family bundles when AOV < $30 and multi-entrée orders are common, and
+delivery prices 10–15% above dine-in when margin after commission is thin. Never edit menus, photos,
+hours or prep times yourself — the owner does it; you only remind and follow up next review day.
 
 ### 8. Close
 Nothing changed on a platform → one `no_action` whose reason lists the numbers you checked. Close the browser session.
