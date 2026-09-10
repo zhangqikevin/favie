@@ -4,8 +4,8 @@ import { Logo } from '@/components/marketing/Logo'
 import { DashboardPreview } from '@/components/marketing/DashboardPreview'
 import { getT } from '@/i18n/server'
 
-const HERO_IMG =
-  'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=2400&q=70'
+// Counter scene: staff handing Uber Eats / DoorDash / Grubhub couriers their orders (public/hero.jpg, 1672×941).
+const HERO_IMG = '/hero.jpg'
 
 export default async function LandingPage() {
   const { t } = await getT()
