@@ -17,7 +17,10 @@ export async function requireUser() {
   if (!authUser) redirect('/login')
   const [row] = await db.select().from(schema.users).where(eq(schema.users.id, authUser.id)).limit(1)
   if (row) {
-    if (!row.locale) { const locale = await getLocale(); await db.update(schema.users).set({ locale }).where(eq(schema.users.id, row.id)).catch(() => {}); return { ...row, locale } }
+    // The cookie is the language the user actually sees (browser default or an explicit switch); keep the
+    // account in step with it so the agent writes its reports in the same language.
+    const locale = await getLocale()
+    if (row.locale !== locale) { await db.update(schema.users).set({ locale, updatedAt: new Date() }).where(eq(schema.users.id, row.id)).catch(() => {}); return { ...row, locale } }
     return row
   }
   const locale = await getLocale()
