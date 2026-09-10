@@ -3,7 +3,7 @@ import { requireUser } from '@/server/auth'
 import { getRestaurantForUser, getSubscription } from '@/server/restaurants'
 import { logOut } from '@/app/(auth)/actions'
 import { getT } from '@/i18n/server'
-import { AppHeader, ThemeScript, type NavItem } from './AppHeader'
+import { AppHeader, type NavItem } from './AppHeader'
 import { PageTitle } from './PageTitle'
 import Link from 'next/link'
 
@@ -24,8 +24,7 @@ export default async function DashboardLayout({ children, params }: { children: 
   ]
 
   return (
-    <div id="app-shell" className="app-shell min-h-screen" suppressHydrationWarning>
-      <ThemeScript />
+    <div id="app-shell" className="app-shell min-h-screen">
       <AppHeader base={base} items={items} user={{ name: user.name, email: user.email }} restaurant={restaurant} logOut={logOut} />
       <div className="container-x pb-16 pt-6">
         <PageTitle base={base} />
