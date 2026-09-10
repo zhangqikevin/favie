@@ -336,6 +336,18 @@ const es: Dictionary = {
   'mkt.adsSpent': 'Anuncios',
   'mkt.promoSpent': 'Promociones',
   'mkt.promoUnknown': 'El coste de promociones aparece tras la primera ejecución diaria.',
+  'sys.login_failed.t': 'No se pudo iniciar sesión',
+  'sys.login_failed.r': 'Fallo de inicio de sesión: {reason}. Favie lo reintentará en la próxima ejecución; si persiste, reconecta la plataforma en Ajustes → Acceso a plataformas.',
+  'sys.store_not_visible.t': 'La tienda no aparece en la cuenta',
+  'sys.store_not_visible.r': 'Favie inició sesión pero no encontró "{store}" en esta cuenta. Puede ser otra cuenta o se retiró el acceso. Reconecta en Ajustes → Acceso a plataformas.',
+  'sys.no_action.t': 'Revisado: nada que cambiar',
+  'sys.no_action.r': 'Tienda en línea, presupuestos en objetivo, sin novedades.',
+  'sys.aborted.t': 'Ejecución terminada antes de tiempo',
+  'sys.aborted.r': 'Motivo: {reason}.',
+  'sys.interrupted.t': 'Ejecución interrumpida',
+  'sys.interrupted.r': 'La ejecución se detuvo antes de terminar. Los cambios previos pueden estar ya activos en la plataforma.',
+  'sys.run_unparsed.t': 'La ejecución terminó pero no se pudo leer su informe',
+  'sys.run_unparsed.r': 'Favie no pudo leer el resumen del agente ({error}). Abre el informe de la ejecución para ver qué pasó.',
 }
 
 export default es

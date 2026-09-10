@@ -336,6 +336,18 @@ const zhTW: Dictionary = {
   'mkt.adsSpent': '其中廣告',
   'mkt.promoSpent': '其中促銷',
   'mkt.promoUnknown': '促銷花費在首次每日運行後顯示。',
+  'sys.login_failed.t': '無法登入',
+  'sys.login_failed.r': '登入失敗:{reason}。Favie 會在下次運行時重試;如果持續失敗,請到「設定 → 平台存取」重新連接這個平台。',
+  'sys.store_not_visible.t': '帳戶裡找不到門市',
+  'sys.store_not_visible.r': 'Favie 已登入,但在這個帳戶裡找不到「{store}」。可能登入的是另一個帳戶,或門市權限已被移除。請到「設定 → 平台存取」重新連接。',
+  'sys.no_action.t': '已檢查,無需改動',
+  'sys.no_action.r': '門市在線,預算按計畫,沒有新問題。',
+  'sys.aborted.t': '運行提前結束',
+  'sys.aborted.r': '原因:{reason}。',
+  'sys.interrupted.t': '運行被中斷',
+  'sys.interrupted.r': '運行在完成前被停止。中斷前做出的改動可能已在平台上生效。',
+  'sys.run_unparsed.t': '運行已完成,但報告無法解析',
+  'sys.run_unparsed.r': 'Favie 無法解析 agent 的總結({error})。打開運行報告查看詳情。',
 }
 
 export default zhTW

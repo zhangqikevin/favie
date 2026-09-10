@@ -340,6 +340,18 @@ const en = {
   'mkt.adsSpent': 'Ads',
   'mkt.promoSpent': 'Promotions',
   'mkt.promoUnknown': 'Promotion cost appears after the first daily run.',
+  'sys.login_failed.t': 'Could not log in',
+  'sys.login_failed.r': 'Login failed: {reason}. Favie will retry on the next run; if it keeps failing, reconnect this platform in Settings → Platform access.',
+  'sys.store_not_visible.t': 'Store not visible in the account',
+  'sys.store_not_visible.r': 'Favie logged in but could not find "{store}" in this account. The login may belong to a different account, or access to the store was removed. Reconnect in Settings → Platform access.',
+  'sys.no_action.t': 'Checked — nothing to change',
+  'sys.no_action.r': 'Store online, budgets on target, no new issues.',
+  'sys.aborted.t': 'Run ended early',
+  'sys.aborted.r': 'Reason: {reason}.',
+  'sys.interrupted.t': 'Run was interrupted',
+  'sys.interrupted.r': 'The run was stopped before it finished. Changes made before the interruption may already be live on the platform.',
+  'sys.run_unparsed.t': 'Run finished but its report could not be read',
+  'sys.run_unparsed.r': 'Favie could not read the agent\'s summary ({error}). Open the run report to see what happened.',
 } as const
 
 export type Dictionary = { [K in keyof typeof en]: string }

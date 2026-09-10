@@ -1,6 +1,8 @@
 import { and, eq, inArray, lt } from 'drizzle-orm'
 import { assistantText, isRunFinished, runOutcome, toolCall, type SessionEvent } from '@zoowork-ai/sdk'
 import { db, schema } from '@/lib/db/client'
+import { dictionaryFor, makeT } from '@/i18n'
+import { isLocale } from '@/i18n/config'
 import { zoowork, logged } from './client'
 import { DAILY_SCHEDULE_ID } from './schedule'
 import { parseFavieSummary, type FavieSummary } from './summary-schema'
@@ -64,6 +66,15 @@ async function collectPending(agent: typeof schema.restaurantAgents.$inferSelect
   for (const run of pending) await collectRun(run, timezone)
 }
 
+
+/** System-generated calendar entries are written in the owner's language (users.locale), like the agent's own text. */
+async function ownerT(restaurantId: string) {
+  const [row] = await db.select({ locale: schema.users.locale }).from(schema.restaurants)
+    .innerJoin(schema.users, eq(schema.users.id, schema.restaurants.ownerUserId)).where(eq(schema.restaurants.id, restaurantId)).limit(1)
+  const loc = row?.locale
+  return makeT(dictionaryFor(isLocale(loc) ? loc : 'en'))
+}
+
 /** Reads the whole event log of one finished session and turns it into agent_actions. */
 export async function collectRun(run: typeof schema.agentRuns.$inferSelect, timezone: string) {
   const zc = zoowork()
@@ -102,6 +113,7 @@ export async function collectRun(run: typeof schema.agentRuns.$inferSelect, time
     else if (!text.trim()) text = alt // at least keep the agent's words for the run report
   }
   const runDate = run.runDate ?? localDate(finished?.createdAt ? new Date(finished.createdAt) : new Date(), timezone)
+  const t = await ownerT(run.restaurantId)
   const base = {
     outcome: (outcome ?? null) as 'succeeded' | 'failed' | 'aborted' | null,
     finalText: text.slice(-20_000), toolErrorCount: toolErrors, eventCount: events.length,
@@ -111,13 +123,12 @@ export async function collectRun(run: typeof schema.agentRuns.$inferSelect, time
 
   if (outcome === 'aborted') {
     await db.update(schema.agentRuns).set({ ...base, status: 'interrupted' }).where(eq(schema.agentRuns.id, run.id))
-    await insertAction(run, runDate, 'none', 'interrupted', 'Run was interrupted', 'The run was stopped before it finished. Actions taken before the interruption may already be live on the platform.', true)
+    await insertAction(run, runDate, 'none', 'interrupted', t('sys.interrupted.t'), t('sys.interrupted.r'), true)
     return
   }
   if ('error' in parsed) {
     await db.update(schema.agentRuns).set({ ...base, status: 'parse_failed', summaryParseError: parsed.error }).where(eq(schema.agentRuns.id, run.id))
-    await insertAction(run, runDate, 'none', 'run_unparsed', 'Run finished but its report could not be read',
-      `Favie could not parse the agent's summary (${parsed.error}). Open the transcript to see what happened.`, true)
+    await insertAction(run, runDate, 'none', 'run_unparsed', t('sys.run_unparsed.t'), t('sys.run_unparsed.r', { error: parsed.error }), true)
     return
   }
   await db.update(schema.agentRuns).set({ ...base, status: 'collected', summaryJson: parsed.summary as object, summaryParseError: null, runDate }).where(eq(schema.agentRuns.id, run.id))
@@ -138,10 +149,11 @@ async function insertAction(run: typeof schema.agentRuns.$inferSelect, actionDat
 }
 
 export async function materializeSummary(run: typeof schema.agentRuns.$inferSelect, s: FavieSummary) {
+  const t = await ownerT(run.restaurantId)
   // The agent's sandbox clock is UTC, so its run_date can be a day ahead of the restaurant. Trust ours.
   const date = run.runDate ?? s.run_date
   if (s.aborted_early) {
-    await insertAction(run, date, 'none', 'no_action', 'Run ended early', `Reason: ${s.abort_reason ?? 'unspecified'}.`, false, { internal: true })
+    await insertAction(run, date, 'none', 'no_action', t('sys.aborted.t'), t('sys.aborted.r', { reason: s.abort_reason ?? 'unspecified' }), false, { internal: true })
     // A verify/confirm turn that never got going must not leave the connection spinning.
     if (run.kind === 'verify') {
       await db.update(schema.platformConnections)
@@ -153,9 +165,9 @@ export async function materializeSummary(run: typeof schema.agentRuns.$inferSele
   for (const p of s.platforms) {
     if (p.login === 'skipped') continue
     if (p.login === 'failed') {
-      await insertAction(run, date, p.platform, 'login_failed', 'Could not log in', `Login failed: ${p.login_failure_reason ?? 'unknown reason'}. Favie will retry on the next run; if it keeps failing, check that Favie's Manager access is still active.`, true)
+      await insertAction(run, date, p.platform, 'login_failed', t('sys.login_failed.t'), t('sys.login_failed.r', { reason: p.login_failure_reason ?? 'unknown' }), true)
     } else if (p.store_visible === false && p.stores.length === 0) {
-      await insertAction(run, date, p.platform, 'store_not_visible', 'Store not visible in the account', `Favie logged in but could not find "${p.store_name ?? 'your store'}" in the account. The Manager invitation may target a different store or may have been revoked.`, true)
+      await insertAction(run, date, p.platform, 'store_not_visible', t('sys.store_not_visible.t'), t('sys.store_not_visible.r', { store: p.store_name ?? '?' }), true)
     }
     for (const a of p.actions) {
       await insertAction(run, date, p.platform, a.category, a.title, a.reason, a.needs_attention, {
@@ -163,7 +175,7 @@ export async function materializeSummary(run: typeof schema.agentRuns.$inferSele
       })
     }
     if (p.login === 'ok' && p.store_visible !== false && p.actions.length === 0) {
-      await insertAction(run, date, p.platform, 'no_action', 'Checked — nothing to change', 'Store online, budgets on target, no new issues.', false)
+      await insertAction(run, date, p.platform, 'no_action', t('sys.no_action.t'), t('sys.no_action.r'), false)
     }
     // Connection health + MTD ad spend (platform_ui source) fall out of the same report.
     await applyConnectionReport(run.restaurantId, p, run.id)

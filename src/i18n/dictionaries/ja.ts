@@ -336,6 +336,18 @@ const ja: Dictionary = {
   'mkt.adsSpent': 'うち広告',
   'mkt.promoSpent': 'うち販促',
   'mkt.promoUnknown': '販促費用は最初の日次実行後に表示されます。',
+  'sys.login_failed.t': 'ログインできませんでした',
+  'sys.login_failed.r': 'ログイン失敗:{reason}。次回の実行で再試行します。続く場合は「設定 → プラットフォーム接続」から再接続してください。',
+  'sys.store_not_visible.t': 'アカウントに店舗が見つかりません',
+  'sys.store_not_visible.r': 'ログインしましたが、このアカウントに「{store}」が見つかりません。別アカウントか、店舗権限が外れた可能性があります。「設定 → プラットフォーム接続」から再接続してください。',
+  'sys.no_action.t': '確認済み — 変更なし',
+  'sys.no_action.r': '店舗はオンライン、予算は計画通り、新しい問題はありません。',
+  'sys.aborted.t': '実行を早期終了',
+  'sys.aborted.r': '理由:{reason}。',
+  'sys.interrupted.t': '実行が中断されました',
+  'sys.interrupted.r': '完了前に停止しました。中断前の変更はプラットフォームに反映済みの可能性があります。',
+  'sys.run_unparsed.t': '実行は完了しましたがレポートを読み取れませんでした',
+  'sys.run_unparsed.r': 'エージェントの要約を読み取れませんでした({error})。実行レポートで詳細を確認してください。',
 }
 
 export default ja

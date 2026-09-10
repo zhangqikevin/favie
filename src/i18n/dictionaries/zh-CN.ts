@@ -336,6 +336,18 @@ const zhCN: Dictionary = {
   'mkt.adsSpent': '其中广告',
   'mkt.promoSpent': '其中促销',
   'mkt.promoUnknown': '促销花费在首次每日运行后显示。',
+  'sys.login_failed.t': '无法登录',
+  'sys.login_failed.r': '登录失败:{reason}。Favie 会在下次运行时重试;如果持续失败,请到「设置 → 平台访问」重新连接这个平台。',
+  'sys.store_not_visible.t': '账户里找不到门店',
+  'sys.store_not_visible.r': 'Favie 已登录,但在这个账户里找不到「{store}」。可能登录的是另一个账户,或门店权限已被移除。请到「设置 → 平台访问」重新连接。',
+  'sys.no_action.t': '已检查,无需改动',
+  'sys.no_action.r': '门店在线,预算按计划,没有新问题。',
+  'sys.aborted.t': '运行提前结束',
+  'sys.aborted.r': '原因:{reason}。',
+  'sys.interrupted.t': '运行被中断',
+  'sys.interrupted.r': '运行在完成前被停止。中断前做出的改动可能已在平台上生效。',
+  'sys.run_unparsed.t': '运行已完成,但报告无法解析',
+  'sys.run_unparsed.r': 'Favie 无法解析 agent 的总结({error})。打开运行报告查看详情。',
 }
 
 export default zhCN
