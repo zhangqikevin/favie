@@ -8,7 +8,8 @@ import type { DictKey } from '@/i18n'
 export interface ConnRow { platform: Platform; status: string; storeName: string | null }
 
 /** Settings: one row per platform with its store and a connect / reconnect action. Unsupported platforms are listed as coming soon. */
-export async function PlatformConnections({ conns }: { conns: ConnRow[] }) {
+export async function PlatformConnections({ restaurantId, conns }: { restaurantId: string; conns: ConnRow[] }) {
+  const href = `/dashboard/${restaurantId}/settings/connections`
   const { t } = await getT()
   const byId = new Map(conns.map((c) => [c.platform as string, c]))
   return (
@@ -32,12 +33,12 @@ export async function PlatformConnections({ conns }: { conns: ConnRow[] }) {
             ) : on ? (
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">{t('status.connected')}</span>
-                <Link href="/onboarding/connect" className="pill !py-1 text-xs">{t('settings.platforms.reconnect')}</Link>
+                <Link href={href} className="pill !py-1 text-xs">{t('settings.platforms.reconnect')}</Link>
               </div>
             ) : inProgress ? (
-              <Link href="/onboarding/connect" className="pill !py-1 text-xs">{t(`status.${c!.status}` as DictKey)}</Link>
+              <Link href={href} className="pill !py-1 text-xs">{t(`status.${c!.status}` as DictKey)}</Link>
             ) : (
-              <Link href="/onboarding/connect" className={`pill pill-active !py-1 text-xs ${broken ? '!border-amber-500 !bg-amber-500 !text-white' : ''}`}>
+              <Link href={href} className={`pill pill-active !py-1 text-xs ${broken ? '!border-amber-500 !bg-amber-500 !text-white' : ''}`}>
                 {broken ? t('settings.platforms.reconnect') : t('settings.platforms.connect')}
               </Link>
             )}

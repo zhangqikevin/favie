@@ -34,7 +34,7 @@ function Wire({ platform, status, flip = false }: { platform: Platform; status: 
 }
 
 /** Favie in the middle, Uber Eats on the left and DoorDash on the right, wired according to connection state. */
-export async function PlatformLinkage({ conns }: { conns: LinkageConn[] }) {
+export async function PlatformLinkage({ conns, restaurantId }: { conns: LinkageConn[]; restaurantId: string }) {
   const { t } = await getT()
   const ue = conns.find((c) => c.platform === 'uber_eats') ?? { platform: 'uber_eats' as Platform, status: 'not_started', storeName: null }
   const dd = conns.find((c) => c.platform === 'doordash') ?? { platform: 'doordash' as Platform, status: 'not_started', storeName: null }
@@ -55,7 +55,7 @@ export async function PlatformLinkage({ conns }: { conns: LinkageConn[] }) {
       </div>
       <p className="mt-5 text-center text-sm font-medium text-ink-700">{headline}</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        {[ue, dd].map((c) => <Tile key={c.platform} c={c} t={t} />)}
+        {[ue, dd].map((c) => <Tile key={c.platform} c={c} t={t} href={`/dashboard/${restaurantId}/settings/connections`} />)}
       </div>
     </div>
   )
@@ -75,7 +75,7 @@ function Node({ c, t }: { c: LinkageConn; t: T }) {
   )
 }
 
-function Tile({ c, t }: { c: LinkageConn; t: T }) {
+function Tile({ c, t, href }: { c: LinkageConn; t: T; href: string }) {
   const tt = (k: string, v?: Record<string, string | number>) => t(k as DictKey, v)
   const on = c.status === 'connected'
   const broken = c.status === 'broken'
@@ -92,9 +92,9 @@ function Tile({ c, t }: { c: LinkageConn; t: T }) {
       {on ? (
         <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">{tt('status.connected')}</span>
       ) : inProgress ? (
-        <Link href="/onboarding/connect" className="shrink-0 rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-semibold text-ink-700">{tt(`status.${c.status}`)}</Link>
+        <Link href={href} className="shrink-0 rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-semibold text-ink-700">{tt(`status.${c.status}`)}</Link>
       ) : (
-        <Link href="/onboarding/connect" className={`btn shrink-0 !px-3.5 !py-1.5 text-xs ${broken ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-brand-500 text-white hover:bg-brand-600'}`}>
+        <Link href={href} className={`btn shrink-0 !px-3.5 !py-1.5 text-xs ${broken ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-brand-500 text-white hover:bg-brand-600'}`}>
           {broken ? tt('settings.platforms.reconnect') : tt('settings.platforms.connect')}
         </Link>
       )}

@@ -28,7 +28,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ resta
       <section className="card p-7">
         <h2 className="font-display text-lg font-semibold">{t('settings.platforms')}</h2>
         <p className="mt-1 text-sm text-ink-500">{t('settings.platforms.manage')}</p>
-        <PlatformConnections conns={conns.map((c) => ({ platform: c.platform, status: c.status, storeName: c.storeName }))} />
+        <PlatformConnections restaurantId={r.id} conns={conns.map((c) => ({ platform: c.platform, status: c.status, storeName: c.storeName }))} />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">

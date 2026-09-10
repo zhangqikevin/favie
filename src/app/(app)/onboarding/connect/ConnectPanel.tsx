@@ -15,7 +15,8 @@ const META = {
   uber_eats: { label: 'Uber Eats', portal: 'ob.connect.portal.uber_eats', dot: 'bg-uber' },
 } as const
 
-export function ConnectPanel({ restaurantId, initial, agentStatus, onboardingDone }: { restaurantId: string; initial: ConnRow[]; agentStatus: string; onboardingDone: boolean }) {
+/** `mode='manage'` = Settings → Platform access: no onboarding footer, connected platforms offer a reconnect. */
+export function ConnectPanel({ restaurantId, initial, agentStatus, onboardingDone, mode = 'onboarding' }: { restaurantId: string; initial: ConnRow[]; agentStatus: string; onboardingDone: boolean; mode?: 'onboarding' | 'manage' }) {
   const t = useT()
   const [rows, setRows] = useState(initial)
   const [agent, setAgent] = useState(agentStatus)
@@ -145,7 +146,12 @@ export function ConnectPanel({ restaurantId, initial, agentStatus, onboardingDon
             )}
 
             {c.status === 'connected' && (
-              <p className="mt-4 text-sm text-emerald-700">{t('ob.connect.connected', { platform: m.label })}</p>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-emerald-700">{t('ob.connect.connected', { platform: m.label })}</p>
+                {mode === 'manage' && (
+                  <button type="button" disabled={pending || agent !== 'ready' || !!inProgress} onClick={() => connect(c.platform)} className="btn-secondary !px-4 !py-2 text-sm">{t('settings.platforms.reconnect')}</button>
+                )}
+              </div>
             )}
 
             {c.status === 'broken' && (
@@ -159,12 +165,12 @@ export function ConnectPanel({ restaurantId, initial, agentStatus, onboardingDon
         )
       })}
 
-      <form action={continueToPreferences} className="pt-2">
+      {mode === 'onboarding' && <form action={continueToPreferences} className="pt-2">
         <button type="submit" className={anyConnected ? 'btn-primary !px-8 !py-3.5' : 'btn-secondary !px-8 !py-3.5'}>
           {onboardingDone ? t('ob.connect.backToDashboard') : anyConnected ? t('common.continue') : t('ob.connect.skip')}
         </button>
         {!anyConnected && !onboardingDone && <p className="mt-2 text-sm text-ink-500">{t('ob.connect.skipHint')}</p>}
-      </form>
+      </form>}
     </div>
   )
 }
