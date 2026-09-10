@@ -4,7 +4,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { getConnections, getPrimaryAgent, getAdCaps } from '@/server/restaurants'
 import { RunNow } from './RunNow'
-import { setDailyPaused } from '../actions'
+import { setDailyPaused, setAgentActionsEnabled } from '../actions'
 
 const money = (c: number | null) => (c == null ? 'not set' : `$${(c / 100).toLocaleString('en-US')}`)
 
@@ -33,11 +33,31 @@ export default async function AdminRestaurant({ params }: { params: Promise<{ re
         </form>
       </div>
 
+      {/* Kill switch: what the agent is allowed to do on the real platforms */}
+      <section className={`card flex flex-wrap items-center justify-between gap-4 p-5 ${r.agentActionsEnabled ? 'ring-2 ring-emerald-300' : ''}`}>
+        <div>
+          <p className="text-sm font-semibold">Agent may change things on the platforms</p>
+          <p className="mt-0.5 text-xs text-ink-500">
+            {r.agentActionsEnabled
+              ? 'ON — the agent creates and adjusts ads and promotions within the marketing cap. Every change appears on the owner\'s calendar with its reason.'
+              : 'OFF (default) — observe-only: the agent logs in, reads, flags and recommends, but changes nothing. Turn on once you trust the prompt for this restaurant.'}
+          </p>
+        </div>
+        <form action={setAgentActionsEnabled} className="flex items-center gap-3">
+          <input type="hidden" name="restaurantId" value={r.id} />
+          <input type="hidden" name="enabled" value={r.agentActionsEnabled ? 'false' : 'true'} />
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${r.agentActionsEnabled ? 'bg-emerald-50 text-emerald-700' : 'bg-ink-100 text-ink-700'}`}>{r.agentActionsEnabled ? 'Changes ON' : 'Observe only'}</span>
+          <button type="submit" className={r.agentActionsEnabled ? 'btn-secondary !py-2 text-sm' : 'btn-primary !py-2 text-sm'}>
+            {r.agentActionsEnabled ? 'Switch to observe-only' : 'Allow changes'}
+          </button>
+        </form>
+      </section>
+
       <div className="grid gap-4 text-sm md:grid-cols-3">
         <div className="card p-4">
           <p className="text-xs uppercase tracking-wider text-ink-500">Agent</p>
           <p className="mt-1 font-mono text-xs">{agent?.zooworkAgentId ?? '—'}</p>
-          <p className="text-ink-500">{agent?.agentStatus} · cron {r.dailySchedulePaused ? 'paused' : 'auto'} · 06:{String(agent?.cronMinute ?? 0).padStart(2, '0')} {r.timezone}</p>
+          <p className="text-ink-500">{agent?.agentStatus} · {r.agentActionsEnabled ? 'changes on' : 'observe-only'} · cron {r.dailySchedulePaused ? 'paused' : 'auto'} · 06:{String(agent?.cronMinute ?? 0).padStart(2, '0')} {r.timezone}</p>
           <p className="mt-1 text-ink-500">login profile <span className="font-mono text-xs text-ink-700">{r.browserLoginLabel ?? '—'}</span></p>
         </div>
         <div className="card p-4">

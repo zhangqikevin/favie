@@ -76,6 +76,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
     restaurant: { name: r.name, timezone: r.timezone },
     language: LANG[owner?.locale ?? 'en'] ?? 'English',
     run_date: cal.runDate,
+    actions_enabled: r.agentActionsEnabled,
     weekday: cal.weekday,
     is_review_day: cal.isReviewDay,
     days_remaining_in_month: cal.daysRemaining,
@@ -92,6 +93,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
         platform: c.platform,
         // Only platforms whose login the user completed are worked; awaiting/not_started are skipped.
         enabled: c.status === 'connected' || c.status === 'broken' || c.status === 'verifying',
+        actions_enabled: r.agentActionsEnabled,
         portal_url: PORTAL_URL[c.platform],
         store_name: c.storeName,
         store_address: c.storeAddress,

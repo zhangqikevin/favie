@@ -109,3 +109,13 @@ export async function applyModelToAgents(_prev: AdminState, _fd: FormData): Prom
   revalidatePath('/admin')
   return failed.length ? { error: `Updated ${ok}; failed ${failed.length}: ${failed.join(' · ')}` } : { ok: `All ${ok} agents now run ${model}.` }
 }
+
+/** Per-restaurant kill switch: off = the agent observes and recommends only; on = it may change ads/promotions within the cap. */
+export async function setAgentActionsEnabled(fd: FormData) {
+  await requireAdmin()
+  const restaurantId = String(fd.get('restaurantId') ?? '')
+  const enabled = String(fd.get('enabled')) === 'true'
+  await db.update(schema.restaurants).set({ agentActionsEnabled: enabled, updatedAt: new Date() }).where(eq(schema.restaurants.id, restaurantId))
+  revalidatePath(`/admin/${restaurantId}`)
+  revalidatePath('/admin')
+}

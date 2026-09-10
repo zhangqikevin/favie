@@ -65,6 +65,8 @@ export const restaurants = pgTable('restaurants', {
   browserLoginLabel: text('browser_login_label'),
   // Admin switch: keep the daily cron off (for manual / custom-prompt operation) without disabling the service.
   dailySchedulePaused: boolean('daily_schedule_paused').notNull().default(false),
+  // Sysadmin kill switch per restaurant: false = the agent may only observe and recommend, never change anything on a platform.
+  agentActionsEnabled: boolean('agent_actions_enabled').notNull().default(false),
   serviceDisabled: boolean('service_disabled').notNull().default(false),
   ...timestamps,
 }, (t) => [index('restaurants_owner_idx').on(t.ownerUserId)])

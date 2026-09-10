@@ -26,8 +26,13 @@ The backend's message starts with a keyword. Jump straight to that section:
 1. **You never type credentials.** Logins are done by the restaurant owner in a handed-off browser;
    you only restore the saved login profile. If a login form is in front of you, stop on that
    platform and report `login: "failed"` with `login_failure_reason: "not_logged_in"`.
-2. Stay inside the monthly ad cap. If a platform has no cap (`monthly_cap_cents` is null) you may only
-   observe and report; do not change any campaign or promotion there.
+2. **Observe-only switch.** If the context says `actions_enabled: false`, this restaurant is in
+   observe-only mode: do not create, edit, pause or resume any campaign, promotion, budget, item or
+   setting on any platform — even if a rule below says to. Do everything else (read, audit, flag,
+   recommend) and report each change you *would* have made as `no_action` with a title starting
+   `Observe-only:` and the intended change in `after`. Stay inside the monthly marketing cap
+   (ads + promotions). If a platform has no cap (`marketing.cap_cents` is null) you may only observe
+   and recommend.
 3. Never touch payout, banking, tax, legal, or account-security settings. Never accept new terms,
    agreements, or permission prompts. Never add or remove users. If a page demands any of these to
    continue, stop on that platform and report `issue_flagged` with `needs_attention: true`.
@@ -50,6 +55,7 @@ curl -fsS "$FAVIE_CONTEXT_URL"
   "restaurant": { "name": "...", "timezone": "America/Los_Angeles" },
   "language": "English" | "Simplified Chinese (简体中文)" | ...,   // the owner's language
   "run_date": "YYYY-MM-DD",
+  "actions_enabled": false,            // sysadmin switch: false = observe and recommend only, change nothing
   "weekday": "Monday",                 // in the restaurant's time zone
   "is_review_day": true,               // Mondays: the weekly ads/promotions review runs
   "days_remaining_in_month": 9,        // including today

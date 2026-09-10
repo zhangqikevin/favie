@@ -1,0 +1,1 @@
+ALTER TABLE "restaurants" ADD COLUMN "agent_actions_enabled" boolean DEFAULT false NOT NULL;
