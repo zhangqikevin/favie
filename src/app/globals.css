@@ -174,9 +174,3 @@ body {
 }
 .app-shell .caption { @apply text-xs text-ink-500; }
 .app-shell .value { @apply text-[15px] font-semibold text-ink-900; }
-.accent-text {
-  background: linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-3));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
