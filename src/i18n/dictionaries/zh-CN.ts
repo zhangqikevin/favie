@@ -329,6 +329,9 @@ const zhCN: Dictionary = {
   'mkt.donut.organic': '自然订单',
   'mkt.donut.none': '本月没有广告花费,全部为自然订单。',
   'cal.today': '今天',
+  'settings.platforms.soon': '即将支持',
+  'settings.platforms.count': '已接入 {n} 个平台:{names}',
+  'settings.platforms.manage': '在 Favie 打开的安全浏览器里自己登录一次即可接入。修改平台密码后,在这里重新连接。',
 }
 
 export default zhCN

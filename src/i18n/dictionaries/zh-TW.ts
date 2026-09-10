@@ -329,6 +329,9 @@ const zhTW: Dictionary = {
   'mkt.donut.organic': '自然訂單',
   'mkt.donut.none': '本月沒有廣告花費,全部為自然訂單。',
   'cal.today': '今天',
+  'settings.platforms.soon': '即將支援',
+  'settings.platforms.count': '已接入 {n} 個平台:{names}',
+  'settings.platforms.manage': '在 Favie 開啟的安全瀏覽器裡自己登入一次即可接入。修改平台密碼後,在這裡重新連接。',
 }
 
 export default zhTW

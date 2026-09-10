@@ -333,6 +333,9 @@ const en = {
   'mkt.donut.organic': 'Organic',
   'mkt.donut.none': 'No ad spend this month — all sales are organic.',
   'cal.today': 'Today',
+  'settings.platforms.soon': 'Coming soon',
+  'settings.platforms.count': 'Running {n} platform(s): {names}',
+  'settings.platforms.manage': 'Connect a platform once by logging in yourself in the secure browser Favie opens. Reconnect here after changing a platform password.',
 } as const
 
 export type Dictionary = { [K in keyof typeof en]: string }

@@ -329,6 +329,9 @@ const es: Dictionary = {
   'mkt.donut.organic': 'Orgánico',
   'mkt.donut.none': 'Sin gasto publicitario este mes: todas las ventas son orgánicas.',
   'cal.today': 'Hoy',
+  'settings.platforms.soon': 'Próximamente',
+  'settings.platforms.count': '{n} plataforma(s) activas: {names}',
+  'settings.platforms.manage': 'Conecta una plataforma iniciando sesión tú mismo en el navegador seguro que abre Favie. Reconecta aquí tras cambiar la contraseña.',
 }
 
 export default es

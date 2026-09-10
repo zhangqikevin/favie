@@ -7,6 +7,7 @@ import { openBillingPortal } from '../actions'
 import { getT } from '@/i18n/server'
 import { INTL_TAG } from '@/i18n/config'
 import { OrderDataCard } from './OrderDataCard'
+import { PlatformConnections } from '@/components/PlatformConnections'
 
 export default async function SettingsPage({ params }: { params: Promise<{ restaurantId: string }> }) {
   const { restaurantId } = await params
@@ -24,6 +25,12 @@ export default async function SettingsPage({ params }: { params: Promise<{ resta
 
   return (
     <div className="space-y-6">
+      <section className="card p-7">
+        <h2 className="font-display text-lg font-semibold">{t('settings.platforms')}</h2>
+        <p className="mt-1 text-sm text-ink-500">{t('settings.platforms.manage')}</p>
+        <PlatformConnections conns={conns.map((c) => ({ platform: c.platform, status: c.status, storeName: c.storeName }))} />
+      </section>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card p-7">
           <h2 className="font-display text-lg font-semibold">{t('settings.restaurant')}</h2>

@@ -329,6 +329,9 @@ const ja: Dictionary = {
   'mkt.donut.organic': 'オーガニック',
   'mkt.donut.none': '今月は広告費なし。売上はすべてオーガニックです。',
   'cal.today': '今日',
+  'settings.platforms.soon': '近日対応',
+  'settings.platforms.count': '{n} 件のプラットフォームを運営中:{names}',
+  'settings.platforms.manage': 'Favie が開くセキュアブラウザで一度ログインすれば接続できます。パスワード変更後はここから再接続してください。',
 }
 
 export default ja
