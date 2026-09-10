@@ -29,13 +29,7 @@ export default async function ActivityPage({ params, searchParams }: { params: P
 
   return (
     <div className="space-y-6">
-      <section className="card p-7 sm:p-9">
-        <div className="mb-6 text-center">
-          <h2 className="font-display text-lg font-semibold">{t('settings.platforms')}</h2>
-          <p className="mx-auto mt-1 max-w-xl text-sm text-ink-500">{t('settings.platformsBody')}</p>
-        </div>
-        <PlatformLinkage conns={conns.map((c) => ({ platform: c.platform, status: c.status, storeName: c.storeName }))} />
-      </section>
+      <PlatformLinkage conns={conns.map((c) => ({ platform: c.platform, status: c.status, storeName: c.storeName }))} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label={t('dash.stat.actions')} value={String(actions.filter((a) => !['no_action', 'run_unparsed', 'interrupted'].includes(a.category)).length)} />

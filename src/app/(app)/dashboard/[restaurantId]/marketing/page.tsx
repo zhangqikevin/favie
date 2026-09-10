@@ -46,7 +46,7 @@ export default async function MarketingPage({ params }: { params: Promise<{ rest
             <section key={p} className="card p-7">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <PlatformIcon platform={p} className="h-11 w-11" />
+                  <PlatformIcon platform={p} className="h-11 w-11 rounded-2xl" />
                   <div>
                     <h2 className="font-display text-lg font-semibold">{PLATFORM_LABEL[p]}</h2>
                     <p className="text-xs text-ink-500">{t('mkt.daysLeft', { n: mtd.daysRemaining, month: monthName })}</p>
