@@ -24,7 +24,7 @@ export default async function ActivityPage({ params, searchParams }: { params: P
   const payload: CalendarAction[] = actions.map((a) => ({
     id: a.id, runId: a.runId, date: a.actionDate, platform: a.platform, category: a.category, title: a.title, reason: a.reason,
     before: a.before as Record<string, unknown> | null, after: a.after as Record<string, unknown> | null, amountCents: a.amountCents, needsAttention: a.needsAttention,
-    at: a.occurredAt.toISOString(),
+    at: a.occurredAt.toISOString(), sysKey: a.sysKey, sysVars: a.sysVars ?? null,
   }))
 
   return (

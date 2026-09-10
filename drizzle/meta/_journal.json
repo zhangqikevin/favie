@@ -92,6 +92,13 @@
       "when": 1789067003817,
       "tag": "0012_lively_triathlon",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789074725797,
+      "tag": "0013_known_cobalt_man",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,7 @@ import { INTL_TAG } from '@/i18n/config'
 export type CalendarAction = {
   id: string; runId: string; date: string; platform: 'uber_eats' | 'doordash' | 'none'; category: string; title: string; reason: string
   before: Record<string, unknown> | null; after: Record<string, unknown> | null; amountCents: number | null; needsAttention: boolean; at: string
+  sysKey?: string | null; sysVars?: Record<string, string> | null
 }
 type RunLite = { id: string; date: string; status: string; kind: string }
 
@@ -97,8 +98,8 @@ export function ActivityCalendar({ restaurantId, timezone, ym, prev, next, today
                   <span className="flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${PLATFORM[a.platform].dot}`} />{PLATFORM[a.platform].label} · {t(`cat.${a.category}` as DictKey)}</span>
                   {a.needsAttention && <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">{t('cal.needsAttention')}</span>}
                 </div>
-                <p className="mt-2 font-semibold">{a.title}</p>
-                <p className="mt-2 text-sm leading-relaxed text-ink-700"><span className="font-medium text-ink-900">{t('cal.why')}</span>{a.reason}</p>
+                <p className="mt-2 font-semibold">{a.sysKey ? t(`sys.${a.sysKey}.t` as DictKey, a.sysVars ?? undefined) : a.title}</p>
+                <p className="mt-2 text-sm leading-relaxed text-ink-700"><span className="font-medium text-ink-900">{t('cal.why')}</span>{a.sysKey ? t(`sys.${a.sysKey}.r` as DictKey, a.sysVars ?? undefined) : a.reason}</p>
                 {(a.before || a.after) && (
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <Kv label={t('cal.before')} v={a.before} />

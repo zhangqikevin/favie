@@ -123,12 +123,12 @@ export async function collectRun(run: typeof schema.agentRuns.$inferSelect, time
 
   if (outcome === 'aborted') {
     await db.update(schema.agentRuns).set({ ...base, status: 'interrupted' }).where(eq(schema.agentRuns.id, run.id))
-    await insertAction(run, runDate, 'none', 'interrupted', t('sys.interrupted.t'), t('sys.interrupted.r'), true)
+    await insertAction(run, runDate, 'none', 'interrupted', t('sys.interrupted.t'), t('sys.interrupted.r'), true, { sysKey: 'interrupted', sysVars: {} })
     return
   }
   if ('error' in parsed) {
     await db.update(schema.agentRuns).set({ ...base, status: 'parse_failed', summaryParseError: parsed.error }).where(eq(schema.agentRuns.id, run.id))
-    await insertAction(run, runDate, 'none', 'run_unparsed', t('sys.run_unparsed.t'), t('sys.run_unparsed.r', { error: parsed.error }), true)
+    await insertAction(run, runDate, 'none', 'run_unparsed', t('sys.run_unparsed.t'), t('sys.run_unparsed.r', { error: parsed.error }), true, { sysKey: 'run_unparsed', sysVars: { error: parsed.error } })
     return
   }
   await db.update(schema.agentRuns).set({ ...base, status: 'collected', summaryJson: parsed.summary as object, summaryParseError: null, runDate }).where(eq(schema.agentRuns.id, run.id))
@@ -153,7 +153,7 @@ export async function materializeSummary(run: typeof schema.agentRuns.$inferSele
   // The agent's sandbox clock is UTC, so its run_date can be a day ahead of the restaurant. Trust ours.
   const date = run.runDate ?? s.run_date
   if (s.aborted_early) {
-    await insertAction(run, date, 'none', 'no_action', t('sys.aborted.t'), t('sys.aborted.r', { reason: s.abort_reason ?? 'unspecified' }), false, { internal: true })
+    await insertAction(run, date, 'none', 'no_action', t('sys.aborted.t'), t('sys.aborted.r', { reason: s.abort_reason ?? 'unspecified' }), false, { internal: true, sysKey: 'aborted', sysVars: { reason: s.abort_reason ?? 'unspecified' } })
     // A verify/confirm turn that never got going must not leave the connection spinning.
     if (run.kind === 'verify') {
       await db.update(schema.platformConnections)
@@ -165,9 +165,9 @@ export async function materializeSummary(run: typeof schema.agentRuns.$inferSele
   for (const p of s.platforms) {
     if (p.login === 'skipped') continue
     if (p.login === 'failed') {
-      await insertAction(run, date, p.platform, 'login_failed', t('sys.login_failed.t'), t('sys.login_failed.r', { reason: p.login_failure_reason ?? 'unknown' }), true)
+      await insertAction(run, date, p.platform, 'login_failed', t('sys.login_failed.t'), t('sys.login_failed.r', { reason: p.login_failure_reason ?? 'unknown' }), true, { sysKey: 'login_failed', sysVars: { reason: p.login_failure_reason ?? 'unknown' } })
     } else if (p.store_visible === false && p.stores.length === 0) {
-      await insertAction(run, date, p.platform, 'store_not_visible', t('sys.store_not_visible.t'), t('sys.store_not_visible.r', { store: p.store_name ?? '?' }), true)
+      await insertAction(run, date, p.platform, 'store_not_visible', t('sys.store_not_visible.t'), t('sys.store_not_visible.r', { store: p.store_name ?? '?' }), true, { sysKey: 'store_not_visible', sysVars: { store: p.store_name ?? '?' } })
     }
     for (const a of p.actions) {
       await insertAction(run, date, p.platform, a.category, a.title, a.reason, a.needs_attention, {
@@ -175,7 +175,7 @@ export async function materializeSummary(run: typeof schema.agentRuns.$inferSele
       })
     }
     if (p.login === 'ok' && p.store_visible !== false && p.actions.length === 0) {
-      await insertAction(run, date, p.platform, 'no_action', t('sys.no_action.t'), t('sys.no_action.r'), false)
+      await insertAction(run, date, p.platform, 'no_action', t('sys.no_action.t'), t('sys.no_action.r'), false, { sysKey: 'no_action', sysVars: {} })
     }
     // Connection health + MTD ad spend (platform_ui source) fall out of the same report.
     await applyConnectionReport(run.restaurantId, p, run.id)
