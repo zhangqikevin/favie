@@ -19,7 +19,7 @@ export async function OnboardingShell({ step, title, subtitle, children }: {
       <header className="border-b border-ink-100 bg-white">
         <div className="container-x flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <Logo className="h-7 w-7" />
+            <Logo className="h-10 w-10" />
             <span className="font-display text-lg font-bold">{t('common.brand')}</span>
           </Link>
           <ol className="hidden items-center gap-2 text-sm sm:flex">

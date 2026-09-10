@@ -9,7 +9,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="border-b border-ink-100 bg-white">
         <div className="container-x flex h-14 items-center justify-between">
           <Link href="/admin" className="flex items-center gap-2.5">
-            <Logo className="h-6 w-6" />
+            <Logo className="h-9 w-9" />
             <span className="font-display text-base font-bold">Favie</span>
             <span className="rounded-full bg-ink-900 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white">sysadmin</span>
           </Link>

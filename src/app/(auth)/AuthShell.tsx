@@ -16,7 +16,7 @@ export async function AuthShell({ title, subtitle, children, footer }: {
         <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/40 to-ink-900/30" />
         <div className="relative flex h-full flex-col justify-between p-12">
           <Link href="/" className="flex items-center gap-2.5">
-            <Logo className="h-8 w-8" />
+            <Logo className="h-11 w-11" />
             <span className="font-display text-xl font-bold">{t('common.brand')}</span>
           </Link>
           <div>
@@ -31,7 +31,7 @@ export async function AuthShell({ title, subtitle, children, footer }: {
         <div className="absolute right-5 top-5 sm:right-8"><LanguageSwitcher /></div>
         <div className="w-full max-w-md">
           <Link href="/" className="mb-10 flex items-center gap-2.5 lg:hidden">
-            <Logo className="h-8 w-8" />
+            <Logo className="h-11 w-11" />
             <span className="font-display text-xl font-bold">{t('common.brand')}</span>
           </Link>
           <h1 className="font-display text-3xl font-bold tracking-tight">{title}</h1>

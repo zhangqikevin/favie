@@ -47,7 +47,7 @@ export async function PlatformLinkage({ conns, restaurantId }: { conns: LinkageC
         <Node c={ue} t={t} />
         <Wire platform="uber_eats" status={ue.status} flip />
         <div className={`relative flex h-20 w-20 items-center justify-center rounded-3xl bg-[color:var(--card-bg,white)] shadow-[0_8px_24px_rgba(0,0,0,0.06)] sm:h-24 sm:w-24 ${connected.length ? '' : 'opacity-70'}`}>
-          <Logo className="h-11 w-11 sm:h-12 sm:w-12" />
+          <Logo className="h-14 w-14 sm:h-16 sm:w-16" />
           {connected.length === 2 && <span className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" />}
         </div>
         <Wire platform="doordash" status={dd.status} />

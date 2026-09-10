@@ -10,7 +10,7 @@ export async function Nav({ dark = true }: { dark?: boolean }) {
     <header className={`absolute inset-x-0 top-0 z-20 ${dark ? 'text-white' : 'text-ink-900'}`}>
       <div className="container-x flex h-20 items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5">
-          <Logo className="h-8 w-8" />
+          <Logo className="h-11 w-11" />
           <span className="font-display text-xl font-bold tracking-tight">{t('common.brand')}</span>
         </Link>
         <nav className="hidden items-center gap-8 text-sm font-medium md:flex">

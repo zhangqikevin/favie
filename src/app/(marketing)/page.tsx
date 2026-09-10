@@ -174,7 +174,7 @@ export default async function LandingPage() {
       <footer className="border-t border-ink-100 py-10 text-sm text-ink-500">
         <div className="container-x flex flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2">
-            <Logo className="h-6 w-6" />
+            <Logo className="h-8 w-8" />
             <span className="font-semibold text-ink-900">{t('common.brand')}</span>
             <span>· {t('footer.tagline')}</span>
           </div>

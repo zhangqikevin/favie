@@ -48,7 +48,7 @@ export function AppHeader({ base, items, user, restaurant, logOut }: {
       <div className="container-x flex h-16 items-center justify-between gap-6">
         <div className="flex items-center gap-8">
           <Link href={base} className="flex items-center gap-2" aria-label="Favie">
-            <Logo className="h-6 w-6" />
+            <Logo className="h-9 w-9" />
             <span className="font-display text-[15px] font-semibold tracking-tight">{t('common.brand')}</span>
           </Link>
           <nav className="hidden items-center gap-6 text-sm md:flex">
