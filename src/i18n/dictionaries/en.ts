@@ -24,14 +24,14 @@ const en = {
 
   // ---- landing
   'hero.badge': 'Built for US restaurants on Uber Eats & DoorDash',
-  'hero.title.pre': 'Your AI runs your ',
-  'hero.title.highlight': 'delivery.',
-  'hero.subtitle': 'Favie manages your Uber Eats and DoorDash every single day — ads, promotions, store health — so you get more orders and keep more of every dollar.',
+  'hero.title.pre': 'More — and more profitable — ',
+  'hero.title.highlight': 'delivery orders.',
+  'hero.subtitle': 'Favie AI runs your Uber Eats and DoorDash every day — ads, promotions, problem orders — so you have more time to make the food that makes people happy.',
   'hero.cta': 'Get started — $299/mo',
   'hero.secondary': 'See how it works',
   'hero.fineprint': 'Cancel anytime · Full refund within 30 days',
   'hero.stat1.v': '+18%', 'hero.stat1.l': 'More delivery orders',
-  'hero.stat2.v': '3.1×', 'hero.stat2.l': 'Return on ad spend',
+  'hero.stat2.v': '1.6×', 'hero.stat2.l': 'Return on ad spend',
   'hero.stat3.v': '0 hrs', 'hero.stat3.l': 'Of your time per week',
   'hero.stat4.v': '24/7', 'hero.stat4.l': 'Autonomous operation',
 

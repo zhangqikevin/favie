@@ -23,14 +23,14 @@ const es: Dictionary = {
   'nav.faq': 'Preguntas',
 
   'hero.badge': 'Para restaurantes de EE. UU. en Uber Eats y DoorDash',
-  'hero.title.pre': 'Tu IA gestiona tu ',
+  'hero.title.pre': 'Más pedidos y más rentables de ',
   'hero.title.highlight': 'delivery.',
-  'hero.subtitle': 'Favie administra tu Uber Eats y DoorDash todos los días — anuncios, promociones, estado de la tienda — para que recibas más pedidos y te quedes con más de cada dólar.',
+  'hero.subtitle': 'Favie AI gestiona tu Uber Eats y DoorDash cada día — anuncios, promociones, pedidos con problemas — para que tengas más tiempo para cocinar la comida que hace feliz a la gente.',
   'hero.cta': 'Empezar — $299/mes',
   'hero.secondary': 'Ver cómo funciona',
   'hero.fineprint': 'Cancela cuando quieras · Reembolso total en 30 días',
   'hero.stat1.v': '+18%', 'hero.stat1.l': 'Más pedidos de delivery',
-  'hero.stat2.v': '3.1×', 'hero.stat2.l': 'Retorno de la inversión publicitaria',
+  'hero.stat2.v': '1.6×', 'hero.stat2.l': 'Retorno de la inversión publicitaria',
   'hero.stat3.v': '0 h', 'hero.stat3.l': 'De tu tiempo por semana',
   'hero.stat4.v': '24/7', 'hero.stat4.l': 'Operación autónoma',
 

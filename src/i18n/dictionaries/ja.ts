@@ -23,14 +23,14 @@ const ja: Dictionary = {
   'nav.faq': 'よくある質問',
 
   'hero.badge': 'Uber Eats・DoorDash を利用する米国のレストラン向け',
-  'hero.title.pre': 'AI があなたの',
-  'hero.title.highlight': 'デリバリーを運用。',
-  'hero.subtitle': 'Favie は毎日あなたの Uber Eats と DoorDash を管理します——広告、プロモーション、店舗ステータス——注文を増やし、1ドルでも多く手元に残します。',
+  'hero.title.pre': 'もっと多く、もっと利益の出る',
+  'hero.title.highlight': 'デリバリー注文を。',
+  'hero.subtitle': 'Favie AI が毎日 Uber Eats と DoorDash を運営 — 広告、販促、トラブル注文 — あなたは人を幸せにする料理に時間を使えます。',
   'hero.cta': '始める — $299/月',
   'hero.secondary': '仕組みを見る',
   'hero.fineprint': 'いつでも解約可 · 30日以内なら全額返金',
   'hero.stat1.v': '+18%', 'hero.stat1.l': 'デリバリー注文の増加',
-  'hero.stat2.v': '3.1×', 'hero.stat2.l': '広告費用対効果',
+  'hero.stat2.v': '1.6×', 'hero.stat2.l': '広告費用対効果',
   'hero.stat3.v': '0時間', 'hero.stat3.l': 'あなたが週に使う時間',
   'hero.stat4.v': '24/7', 'hero.stat4.l': '自動運用',
 

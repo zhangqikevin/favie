@@ -23,14 +23,14 @@ const zhCN: Dictionary = {
   'nav.faq': '常见问题',
 
   'hero.badge': '为使用 Uber Eats 和 DoorDash 的美国餐厅打造',
-  'hero.title.pre': '让 AI 替你运营',
-  'hero.title.highlight': '外卖。',
-  'hero.subtitle': 'Favie 每天替你打理 Uber Eats 和 DoorDash——广告、促销、店铺状态——让你订单更多、每一块钱留得更多。',
+  'hero.title.pre': '更多，更高利润的',
+  'hero.title.highlight': '外卖订单',
+  'hero.subtitle': 'Favie AI 每天替你打理 Uber Eats 和 DoorDash——广告、促销、问题订单，让你有更多时间创造让人幸福的美食。',
   'hero.cta': '开始使用 — $299/月',
   'hero.secondary': '看看它怎么工作',
   'hero.fineprint': '随时取消 · 30 天内全额退款',
   'hero.stat1.v': '+18%', 'hero.stat1.l': '外卖订单增长',
-  'hero.stat2.v': '3.1×', 'hero.stat2.l': '广告投入回报',
+  'hero.stat2.v': '1.6×', 'hero.stat2.l': '广告投入回报',
   'hero.stat3.v': '0 小时', 'hero.stat3.l': '每周需要你花的时间',
   'hero.stat4.v': '24/7', 'hero.stat4.l': '全自动运行',
 

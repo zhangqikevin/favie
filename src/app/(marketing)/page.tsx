@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Nav } from '@/components/marketing/Nav'
 import { Logo } from '@/components/marketing/Logo'
+import { Food } from '@/components/marketing/Food'
 import { DashboardPreview } from '@/components/marketing/DashboardPreview'
 import { getT } from '@/i18n/server'
 
@@ -66,7 +67,8 @@ export default async function LandingPage() {
           <h2 className="font-display mt-3 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">{t('benefits.title')}</h2>
           <div className="mt-12 grid gap-6 md:grid-cols-3">
             {benefits.map((i) => (
-              <div key={i} className="card p-7">
+              <div key={i} className="card relative p-7">
+                <Food item={(['ramen', 'dumplings', 'fried_rice'] as const)[i - 1]} size={132} className="absolute -right-3 -top-9 rotate-6 drop-shadow-lg" />
                 <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                   <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">{icons[i - 1]}</svg>
                 </div>
@@ -85,7 +87,8 @@ export default async function LandingPage() {
           <h2 className="font-display mt-3 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">{t('how.title')}</h2>
           <ol className="mt-12 grid gap-6 md:grid-cols-3">
             {([1, 2, 3] as const).map((i) => (
-              <li key={i} className="card relative p-7">
+              <li key={i} className="card relative overflow-hidden p-7">
+                <Food item={(['boba', 'sushi', 'wings'] as const)[i - 1]} size={110} className="absolute -bottom-4 -right-3 -rotate-6 opacity-95" />
                 <div className="font-display mb-4 text-4xl font-bold text-brand-500/30">0{i}</div>
                 <h3 className="font-display text-lg font-bold">{t(`how.${i}.t`)}</h3>
                 <p className="mt-2 leading-relaxed text-ink-500">{t(`how.${i}.b`)}</p>
@@ -103,7 +106,13 @@ export default async function LandingPage() {
             <h2 className="font-display mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{t('product.title')}</h2>
             <p className="mt-4 text-lg text-ink-500">{t('product.body')}</p>
           </div>
-          <div className="mt-12"><DashboardPreview /></div>
+          <div className="relative mt-12">
+            <Food item="pizza" size={160} className="absolute -left-10 -top-14 hidden -rotate-12 drop-shadow-xl lg:block" />
+            <Food item="tacos" size={150} className="absolute -right-8 -top-10 hidden rotate-6 drop-shadow-xl lg:block" />
+            <Food item="tempura" size={140} className="absolute -bottom-12 -left-6 hidden rotate-3 drop-shadow-xl lg:block" />
+            <Food item="poke" size={140} className="absolute -bottom-10 -right-4 hidden -rotate-6 drop-shadow-xl lg:block" />
+            <DashboardPreview />
+          </div>
         </div>
       </section>
 
@@ -142,7 +151,8 @@ export default async function LandingPage() {
 
       {/* FAQ */}
       <section id="faq" className="py-24">
-        <div className="container-x max-w-3xl">
+        <div className="container-x relative max-w-3xl">
+          <Food item="curry" size={150} className="absolute -top-8 right-0 hidden rotate-6 drop-shadow-lg sm:block" />
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{t('faq.title')}</h2>
           <div className="mt-10 divide-y divide-ink-100">
             {faqs.map((i) => (
@@ -163,6 +173,11 @@ export default async function LandingPage() {
       {/* CTA + FOOTER */}
       <section className="border-t border-ink-100 bg-ink-100/60 py-20">
         <div className="container-x text-center">
+          <div className="mb-8 flex items-end justify-center gap-2 sm:gap-5">
+            {(['burger', 'ramen', 'sushi', 'dumplings', 'pad_thai', 'boba'] as const).map((f, i) => (
+              <Food key={f} item={f} size={i === 2 || i === 3 ? 104 : 84} className={`${i % 2 ? 'rotate-3' : '-rotate-3'} drop-shadow-md ${i === 0 || i === 5 ? 'hidden sm:inline-block' : ''}`} />
+            ))}
+          </div>
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{t('cta.title')}</h2>
           <Link href="/signup" className="btn-primary mt-8 !px-8 !py-4 !text-base">{t('hero.cta')}</Link>
         </div>
