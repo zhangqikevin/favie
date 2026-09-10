@@ -107,10 +107,10 @@ export default async function LandingPage() {
             <p className="mt-4 text-lg text-ink-500">{t('product.body')}</p>
           </div>
           <div className="relative mt-12">
-            <Food item="pizza" size={160} className="absolute -left-10 -top-14 hidden -rotate-12 lg:block" />
-            <Food item="tacos" size={150} className="absolute -right-8 -top-10 hidden rotate-6 lg:block" />
-            <Food item="tempura" size={140} className="absolute -bottom-12 -left-6 hidden rotate-3 lg:block" />
-            <Food item="poke" size={140} className="absolute -bottom-10 -right-4 hidden -rotate-6 lg:block" />
+            <Food item="pizza" size={160} className="absolute -left-28 -top-16 hidden -rotate-12 lg:block" />
+            <Food item="tacos" size={150} className="absolute -right-28 -top-12 hidden rotate-6 lg:block" />
+            <Food item="tempura" size={140} className="absolute -bottom-14 -left-24 hidden rotate-3 lg:block" />
+            <Food item="poke" size={140} className="absolute -bottom-12 -right-24 hidden -rotate-6 lg:block" />
             <DashboardPreview />
           </div>
         </div>
