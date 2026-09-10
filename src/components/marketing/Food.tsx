@@ -35,16 +35,22 @@ export function Food({ item, size = 96, className = '', style }: { item: FoodIte
 
 const ALL: FoodItem[] = ['ramen', 'dumplings', 'sushi', 'fried_rice', 'boba', 'pad_thai', 'tempura', 'curry', 'poke', 'wings', 'burger', 'tacos', 'pizza', 'salad', 'steak', 'burrito', 'chicken_sandwich', 'breakfast_sandwich', 'fries', 'acai']
 
-/** Endless horizontal marquee of every dish (CSS-only; the list is duplicated so the loop is seamless). Pauses on hover. */
-export function FoodMarquee({ size = 64 }: { size?: number }) {
+/**
+ * Endless horizontal marquee of every dish (CSS-only; the row is duplicated so the loop is seamless; pauses on hover).
+ * The animated track is its own stacking context, so `multiply` would blend against a transparent group and the
+ * sprite's white cells would show. Giving the track the section's solid color (`bg`) makes white × bg = bg, i.e. invisible.
+ */
+export function FoodMarquee({ size = 64, bg = '#F5F7FA' }: { size?: number; bg?: string }) {
   const row = (key: string) => (
     <div key={key} className="flex shrink-0 items-end gap-6 pr-6" aria-hidden="true">
       {ALL.map((f) => <Food key={f} item={f} size={size} />)}
     </div>
   )
   return (
-    <div className="food-marquee mb-8 overflow-hidden" style={{ maskImage: 'linear-gradient(90deg, transparent, black 12%, black 88%, transparent)', WebkitMaskImage: 'linear-gradient(90deg, transparent, black 12%, black 88%, transparent)' }}>
-      <div className="food-marquee-track flex w-max">{row('a')}{row('b')}</div>
+    <div className="food-marquee relative mb-8 overflow-hidden" style={{ background: bg }}>
+      <div className="food-marquee-track flex w-max" style={{ background: bg }}>{row('a')}{row('b')}</div>
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-24" style={{ background: `linear-gradient(90deg, ${bg}, transparent)` }} />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-24" style={{ background: `linear-gradient(270deg, ${bg}, transparent)` }} />
     </div>
   )
 }

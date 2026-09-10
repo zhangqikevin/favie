@@ -164,7 +164,7 @@ export default async function LandingPage() {
       </section>
 
       {/* CTA + FOOTER */}
-      <section className="border-t border-ink-100 bg-ink-100/60 py-20">
+      <section className="border-t border-ink-100 bg-[#F5F7FA] py-20">
         <div className="container-x text-center">
           <FoodMarquee />
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{t('cta.title')}</h2>
