@@ -42,7 +42,7 @@ export function totals(series: DaySeries[]) {
   return { orders, gmvCents: gmv, adSpendCents: ad, aovCents: orders ? Math.round(gmv / orders) : null }
 }
 
-export interface MtdPlatform { orders: number; gmvCents: number; adSpendCents: number; adAttributedOrders: number; adAttributedSalesCents: number | null; days: number }
+export interface MtdPlatform { orders: number; gmvCents: number; adSpendCents: number; adAttributedOrders: number; adAttributedSalesCents: number | null; promoSpendCents: number | null; days: number }
 export interface MonthToDate {
   monthStart: string; today: string; daysElapsed: number; daysInMonth: number; daysRemaining: number
   source: 'zoodata' | 'mock' | null
@@ -57,13 +57,18 @@ export async function monthToDate(restaurantId: string, timezone: string): Promi
   const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate()
   const dayOfMonth = Number(today.slice(8, 10))
   const rows = await getDailyMetricsRange(restaurantId, monthStart, today)
-  const empty = (): MtdPlatform => ({ orders: 0, gmvCents: 0, adSpendCents: 0, adAttributedOrders: 0, adAttributedSalesCents: null, days: 0 })
+  // Promotion cost is only known from the portal: the agent stores a month-to-date snapshot (source platform_ui) each run.
+  const snapshots = await db.select().from(schema.dailyMetrics)
+    .where(and(eq(schema.dailyMetrics.restaurantId, restaurantId), eq(schema.dailyMetrics.source, 'platform_ui'), gte(schema.dailyMetrics.date, monthStart), lte(schema.dailyMetrics.date, today)))
+    .orderBy(asc(schema.dailyMetrics.date))
+  const empty = (): MtdPlatform => ({ orders: 0, gmvCents: 0, adSpendCents: 0, adAttributedOrders: 0, adAttributedSalesCents: null, promoSpendCents: null, days: 0 })
   const byPlatform: Record<Platform, MtdPlatform> = { uber_eats: empty(), doordash: empty() }
   for (const r of rows) {
     const b = byPlatform[r.platform]
     b.orders += r.orders ?? 0; b.gmvCents += r.gmvCents ?? 0; b.adSpendCents += r.adSpendCents ?? 0; b.adAttributedOrders += r.adAttributedOrders ?? 0; b.days += 1
     if (r.adAttributedSalesCents != null) b.adAttributedSalesCents = (b.adAttributedSalesCents ?? 0) + r.adAttributedSalesCents
   }
+  for (const snap of snapshots) if (snap.promoSpendCents != null) byPlatform[snap.platform].promoSpendCents = snap.promoSpendCents // ascending → last wins
   const source = rows.some((r) => r.source === 'zoodata') ? 'zoodata' : rows.length ? 'mock' : null
   return { monthStart, today, daysElapsed: dayOfMonth, daysInMonth, daysRemaining: Math.max(1, daysInMonth - dayOfMonth + 1), source, byPlatform }
 }

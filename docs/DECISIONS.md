@@ -40,3 +40,9 @@ Decisions that are not derivable from the code. Newest at the bottom. Dates are 
 - Dev is reached through a Cloudflare tunnel. Cloudflare turns Next's `no-cache` into a 4h cache for dev chunks → stale client code → hydration failure → dead page. `next.config.ts` sends `no-store` for `/_next/static/*` in dev and derives `allowedDevOrigins` from `NEXT_PUBLIC_APP_URL`.
 - `drizzle-kit migrate` silently skipped enum changes; migrations run statement-by-statement via `scripts/db-migrate.ts` (`npm run db:migrate`).
 - Supabase: the web app uses the transaction pooler (6543, `DATABASE_URL_WEB`), worker and scripts the session pooler (5432). Direct connections are IPv6-only.
+
+## Marketing operations (09-10)
+- **The monthly cap covers ads + promotions together.** DoorDash promotions cost the discount plus a $0.99 marketing fee per order; Uber Eats offers are merchant-funded. One number for the owner; the agent reads both spends from the portal and reports `ad_spend_mtd_cents` and `promo_spend_mtd_cents`.
+- **The agent creates and adjusts promotions autonomously within the cap**, following the rule book in the operating prompt (v3): new-customer discount first, spend-threshold above AOV, weekday 2–5 pm Happy Hour, single high-margin BOGO, DoorDash lapsed win-back; guardrails on depth and stacking. Owners see every change with its reason on the calendar.
+- **Weekly review on Mondays** (`is_review_day` from the ctx endpoint) is the only day ads/promotions are re-planned; other days pace budgets and observe. Max two changes per platform per week.
+- New action category `recommendation` for things only the owner can do (photos, bundles, menu names, prep time). Research and sources: `docs/MARKETING-PLAYBOOK.md`.

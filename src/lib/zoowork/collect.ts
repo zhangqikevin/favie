@@ -167,11 +167,15 @@ export async function materializeSummary(run: typeof schema.agentRuns.$inferSele
     }
     // Connection health + MTD ad spend (platform_ui source) fall out of the same report.
     await applyConnectionReport(run.restaurantId, p, run.id)
-    if (p.ad_spend_mtd_cents != null) {
-      await db.insert(schema.dailyMetrics).values({
-        restaurantId: run.restaurantId, platform: p.platform, date, adSpendCents: p.ad_spend_mtd_cents, source: 'platform_ui', isMature: false,
-        raw: { kind: 'mtd_from_portal', run_id: run.id },
-      }).onConflictDoNothing()
+    if (p.ad_spend_mtd_cents != null || p.promo_spend_mtd_cents != null) {
+      // Month-to-date snapshot as the portal reports it; the ctx endpoint reads the latest one for the budget guard.
+      const values = {
+        restaurantId: run.restaurantId, platform: p.platform, date, adSpendCents: p.ad_spend_mtd_cents ?? null, promoSpendCents: p.promo_spend_mtd_cents ?? null,
+        source: 'platform_ui' as const, isMature: false, raw: { kind: 'mtd_from_portal', run_id: run.id, new_customer_share: p.new_customer_share ?? null }, fetchedAt: new Date(), updatedAt: new Date(),
+      }
+      await db.insert(schema.dailyMetrics).values(values)
+        .onConflictDoUpdate({ target: [schema.dailyMetrics.restaurantId, schema.dailyMetrics.platform, schema.dailyMetrics.date], set: values })
+        .catch(() => {}) // a Zoodata row for the same day wins; the unique index covers (restaurant, platform, date) regardless of source
     }
   }
 }

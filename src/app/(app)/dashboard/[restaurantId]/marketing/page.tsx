@@ -32,15 +32,17 @@ export default async function MarketingPage({ params }: { params: Promise<{ rest
         {PLATFORMS.map((p) => {
           const cap = caps[p]
           const m = mtd.byPlatform[p]
-          const spend = m.adSpendCents
+          const adSpend = m.adSpendCents
+          const promoSpend = m.promoSpendCents
+          const spend = adSpend + (promoSpend ?? 0) // the cap covers ads + promotions together
           const pct = cap ? Math.min(100, Math.round((spend / cap) * 100)) : 0
           const remaining = cap ? cap - spend : null
           const pace = remaining != null ? Math.max(0, remaining) / mtd.daysRemaining : null
           const aov = m.orders ? m.gmvCents / m.orders : null
           // Platform-reported ROAS × spend when available; otherwise estimate from attributed orders × AOV.
           const adSales = m.adAttributedSalesCents ?? (aov != null && m.adAttributedOrders ? Math.round(m.adAttributedOrders * aov) : null)
-          const roas = adSales != null && spend > 0 ? adSales / spend : null
-          const share = m.gmvCents > 0 ? (spend / m.gmvCents) * 100 : null
+          const roas = adSales != null && adSpend > 0 ? adSales / adSpend : null
+          const share = m.gmvCents > 0 ? (adSpend / m.gmvCents) * 100 : null
           const hasData = m.days > 0
           return (
             <section key={p} className="card p-7">
@@ -69,14 +71,14 @@ export default async function MarketingPage({ params }: { params: Promise<{ rest
               )}
 
               <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-                <Cell label={t('mkt.spent')} value={money(spend)} />
+                <Cell label={t('mkt.spent')} value={money(spend)} sub={`${t('mkt.adsSpent')} ${money(adSpend)} · ${t('mkt.promoSpent')} ${promoSpend == null ? '—' : money(promoSpend)}`} />
                 <Cell label={t('mkt.cap')} value={cap ? money(cap) : '—'} />
                 <Cell label={t('mkt.remaining')} value={remaining == null ? '—' : money(Math.max(0, remaining))} tone={remaining != null && remaining <= 0 ? 'warn' : undefined} />
                 <Cell label={t('mkt.pace')} value={pace == null ? '—' : `${money(Math.round(pace))}/d`} />
                 <Cell label={t('mkt.orders')} value={hasData ? m.orders.toLocaleString(intl) : '—'} />
                 <Cell label={t('mkt.sales')} value={hasData ? money(m.gmvCents) : '—'} />
                 <Cell label={t('mkt.attributed')} value={hasData && (m.adAttributedOrders || m.adAttributedSalesCents == null) ? m.adAttributedOrders.toLocaleString(intl) : hasData ? '—' : '—'} sub={hasData && m.orders && m.adAttributedOrders ? `${Math.round((m.adAttributedOrders / m.orders) * 100)}%` : undefined} />
-                <Cell label={t('mkt.roas')} value={roas == null ? '—' : `${roas.toFixed(1)}×`} sub={adSales == null ? undefined : `${t('mkt.adSales')} ${money(adSales)}`} tone={roas == null ? undefined : roas >= 2 ? 'ok' : 'warn'} />
+                <Cell label={t('mkt.roas')} value={roas == null ? '—' : `${roas.toFixed(1)}×`} sub={adSales == null ? undefined : `${t('mkt.adSales')} ${money(adSales)}`} tone={roas == null ? undefined : roas >= 2.5 ? 'ok' : 'warn'} />
               </dl>
               {hasData && (
                 <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-ink-100/60 p-4">
@@ -84,10 +86,11 @@ export default async function MarketingPage({ params }: { params: Promise<{ rest
                     <p className="text-xs text-ink-500">{t('mkt.donut.title')}</p>
                     {share != null && <p className="mt-1 text-xs text-ink-500">{t('mkt.share')}: <span className="font-semibold text-ink-900">{share.toFixed(1)}%</span></p>}
                   </div>
-                  <Donut adCents={spend > 0 ? adSales : null} totalCents={m.gmvCents} labelAd={t('mkt.donut.ad')} labelOrganic={t('mkt.donut.organic')} none={t('mkt.donut.none')} />
+                  <Donut adCents={adSpend > 0 ? adSales : null} totalCents={m.gmvCents} labelAd={t('mkt.donut.ad')} labelOrganic={t('mkt.donut.organic')} none={t('mkt.donut.none')} />
                 </div>
               )}
               {!hasData && <p className="mt-3 text-xs text-ink-500">{t('mkt.noData')}</p>}
+              {hasData && promoSpend == null && cap != null && <p className="mt-3 text-xs text-ink-500">{t('mkt.promoUnknown')}</p>}
 
               <AdCapForm restaurantId={r.id} platform={p} currentCents={cap} />
             </section>

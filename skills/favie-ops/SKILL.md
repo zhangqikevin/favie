@@ -50,6 +50,9 @@ curl -fsS "$FAVIE_CONTEXT_URL"
   "restaurant": { "name": "...", "timezone": "America/Los_Angeles" },
   "language": "English" | "Simplified Chinese (简体中文)" | ...,   // the owner's language
   "run_date": "YYYY-MM-DD",
+  "weekday": "Monday",                 // in the restaurant's time zone
+  "is_review_day": true,               // Mondays: the weekly ads/promotions review runs
+  "days_remaining_in_month": 9,        // including today
   "service_disabled": false,
   "platforms": [
     {
@@ -57,8 +60,20 @@ curl -fsS "$FAVIE_CONTEXT_URL"
       "enabled": true,
       "portal_url": "https://...",
       "store_name": "...", "store_external_id": "..." | null,
-      "monthly_cap_cents": 90000 | null,
-      "mtd_spend_cents": 61200 | null,
+      "marketing": {                     // ONE cap for ads + promotions together
+        "cap_cents": 90000 | null,       // null = observe and recommend only
+        "mtd_ads_cents": 41200 | null,   // Favie's data; prefer the portal's own numbers when you can read them
+        "mtd_promo_cents": 8800 | null,
+        "mtd_total_cents": 50000 | null
+      },
+      "performance": {                   // from the order feed, restaurant-local days, yesterday backwards
+        "last7":  { "orders": 61, "sales_cents": 231000, "aov_cents": 3787, "ad_spend_cents": 9100, "ad_attributed_sales_cents": 114000, "roas": 12.5, "days_with_data": 7 },
+        "last28": { "orders": 233, "sales_cents": 884000, "aov_cents": 3794, "ad_spend_cents": 41200, "ad_attributed_sales_cents": 520000, "roas": 12.6, "days_with_data": 28 },
+        "prev7":  { "orders": 58, "sales_cents": 219000, "aov_cents": 3776, "ad_spend_cents": 8800, "ad_attributed_sales_cents": 101000, "roas": 11.5, "days_with_data": 7 },
+        "new_customer_share": 0.42 | null // last value the portal showed, if any
+      },
+      "monthly_cap_cents": 90000 | null,   // legacy alias of marketing.cap_cents
+      "mtd_spend_cents": 41200 | null,     // legacy alias of marketing.mtd_ads_cents
       "days_remaining_in_month": 9,
       "login_label": "favie-<restaurant>"   // same value for every platform
     }
@@ -126,31 +141,99 @@ Restore the login, locate the store, record `role_seen` if visible, change nothi
 
 ## Mode `daily` — the routine
 
-For each enabled platform, in order. Every change becomes one action in the summary with a `reason`
-that says what you saw, why you acted, and what you expect to happen.
+Favie's job on every platform is the same: **more orders and more profit** for this restaurant, inside
+the owner's monthly marketing cap. You run every morning. Most days you only pace budgets and watch;
+on the weekly review day you re-plan ads and promotions. Change one thing at a time and give every
+change at least 7 days (promotions 14) before judging it — daily numbers are noise.
 
-1. **Store status.** Online / accepting orders / menu live? If paused or offline outside normal hours,
-   report `store_offline_flagged` (`needs_attention: true`). Do not change it.
-2. **Item availability.** Items marked unavailable or sold out → `item_availability_flagged` listing
-   them. Do not change them in this version.
-3. **Ads (only when `monthly_cap_cents` is set).**
-   - Open Ads / Marketing. Record the campaign list and the month-to-date spend the portal shows
-     (`ad_spend_mtd_cents`). Prefer the portal's number over `mtd_spend_cents`.
-   - Remaining = `monthly_cap_cents - mtd_spend`. Target daily budget = `max(0, remaining) /
-     days_remaining_in_month`, rounded to the nearest dollar.
-   - Current daily budget off target by more than 15% → change it; report `ad_budget_changed` with
-     `before` / `after` and `amount_cents` = new daily budget.
-   - Remaining ≤ 0 → pause active campaigns; report `ad_campaign_paused`.
-   - Campaigns paused by Favie's cap logic while remaining > 3 × target daily → resume; report
-     `ad_campaign_resumed`. Never resume a campaign the owner paused.
-   - Every restaurant's goal is the same: more orders *and* more profit. A campaign whose return on
-     ad spend is below 2.0 gets its budget cut by 20% instead of the formula; say so in the reason.
-4. **Promotions.** Record active promotions. Do not create or change them in this version; anything
-   expiring within 3 days goes into `observations`.
-5. **Reviews / disputes.** New one-star review or open dispute → `review_flagged` (`needs_attention: true`). Do not reply.
-6. Nothing to change on a platform → still emit one `no_action` with the reason.
+Every change becomes one action with a `reason` that states: what you saw (numbers), why you acted
+(which rule), what you expect (metric and horizon). No action is also a decision: say why.
 
-Close the browser session.
+### 0. Read the numbers before touching anything
+From the context, per platform: `performance.last7` / `last28` / `prev7` (orders, sales, AOV, ad spend,
+ad-attributed sales, ROAS, `new_customer_share` when present), `marketing.cap_cents`,
+`marketing.mtd_ads_cents`, `marketing.mtd_promo_cents`, `marketing.mtd_total_cents`; and at the top
+level `days_remaining_in_month`, `weekday`, `is_review_day`.
+In the portal, read the Marketing / Ads page for the platform's own month-to-date ad spend and
+promotion cost; prefer the portal's numbers over the context's and write both into the summary
+(`ad_spend_mtd_cents`, `promo_spend_mtd_cents`, and `new_customer_share` if shown). Uber Eats ad
+reporting lags about 48 hours: never react to the last two days there.
+
+### 1. Store health (every day, change nothing)
+- Store paused / offline / not accepting orders outside its normal hours → `store_offline_flagged`, `needs_attention: true`.
+- Items marked unavailable or sold out → `item_availability_flagged` listing them.
+- Menu basics that cap conversion — fewer than about 10 items with photos, top items without photos,
+  English names missing on a Chinese-only menu → one `recommendation` per platform (see §7). Do not edit menus.
+
+### 2. Budget guard (every day)
+`remaining = cap_cents − (ads MTD + promotions MTD)`, using the portal's numbers when you have them.
+- `remaining ≤ 0` → pause every Favie-created promotion and every ad campaign; report
+  `ad_campaign_paused` / `promo_changed` with the numbers. A promotion or campaign the owner created is
+  paused only when the cap is exhausted, and the reason must say so.
+- Target daily marketing pace = `max(0, remaining) / days_remaining_in_month`. Split it roughly
+  60% ads / 40% promotions unless the last weekly review set a different split. Change an ad daily budget
+  only when it is off its target by more than 15%; report `ad_budget_changed` with `before` / `after` and
+  `amount_cents` = the new daily budget.
+- `cap_cents` is `null` → Favie observes and recommends only: never create, resume or raise anything.
+
+### 3. Ads playbook
+**Uber Eats** (pay per click, automatic bidding): one always-on campaign per store. Audience
+"New customers" while `new_customer_share` is below 35% or unknown, otherwise "All customers". Keep
+automatic bidding; touch a manual bid only to lower it when ROAS has been below 3 for 14 days.
+**DoorDash** (pay per order, second-price auction): one always-on Sponsored Listing with Automatic
+bidding; audience "Smart targeting" when offered, else "New customers". Weekly budget = 7 × the daily ad pace.
+Decision rules, on the portal's 7-day window, both platforms:
+- ROAS ≥ 5 and the campaign hit its budget on at least 4 of the last 7 days → raise the daily budget 20%,
+  never above the pace from §2. `ad_budget_changed`.
+- ROAS between 2.5 and 5 → hold.
+- ROAS below 2.5 for 14 consecutive days → cut the budget 30%; still below 2.5 after another 14 days →
+  pause and move that money to promotions. `ad_budget_changed` / `ad_campaign_paused`.
+- No campaign exists, the cap is set and remaining > 10 × daily pace → create one as above and report
+  `ad_campaign_resumed` with `after` = the settings. Use a free ad credit when the portal offers one.
+- Never resume a campaign the owner paused. Never touch payout, banking, tax, pricing or plan settings.
+
+### 4. Promotions playbook
+Match the goal to the offer. Edit only Favie-created offers; the owner's stay untouched (list them in `observations`).
+- **Acquire** — first promotion for any store, on both platforms: DoorDash "Discount for New Customers"
+  $5 off a $25 minimum (raise the minimum to about 1.2 × AOV, never below $20); Uber Eats "Spend $25,
+  save $5" with audience "New customers only".
+- **Bigger baskets** — "Spend X, save Y" for all customers, X = 1.25 × AOV rounded up to the nearest $5,
+  Y = 15–18% of X capped at $8. Not together with the new-customer discount on the same platform unless
+  the cap comfortably covers both; new customers first.
+- **Fill the lull** — Happy Hour (DoorDash) or a scheduled offer (Uber Eats), weekdays 2–5 pm, 15% off up
+  to $6, only when day-part data shows weekday afternoon orders under 15% of the day (use the portal's
+  hourly chart when the context has no day-part data; with neither, skip).
+- **Trial + margin** — BOGO on one high-margin, low-food-cost item (dumplings, buns, appetizers, drinks),
+  never on entrées or combos. One BOGO per store at a time.
+- **Win back** (DoorDash only) — "Discount for Lapsed Customers" $6 off $30, only once the store has been
+  live 6 months and the review shows at least 20% of orders from existing customers.
+Guardrails: at most 2 Favie promotions live per platform (Uber Eats allows 5 in total; leave room for the
+owner); discount ≤ 20% of the minimum subtotal and ≤ $8 per order; minimum subtotal ≥ AOV; no
+merchant-funded "$0 delivery fee" on orders under $30; never stack two whole-menu discounts; never opt in
+or out of DashPass / Uber One / pricing plans. Record every create / edit / pause as `promo_changed` with
+`before`, `after` (type, audience, minimum, discount, schedule, budget cap) and `amount_cents` = cost per
+order. Give a new promotion 14 days; then: ≥ 25 promotion orders and promotion sales ÷ promotion cost ≥ 3
+→ keep; below → tighten once (raise the minimum or cut the discount); still below 14 days later → pause.
+
+### 5. Weekly review (`is_review_day: true`; skip this section on other days)
+Compare `last7` with `prev7` per platform: orders, AOV, ad ROAS, promotion cost, new-customer share.
+Decide at most **two** changes per platform from §3–§4, biggest expected lift first, and re-set the
+ads / promotions split for the coming week from what converted. Write one `observations` line per
+platform with the week-over-week numbers — the owner reads it as the weekly report.
+
+### 6. Reviews and disputes
+New 1–2 star review or open dispute → `review_flagged`, `needs_attention: true`, quote the complaint in
+the reason. Do not reply. Repeated complaints about one item → `recommendation`.
+
+### 7. Recommendations (things only the owner can do)
+`recommendation` actions, `needs_attention: false`, at most two per platform per week, each with the
+number behind it: add photos to named top items; add a family bundle when AOV < $30 and multi-entrée
+orders are common; English names and searchable keywords (dumplings, noodles, spicy) for items that
+lack them; shorter prep time when the portal flags lateness; delivery prices 10–15% above dine-in when
+margin after commission is thin. Never edit the menu yourself.
+
+### 8. Close
+Nothing changed on a platform → one `no_action` whose reason lists the numbers you checked. Close the browser session.
 
 
 ## Summary block — mandatory

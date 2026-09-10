@@ -78,6 +78,13 @@
       "when": 1788990690058,
       "tag": "0010_narrow_kree",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789065317364,
+      "tag": "0011_black_sheva_callister",
+      "breakpoints": true
     }
   ]
 }

@@ -19,6 +19,7 @@ export const actionCategoryEnum = pgEnum('action_category', [
   'ad_budget_changed', 'ad_campaign_paused', 'ad_campaign_resumed', 'promo_changed',
   'item_availability_flagged', 'store_status_checked', 'store_offline_flagged', 'review_flagged',
   'issue_flagged', 'no_action', 'login_failed', 'store_not_visible', 'run_unparsed', 'interrupted',
+  'recommendation', // something only the owner can do (photos, bundles, menu names); never needs_attention
 ])
 export const metricSourceEnum = pgEnum('metric_source', ['zoodata', 'mock', 'platform_ui'])
 export const subscriptionStatusEnum = pgEnum('subscription_status', [
@@ -192,6 +193,7 @@ export const dailyMetrics = pgTable('daily_metrics', {
   adSpendCents: integer('ad_spend_cents'),
   adAttributedOrders: integer('ad_attributed_orders'),
   adAttributedSalesCents: integer('ad_attributed_sales_cents'), // platform-reported ROAS × spend
+  promoSpendCents: integer('promo_spend_cents'), // merchant-funded promotion cost (discounts + platform marketing fees)
   avgRating: numeric('avg_rating', { precision: 3, scale: 2 }),
   downtimeMinutes: integer('downtime_minutes'),
   isMature: boolean('is_mature').notNull().default(true),

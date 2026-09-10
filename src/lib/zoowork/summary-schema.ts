@@ -28,6 +28,8 @@ export const FaviePlatformReport = z.object({
   store_external_id: z.string().nullable().optional(),
   role_seen: z.string().nullable().optional(),
   ad_spend_mtd_cents: z.number().int().nullable().optional(),
+  promo_spend_mtd_cents: z.number().int().nullable().optional(), // discounts + marketing fees the portal shows for this month
+  new_customer_share: z.number().min(0).max(1).nullable().optional(), // share of recent orders from new customers, when the portal shows it
   campaigns_seen: z.number().int().nullable().optional(),
   actions: z.array(FavieAction).default([]),
   observations: z.array(z.string()).default([]),

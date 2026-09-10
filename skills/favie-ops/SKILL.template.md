@@ -50,6 +50,9 @@ curl -fsS "$FAVIE_CONTEXT_URL"
   "restaurant": { "name": "...", "timezone": "America/Los_Angeles" },
   "language": "English" | "Simplified Chinese (简体中文)" | ...,   // the owner's language
   "run_date": "YYYY-MM-DD",
+  "weekday": "Monday",                 // in the restaurant's time zone
+  "is_review_day": true,               // Mondays: the weekly ads/promotions review runs
+  "days_remaining_in_month": 9,        // including today
   "service_disabled": false,
   "platforms": [
     {
@@ -57,8 +60,20 @@ curl -fsS "$FAVIE_CONTEXT_URL"
       "enabled": true,
       "portal_url": "https://...",
       "store_name": "...", "store_external_id": "..." | null,
-      "monthly_cap_cents": 90000 | null,
-      "mtd_spend_cents": 61200 | null,
+      "marketing": {                     // ONE cap for ads + promotions together
+        "cap_cents": 90000 | null,       // null = observe and recommend only
+        "mtd_ads_cents": 41200 | null,   // Favie's data; prefer the portal's own numbers when you can read them
+        "mtd_promo_cents": 8800 | null,
+        "mtd_total_cents": 50000 | null
+      },
+      "performance": {                   // from the order feed, restaurant-local days, yesterday backwards
+        "last7":  { "orders": 61, "sales_cents": 231000, "aov_cents": 3787, "ad_spend_cents": 9100, "ad_attributed_sales_cents": 114000, "roas": 12.5, "days_with_data": 7 },
+        "last28": { "orders": 233, "sales_cents": 884000, "aov_cents": 3794, "ad_spend_cents": 41200, "ad_attributed_sales_cents": 520000, "roas": 12.6, "days_with_data": 28 },
+        "prev7":  { "orders": 58, "sales_cents": 219000, "aov_cents": 3776, "ad_spend_cents": 8800, "ad_attributed_sales_cents": 101000, "roas": 11.5, "days_with_data": 7 },
+        "new_customer_share": 0.42 | null // last value the portal showed, if any
+      },
+      "monthly_cap_cents": 90000 | null,   // legacy alias of marketing.cap_cents
+      "mtd_spend_cents": 41200 | null,     // legacy alias of marketing.mtd_ads_cents
       "days_remaining_in_month": 9,
       "login_label": "favie-<restaurant>"   // same value for every platform
     }
