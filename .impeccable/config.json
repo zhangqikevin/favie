@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-09-10T17:19:48.675Z",
+        "reason": "User's design brief explicitly specifies Inter/Manrope for the dashboard"
+      }
+    ]
+  }
+}
