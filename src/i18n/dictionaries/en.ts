@@ -320,6 +320,19 @@ const en = {
   'mkt.noData': 'No sales data for this month yet.',
   'mkt.sample': 'Sample data until your store data arrives.',
   'mkt.over': 'Over the cap — Favie keeps campaigns paused until next month.',
+  'theme.light': 'Switch to light mode',
+  'theme.dark': 'Switch to dark mode',
+  'header.notifications': 'Needs your attention',
+  'header.account': 'Account',
+  'title.moreRestaurants': 'More restaurants can be added to this account soon.',
+  'runs.title': 'Run report',
+  'orders.vsPrev': 'vs previous {n} days',
+  'orders.chart.title': 'Daily performance',
+  'mkt.donut.title': 'Where sales come from',
+  'mkt.donut.ad': 'Ad-driven',
+  'mkt.donut.organic': 'Organic',
+  'mkt.donut.none': 'No ad spend this month — all sales are organic.',
+  'cal.today': 'Today',
 } as const
 
 export type Dictionary = { [K in keyof typeof en]: string }

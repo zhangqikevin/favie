@@ -6,6 +6,7 @@ import { getRestaurantForUser, getAdCaps, PLATFORM_LABEL, PLATFORMS } from '@/se
 import { monthToDate } from '@/server/metrics'
 import { PlatformIcon } from '@/components/PlatformIcon'
 import { AdCapForm } from './AdCapForm'
+import { Donut } from './Donut'
 import { getT } from '@/i18n/server'
 import { INTL_TAG } from '@/i18n/config'
 
@@ -47,7 +48,7 @@ export default async function MarketingPage({ params }: { params: Promise<{ rest
                 <div className="flex items-center gap-3">
                   <PlatformIcon platform={p} className="h-11 w-11" />
                   <div>
-                    <h2 className="font-display text-lg font-bold">{PLATFORM_LABEL[p]}</h2>
+                    <h2 className="font-display text-lg font-semibold">{PLATFORM_LABEL[p]}</h2>
                     <p className="text-xs text-ink-500">{t('mkt.daysLeft', { n: mtd.daysRemaining, month: monthName })}</p>
                   </div>
                 </div>
@@ -77,8 +78,14 @@ export default async function MarketingPage({ params }: { params: Promise<{ rest
                 <Cell label={t('mkt.attributed')} value={hasData && (m.adAttributedOrders || m.adAttributedSalesCents == null) ? m.adAttributedOrders.toLocaleString(intl) : hasData ? '—' : '—'} sub={hasData && m.orders && m.adAttributedOrders ? `${Math.round((m.adAttributedOrders / m.orders) * 100)}%` : undefined} />
                 <Cell label={t('mkt.roas')} value={roas == null ? '—' : `${roas.toFixed(1)}×`} sub={adSales == null ? undefined : `${t('mkt.adSales')} ${money(adSales)}`} tone={roas == null ? undefined : roas >= 2 ? 'ok' : 'warn'} />
               </dl>
-              {hasData && share != null && (
-                <p className="mt-3 text-xs text-ink-500">{t('mkt.share')}: <span className="font-medium text-ink-700">{share.toFixed(1)}%</span></p>
+              {hasData && (
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-ink-100/60 p-4">
+                  <div>
+                    <p className="text-xs text-ink-500">{t('mkt.donut.title')}</p>
+                    {share != null && <p className="mt-1 text-xs text-ink-500">{t('mkt.share')}: <span className="font-semibold text-ink-900">{share.toFixed(1)}%</span></p>}
+                  </div>
+                  <Donut adCents={spend > 0 ? adSales : null} totalCents={m.gmvCents} labelAd={t('mkt.donut.ad')} labelOrganic={t('mkt.donut.organic')} none={t('mkt.donut.none')} />
+                </div>
               )}
               {!hasData && <p className="mt-3 text-xs text-ink-500">{t('mkt.noData')}</p>}
 
@@ -89,7 +96,7 @@ export default async function MarketingPage({ params }: { params: Promise<{ rest
         <p className="text-xs text-ink-500">{t('mkt.roasNote')}{mtd.source === 'mock' ? ` ${t('mkt.sample')}` : ''}</p>
       </div>
       <aside className="card p-6">
-        <h3 className="font-display text-base font-bold">{t('caps.history')}</h3>
+        <h3 className="font-display text-base font-semibold">{t('caps.history')}</h3>
         {history.length === 0 ? (
           <p className="mt-3 text-sm text-ink-500">{t('caps.noHistory')}</p>
         ) : (

@@ -77,3 +77,106 @@ body {
 .flow-line {
   animation: favie-flow 1.4s linear infinite;
 }
+
+/* ============================================================================
+   App shell (signed-in dashboard). Clean, airy, fintech-style: #F3F4F6 ground,
+   borderless white cards (24px radius, 0 8px 24px rgba(0,0,0,.04)), pill controls
+   (active = solid black), Inter body + light Manrope display, one violet→blue→cyan accent.
+   Tokens are overridden inside .app-shell so the marketing site keeps its own look.
+   ============================================================================ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+.app-shell {
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #dfe6ff;
+  --color-brand-300: #9db4ff;
+  --color-brand-400: #6f8dff;
+  --color-brand-500: #3b6cff;
+  --color-brand-600: #2f58e6;
+  --color-brand-700: #2747c2;
+  --color-brand-800: #223a9a;
+  --accent-1: #7c5cff;
+  --accent-2: #3b6cff;
+  --accent-3: #38c6f4;
+  --accent-orange: #ff7a1a;
+  --app-bg: #f3f4f6;
+  --card-bg: #ffffff;
+  --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Manrope', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  background: var(--app-bg);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01', 'tnum';
+}
+.app-shell.dark {
+  --app-bg: #0f1115;
+  --card-bg: #171a21;
+  --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --color-white: #171a21;
+  --color-ink-900: #f5f6f8;
+  --color-ink-800: #e6e8ee;
+  --color-ink-700: #c9cdd6;
+  --color-ink-500: #8b93a3;
+  --color-ink-300: #4b5262;
+  --color-ink-100: #23272f;
+  --color-brand-50: #1d2540;
+  --color-brand-100: #24305a;
+  --color-emerald-50: #123024;
+  --color-emerald-700: #5bd39a;
+  --color-amber-50: #33240d;
+  --color-amber-700: #f2b25c;
+  --color-amber-800: #f2b25c;
+  --color-red-50: #3a1a1a;
+  --color-red-700: #ff8484;
+  color-scheme: dark;
+}
+.app-shell .card {
+  background: var(--card-bg);
+  border: 0;
+  border-radius: 24px;
+  box-shadow: var(--card-shadow);
+}
+.app-shell .input {
+  border-radius: 9999px;
+  border-color: color-mix(in srgb, var(--color-ink-300) 45%, transparent);
+  background: var(--card-bg);
+  padding-left: 1.1rem;
+  padding-right: 1.1rem;
+}
+.app-shell .btn { border-radius: 9999px; }
+.app-shell .btn-primary { background: var(--color-ink-900); color: var(--app-bg); }
+.app-shell .btn-primary:hover { background: color-mix(in srgb, var(--color-ink-900) 88%, var(--color-ink-500)); }
+.app-shell .btn-secondary { background: var(--card-bg); border: 1px solid color-mix(in srgb, var(--color-ink-300) 45%, transparent); color: var(--color-ink-900); }
+.app-shell .btn-secondary:hover { background: var(--color-ink-100); }
+
+/* Pill controls: fully rounded; active = solid black on white text; inactive = white with a thin gray border. */
+@utility pill {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors;
+  background: var(--card-bg);
+  border: 1px solid color-mix(in srgb, var(--color-ink-300) 45%, transparent);
+  color: var(--color-ink-700);
+}
+@utility pill-active {
+  background: var(--color-ink-900);
+  border-color: var(--color-ink-900);
+  color: var(--app-bg);
+}
+.app-shell .pill:hover:not(.pill-active) { background: var(--color-ink-100); }
+
+/* Display title: large, light. */
+.app-shell .page-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 2.25rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.app-shell .caption { @apply text-xs text-ink-500; }
+.app-shell .value { @apply text-[15px] font-semibold text-ink-900; }
+.accent-text {
+  background: linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

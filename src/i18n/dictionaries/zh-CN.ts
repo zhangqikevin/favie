@@ -316,6 +316,19 @@ const zhCN: Dictionary = {
   'mkt.noData': '本月还没有销售数据。',
   'mkt.sample': '门店数据到达前为示例数据。',
   'mkt.over': '已超出上限 — Favie 会暂停广告直到下月。',
+  'theme.light': '切换到浅色模式',
+  'theme.dark': '切换到深色模式',
+  'header.notifications': '需要处理的事项',
+  'header.account': '账户',
+  'title.moreRestaurants': '很快可以在这个账户下添加更多餐厅。',
+  'runs.title': '运行报告',
+  'orders.vsPrev': '较前 {n} 天',
+  'orders.chart.title': '每日表现',
+  'mkt.donut.title': '销售额构成',
+  'mkt.donut.ad': '广告带来',
+  'mkt.donut.organic': '自然订单',
+  'mkt.donut.none': '本月没有广告花费,全部为自然订单。',
+  'cal.today': '今天',
 }
 
 export default zhCN

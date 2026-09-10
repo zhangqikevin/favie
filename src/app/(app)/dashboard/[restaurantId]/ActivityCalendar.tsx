@@ -37,10 +37,10 @@ export function ActivityCalendar({ restaurantId, timezone, ym, prev, next, today
     <div className="grid gap-6 lg:grid-cols-5">
       <section className="card p-6 lg:col-span-3">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold">{monthLabel}</h2>
+          <h2 className="font-display text-lg font-semibold">{monthLabel}</h2>
           <div className="flex items-center gap-1 text-sm">
-            <Link href={`/dashboard/${restaurantId}?month=${prev}`} className="rounded-lg px-2.5 py-1.5 hover:bg-ink-100" aria-label="Previous month">‹</Link>
-            <Link href={`/dashboard/${restaurantId}?month=${next}`} className="rounded-lg px-2.5 py-1.5 hover:bg-ink-100" aria-label="Next month">›</Link>
+            <Link href={`/dashboard/${restaurantId}?month=${prev}`} className="pill !h-8 !w-8 !p-0" aria-label="Previous month">‹</Link>
+            <Link href={`/dashboard/${restaurantId}?month=${next}`} className="pill !h-8 !w-8 !p-0" aria-label="Next month">›</Link>
           </div>
         </div>
         <div className="grid grid-cols-7 gap-1.5 text-center text-xs text-ink-500">
@@ -58,9 +58,9 @@ export function ActivityCalendar({ restaurantId, timezone, ym, prev, next, today
                 key={date}
                 type="button"
                 onClick={() => setSelected(date)}
-                className={`relative flex aspect-square flex-col items-center justify-center rounded-xl border text-sm transition-colors ${
-                  isSel ? 'border-brand-500 bg-brand-50 font-semibold text-brand-800' : isFuture ? 'border-transparent text-ink-300' : 'border-ink-100 text-ink-800 hover:bg-ink-100'
-                } ${date === today && !isSel ? 'ring-1 ring-brand-300' : ''}`}
+                className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl text-sm transition-colors ${
+                  isSel ? 'bg-ink-900 font-semibold text-[color:var(--app-bg)]' : isFuture ? 'text-ink-300' : 'text-ink-800 hover:bg-ink-100'
+                } ${date === today && !isSel ? 'font-semibold text-brand-500' : ''}`}
               >
                 {i + 1}
                 {acts.length > 0 && (
@@ -92,7 +92,7 @@ export function ActivityCalendar({ restaurantId, timezone, ym, prev, next, today
         ) : (
           <ul className="space-y-3">
             {[...dayActions].sort((a, b) => Number(b.needsAttention) - Number(a.needsAttention)).map((a) => (
-              <li key={a.id} className={`card p-5 ${a.needsAttention ? 'border-amber-300' : ''}`}>
+              <li key={a.id} className={`card p-5 ${a.needsAttention ? 'ring-1 ring-amber-300/70' : ''}`}>
                 <div className="flex items-center justify-between gap-3 text-xs text-ink-500">
                   <span className="flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${PLATFORM[a.platform].dot}`} />{PLATFORM[a.platform].label} · {t(`cat.${a.category}` as DictKey)}</span>
                   {a.needsAttention && <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">{t('cal.needsAttention')}</span>}

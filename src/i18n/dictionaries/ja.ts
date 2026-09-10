@@ -316,6 +316,19 @@ const ja: Dictionary = {
   'mkt.noData': '今月の売上データはまだありません。',
   'mkt.sample': '店舗データが届くまではサンプルデータです。',
   'mkt.over': '上限超過 — Favie は来月までキャンペーンを停止します。',
+  'theme.light': 'ライトモードに切替',
+  'theme.dark': 'ダークモードに切替',
+  'header.notifications': '要対応の項目',
+  'header.account': 'アカウント',
+  'title.moreRestaurants': '近日中にこのアカウントへ店舗を追加できるようになります。',
+  'runs.title': '実行レポート',
+  'orders.vsPrev': '前{n}日間比',
+  'orders.chart.title': '日次パフォーマンス',
+  'mkt.donut.title': '売上の内訳',
+  'mkt.donut.ad': '広告経由',
+  'mkt.donut.organic': 'オーガニック',
+  'mkt.donut.none': '今月は広告費なし。売上はすべてオーガニックです。',
+  'cal.today': '今日',
 }
 
 export default ja

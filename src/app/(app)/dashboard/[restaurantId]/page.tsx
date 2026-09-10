@@ -31,7 +31,7 @@ export default async function ActivityPage({ params, searchParams }: { params: P
     <div className="space-y-6">
       <section className="card p-7 sm:p-9">
         <div className="mb-6 text-center">
-          <h2 className="font-display text-lg font-bold">{t('settings.platforms')}</h2>
+          <h2 className="font-display text-lg font-semibold">{t('settings.platforms')}</h2>
           <p className="mx-auto mt-1 max-w-xl text-sm text-ink-500">{t('settings.platformsBody')}</p>
         </div>
         <PlatformLinkage conns={conns.map((c) => ({ platform: c.platform, status: c.status, storeName: c.storeName }))} />
@@ -50,10 +50,10 @@ export default async function ActivityPage({ params, searchParams }: { params: P
 
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'ok' | 'warn' }) {
   return (
-    <div className="card p-5">
-      <p className="text-xs font-medium uppercase tracking-wider text-ink-500">{label}</p>
-      <p className={`font-display mt-1 text-3xl font-bold ${tone === 'warn' ? 'text-amber-600' : ''}`}>{value}</p>
-      {sub && <p className="text-xs text-ink-500">{sub}</p>}
+    <div className="card p-6">
+      <p className="text-xs text-ink-500">{label}</p>
+      <p className={`font-display mt-2 text-3xl font-semibold tracking-tight ${tone === 'warn' ? 'text-[color:var(--accent-orange)]' : ''}`}>{value}</p>
+      {sub && <p className="mt-1 text-xs text-ink-500">{sub}</p>}
     </div>
   )
 }

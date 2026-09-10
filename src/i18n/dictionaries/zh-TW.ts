@@ -316,6 +316,19 @@ const zhTW: Dictionary = {
   'mkt.noData': '本月還沒有銷售數據。',
   'mkt.sample': '門市數據到達前為範例數據。',
   'mkt.over': '已超出上限 — Favie 會暫停廣告直到下月。',
+  'theme.light': '切換到淺色模式',
+  'theme.dark': '切換到深色模式',
+  'header.notifications': '需要處理的事項',
+  'header.account': '帳戶',
+  'title.moreRestaurants': '很快可以在這個帳戶下新增更多餐廳。',
+  'runs.title': '運行報告',
+  'orders.vsPrev': '較前 {n} 天',
+  'orders.chart.title': '每日表現',
+  'mkt.donut.title': '銷售額構成',
+  'mkt.donut.ad': '廣告帶來',
+  'mkt.donut.organic': '自然訂單',
+  'mkt.donut.none': '本月沒有廣告花費,全部為自然訂單。',
+  'cal.today': '今天',
 }
 
 export default zhTW

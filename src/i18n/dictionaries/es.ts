@@ -316,6 +316,19 @@ const es: Dictionary = {
   'mkt.noData': 'Aún no hay datos de ventas de este mes.',
   'mkt.sample': 'Datos de ejemplo hasta que lleguen los de tu tienda.',
   'mkt.over': 'Límite superado: Favie mantiene las campañas en pausa hasta el próximo mes.',
+  'theme.light': 'Cambiar a modo claro',
+  'theme.dark': 'Cambiar a modo oscuro',
+  'header.notifications': 'Requiere tu atención',
+  'header.account': 'Cuenta',
+  'title.moreRestaurants': 'Pronto podrás añadir más restaurantes a esta cuenta.',
+  'runs.title': 'Informe de ejecución',
+  'orders.vsPrev': 'vs {n} días anteriores',
+  'orders.chart.title': 'Rendimiento diario',
+  'mkt.donut.title': 'Origen de las ventas',
+  'mkt.donut.ad': 'Por anuncios',
+  'mkt.donut.organic': 'Orgánico',
+  'mkt.donut.none': 'Sin gasto publicitario este mes: todas las ventas son orgánicas.',
+  'cal.today': 'Hoy',
 }
 
 export default es

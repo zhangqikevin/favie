@@ -26,7 +26,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ resta
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card p-7">
-          <h2 className="font-display text-lg font-bold">{t('settings.restaurant')}</h2>
+          <h2 className="font-display text-lg font-semibold">{t('settings.restaurant')}</h2>
           <dl className="mt-4 space-y-3 text-sm">
             <div><dt className="text-ink-500">{t('settings.name')}</dt><dd className="font-medium">{r.name}</dd></div>
             <div><dt className="text-ink-500">{t('settings.address')}</dt><dd className="font-medium">{[r.addressLine, r.city, r.state, r.zip].filter(Boolean).join(', ') || conns.find((c) => c.storeAddress)?.storeAddress || '—'}</dd></div>
@@ -35,12 +35,12 @@ export default async function SettingsPage({ params }: { params: Promise<{ resta
         </section>
 
         <section className="card p-7">
-          <h2 className="font-display text-lg font-bold">{t('settings.data')}</h2>
+          <h2 className="font-display text-lg font-semibold">{t('settings.data')}</h2>
           <OrderDataCard restaurantId={r.id} timezone={r.timezone} hasKey={!!r.zoodataKeyCiphertext} days={spark} updatedAt={updatedAt?.toISOString() ?? null} source={source} />
         </section>
       </div>
 
-      <section className="rounded-2xl border border-dashed border-ink-300/60 px-6 py-5 text-sm text-ink-500">
+      <section className="rounded-3xl px-6 py-5 text-sm text-ink-500 outline-dashed outline-1 outline-ink-300/50">
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
           <h2 className="font-semibold text-ink-700">{t('settings.billing')}</h2>
           <dl className="flex flex-wrap gap-x-6 gap-y-1">
