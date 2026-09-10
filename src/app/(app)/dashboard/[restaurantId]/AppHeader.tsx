@@ -6,16 +6,17 @@ import { Logo } from '@/components/marketing/Logo'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useT } from '@/i18n/client'
 import type { DictKey } from '@/i18n'
+import { RestaurantPill } from './PageTitle'
 
 const THEME_KEY = 'favie_theme'
 
 export type NavItem = { href: string; key: DictKey; exact?: boolean }
 
-/** Top bar: small logo, text tabs with an underlined active tab, light/dark pill, bell, avatar menu. */
-export function AppHeader({ base, items, attention, user, todayHref, logOut }: {
-  base: string; items: NavItem[]; attention: number
+/** Top bar: small logo, text tabs with an underlined active tab, restaurant pill (global), light/dark pill, avatar menu. */
+export function AppHeader({ base, items, user, restaurant, logOut }: {
+  base: string; items: NavItem[]
   user: { name: string | null; email: string }
-  todayHref: string
+  restaurant: { name: string; place: string | null }
   logOut: () => Promise<void>
 }) {
   const t = useT()
@@ -63,6 +64,7 @@ export function AppHeader({ base, items, attention, user, todayHref, logOut }: {
           </nav>
         </div>
         <div className="flex items-center gap-2.5">
+          <div className="hidden sm:block"><RestaurantPill restaurant={restaurant} /></div>
           {/* light / dark toggle pill */}
           <button type="button" onClick={toggleTheme} aria-label={dark ? t('theme.light') : t('theme.dark')} className="pill !gap-0 !px-1 !py-1">
             <span className={`flex h-6 w-6 items-center justify-center rounded-full ${dark ? '' : 'bg-ink-900 text-white'}`}>
@@ -72,11 +74,6 @@ export function AppHeader({ base, items, attention, user, todayHref, logOut }: {
               <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M15.5 12.5A6.5 6.5 0 0 1 7.5 4.5a6.5 6.5 0 1 0 8 8z" /></svg>
             </span>
           </button>
-          {/* notification bell → today's attention items */}
-          <Link href={todayHref} aria-label={t('header.notifications')} className="pill relative !h-9 !w-9 !p-0">
-            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M5 8a5 5 0 0 1 10 0v3.2l1.3 2.3H3.7L5 11.2z" /><path d="M8 16a2 2 0 0 0 4 0" /></svg>
-            {attention > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[color:var(--accent-orange)] ring-2 ring-[color:var(--card-bg)]" />}
-          </Link>
           {/* avatar + menu */}
           <div className="relative" ref={menuRef}>
             <button type="button" onClick={() => setMenu((m) => !m)} aria-label={t('header.account')} className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#7C5CFF] via-[#3B6CFF] to-[#38C6F4] text-xs font-bold text-white shadow-sm">
@@ -99,6 +96,7 @@ export function AppHeader({ base, items, attention, user, todayHref, logOut }: {
         </div>
       </div>
       {/* Mobile tabs */}
+      <div className="container-x pb-2 sm:hidden"><RestaurantPill restaurant={restaurant} /></div>
       <nav className="container-x flex gap-2 overflow-x-auto pb-3 md:hidden">
         {items.map((it) => <Link key={it.href} href={it.href} className={`pill whitespace-nowrap ${isActive(it) ? 'pill-active' : ''}`}>{t(it.key)}</Link>)}
       </nav>
