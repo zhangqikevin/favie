@@ -6,7 +6,6 @@ import { refundDaysLeft } from '@/server/billing/gate'
 import { openBillingPortal } from '../actions'
 import { getT } from '@/i18n/server'
 import { INTL_TAG } from '@/i18n/config'
-import { PlatformLinkage } from '@/components/PlatformLinkage'
 import { OrderDataCard } from './OrderDataCard'
 
 export default async function SettingsPage({ params }: { params: Promise<{ restaurantId: string }> }) {
@@ -25,14 +24,6 @@ export default async function SettingsPage({ params }: { params: Promise<{ resta
 
   return (
     <div className="space-y-6">
-      <section className="card p-7 sm:p-9">
-        <div className="mb-6 text-center">
-          <h2 className="font-display text-lg font-bold">{t('settings.platforms')}</h2>
-          <p className="mx-auto mt-1 max-w-xl text-sm text-ink-500">{t('settings.platformsBody')}</p>
-        </div>
-        <PlatformLinkage conns={conns.map((c) => ({ platform: c.platform, status: c.status, storeName: c.storeName }))} />
-      </section>
-
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card p-7">
           <h2 className="font-display text-lg font-bold">{t('settings.restaurant')}</h2>

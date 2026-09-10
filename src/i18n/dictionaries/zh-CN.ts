@@ -195,7 +195,7 @@ const zhCN: Dictionary = {
   'prefs.tz.body': '我们根据门店地址推测。Favie 每天早上按这个时区运行。',
   'prefs.finish': '完成设置',
 
-  'dash.nav.activity': '运行记录',
+  'dash.nav.activity': '外卖优化',
   'dash.nav.orders': '订单',
   'dash.nav.adCaps': '外卖营销',
   'dash.nav.settings': '设置',

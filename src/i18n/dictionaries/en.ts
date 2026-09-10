@@ -199,7 +199,7 @@ const en = {
   'prefs.finish': 'Finish setup',
 
   // ---- dashboard
-  'dash.nav.activity': 'Activity',
+  'dash.nav.activity': 'Delivery optimization',
   'dash.nav.orders': 'Orders',
   'dash.nav.adCaps': 'Marketing',
   'dash.nav.settings': 'Settings',

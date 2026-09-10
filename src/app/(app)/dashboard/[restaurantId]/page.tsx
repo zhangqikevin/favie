@@ -1,10 +1,10 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/server/auth'
 import { getRestaurantForUser, getConnections } from '@/server/restaurants'
 import { getActionsForMonth, getRunsForMonth, currentMonth, monthBounds, todayLocal } from '@/server/activity'
 import { ActivityCalendar, type CalendarAction } from './ActivityCalendar'
 import { getT } from '@/i18n/server'
+import { PlatformLinkage } from '@/components/PlatformLinkage'
 
 export default async function ActivityPage({ params, searchParams }: { params: Promise<{ restaurantId: string }>; searchParams: Promise<{ month?: string; day?: string }> }) {
   const { restaurantId } = await params
@@ -18,7 +18,6 @@ export default async function ActivityPage({ params, searchParams }: { params: P
   const prev = `${b.month === 1 ? b.year - 1 : b.year}-${String(b.month === 1 ? 12 : b.month - 1).padStart(2, '0')}`
   const next = `${b.month === 12 ? b.year + 1 : b.year}-${String(b.month === 12 ? 1 : b.month + 1).padStart(2, '0')}`
   const today = todayLocal(r.timezone)
-  const connected = conns.filter((c) => c.status === 'connected')
   const attention = actions.filter((a) => a.needsAttention).length
   const { t } = await getT()
 
@@ -30,18 +29,19 @@ export default async function ActivityPage({ params, searchParams }: { params: P
 
   return (
     <div className="space-y-6">
+      <section className="card p-7 sm:p-9">
+        <div className="mb-6 text-center">
+          <h2 className="font-display text-lg font-bold">{t('settings.platforms')}</h2>
+          <p className="mx-auto mt-1 max-w-xl text-sm text-ink-500">{t('settings.platformsBody')}</p>
+        </div>
+        <PlatformLinkage conns={conns.map((c) => ({ platform: c.platform, status: c.status, storeName: c.storeName }))} />
+      </section>
+
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label={t('dash.stat.actions')} value={String(actions.filter((a) => !['no_action', 'run_unparsed', 'interrupted'].includes(a.category)).length)} />
         <Stat label={t('dash.stat.runs')} value={String(runs.length)} sub={t('dash.stat.completed', { n: runs.filter((x) => x.status === 'collected').length })} />
         <Stat label={t('dash.stat.attention')} value={String(attention)} tone={attention ? 'warn' : 'ok'} />
       </div>
-
-      {connected.length === 0 && (
-        <div className="rounded-2xl border border-brand-100 bg-brand-50 p-5 text-sm text-brand-900">
-          <p className="font-semibold">{t('dash.noPlatform.t')}</p>
-          <p className="mt-1">{t('dash.noPlatform.b')} <Link href="/onboarding/connect" className="font-medium underline">{t('dash.noPlatform.link')}</Link>.</p>
-        </div>
-      )}
 
       <ActivityCalendar restaurantId={r.id} timezone={r.timezone} ym={ym} prev={prev} next={next} today={today} actions={payload} initialDay={day} runs={runs.map((x) => ({ id: x.id, date: x.runDate ?? '', status: x.status, kind: x.kind }))} />
     </div>

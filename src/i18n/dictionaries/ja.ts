@@ -195,7 +195,7 @@ const ja: Dictionary = {
   'prefs.tz.body': '店舗の住所から推定しました。Favie は毎朝このタイムゾーンで稼働します。',
   'prefs.finish': '設定を完了',
 
-  'dash.nav.activity': 'アクティビティ',
+  'dash.nav.activity': 'デリバリー最適化',
   'dash.nav.orders': '注文',
   'dash.nav.adCaps': 'マーケティング',
   'dash.nav.settings': '設定',

@@ -195,7 +195,7 @@ const es: Dictionary = {
   'prefs.tz.body': 'La deducimos de la dirección de tu tienda. Favie se ejecuta cada mañana en esta zona horaria.',
   'prefs.finish': 'Terminar configuración',
 
-  'dash.nav.activity': 'Actividad',
+  'dash.nav.activity': 'Optimización de delivery',
   'dash.nav.orders': 'Pedidos',
   'dash.nav.adCaps': 'Marketing',
   'dash.nav.settings': 'Ajustes',

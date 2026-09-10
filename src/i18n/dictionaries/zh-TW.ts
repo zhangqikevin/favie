@@ -195,7 +195,7 @@ const zhTW: Dictionary = {
   'prefs.tz.body': '我們根據門市地址推測。Favie 每天早上按這個時區執行。',
   'prefs.finish': '完成設定',
 
-  'dash.nav.activity': '執行紀錄',
+  'dash.nav.activity': '外送優化',
   'dash.nav.orders': '訂單',
   'dash.nav.adCaps': '外送行銷',
   'dash.nav.settings': '設定',
