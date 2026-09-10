@@ -1,28 +1,31 @@
 /**
- * Decorative food cut-outs from one sprite sheet (public/food-sprite.jpg, 5 × 4 grid on white).
- * `mix-blend-mode: multiply` makes the white cell background disappear on light surfaces, so use
- * these only on white / light-gray sections. Purely decorative: aria-hidden, no pointer events.
+ * Decorative food cut-outs from one sprite sheet (public/food-sprite.jpg, 1536 × 1024, white background).
+ * The sheet is not a uniform grid, so each dish has its own measured pixel box (computed once from the
+ * image's non-white pixels, padded 6 px). `mix-blend-mode: multiply` hides the white background on light
+ * surfaces, so only use these on white / light-gray sections. Purely decorative: aria-hidden, no pointer events.
  */
-const GRID: Record<string, [number, number]> = {
-  burger: [0, 0], ramen: [1, 0], pizza: [2, 0], sushi: [3, 0], boba: [4, 0],
-  wings: [0, 1], tacos: [1, 1], salad: [2, 1], chicken_sandwich: [3, 1], pad_thai: [4, 1],
-  poke: [0, 2], dumplings: [1, 2], steak: [2, 2], breakfast_sandwich: [3, 2], burrito: [4, 2],
-  curry: [0, 3], tempura: [1, 3], acai: [2, 3], fries: [3, 3], fried_rice: [4, 3],
+const SHEET_W = 1536, SHEET_H = 1024
+// [x, y, w, h] in sheet pixels
+const BOX: Record<string, [number, number, number, number]> = {
+  burger: [18, 34, 264, 228], ramen: [322, 2, 308, 272], pizza: [634, 30, 320, 260], sushi: [954, 66, 296, 184], boba: [1286, 6, 204, 276],
+  wings: [14, 278, 300, 232], tacos: [326, 298, 304, 216], salad: [634, 270, 300, 244], chicken_sandwich: [938, 286, 280, 236], pad_thai: [1218, 286, 304, 228],
+  poke: [18, 514, 280, 224], dumplings: [306, 526, 328, 208], steak: [634, 522, 316, 220], breakfast_sandwich: [954, 542, 280, 192], burrito: [1238, 518, 280, 212],
+  curry: [14, 746, 296, 236], tempura: [310, 730, 344, 252], acai: [658, 746, 264, 232], fries: [922, 730, 308, 256], fried_rice: [1222, 734, 304, 244],
 }
-export type FoodItem = keyof typeof GRID
-const COLS = 5, ROWS = 4, CELL_RATIO = 1536 / 5 / (1024 / 4) // 1.2
+export type FoodItem = keyof typeof BOX
 
 export function Food({ item, size = 96, className = '', style }: { item: FoodItem; size?: number; className?: string; style?: React.CSSProperties }) {
-  const [col, row] = GRID[item]
+  const [x, y, w, h] = BOX[item]
+  const height = Math.round((size * h) / w)
   return (
     <span
       aria-hidden="true"
       className={`pointer-events-none inline-block select-none ${className}`}
       style={{
-        width: size, height: Math.round(size / CELL_RATIO),
+        width: size, height,
         backgroundImage: 'url(/food-sprite.jpg)', backgroundRepeat: 'no-repeat',
-        backgroundSize: `${COLS * 100}% ${ROWS * 100}%`,
-        backgroundPosition: `${(col / (COLS - 1)) * 100}% ${(row / (ROWS - 1)) * 100}%`,
+        backgroundSize: `${(SHEET_W / w) * 100}% ${(SHEET_H / h) * 100}%`,
+        backgroundPosition: `${(x / (SHEET_W - w)) * 100}% ${(y / (SHEET_H - h)) * 100}%`,
         mixBlendMode: 'multiply',
         ...style,
       }}
