@@ -20,9 +20,9 @@ export async function Nav({ dark = true }: { dark?: boolean }) {
           <a href="#faq" className={text}>{t('nav.faq')}</a>
         </nav>
         <div className="flex items-center gap-3">
-          <LanguageSwitcher tone={dark ? 'dark' : 'light'} />
           <Link href="/login" className={`hidden text-sm font-medium sm:block ${text}`}>{t('common.logIn')}</Link>
           <Link href="/signup" className="btn-primary !px-4 !py-2.5">{t('common.getStarted')}</Link>
+          <LanguageSwitcher tone={dark ? 'dark' : 'light'} />
         </div>
       </div>
     </header>
