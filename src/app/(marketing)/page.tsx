@@ -68,7 +68,7 @@ export default async function LandingPage() {
           <div className="mt-12 grid gap-6 md:grid-cols-3">
             {benefits.map((i) => (
               <div key={i} className="card relative p-7">
-                <Food item={(['ramen', 'dumplings', 'fried_rice'] as const)[i - 1]} size={132} className="absolute -right-3 -top-9 rotate-6 drop-shadow-lg" />
+                <Food item={(['ramen', 'dumplings', 'fried_rice'] as const)[i - 1]} size={132} className="absolute -right-3 -top-9 rotate-6" />
                 <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                   <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">{icons[i - 1]}</svg>
                 </div>
@@ -107,10 +107,10 @@ export default async function LandingPage() {
             <p className="mt-4 text-lg text-ink-500">{t('product.body')}</p>
           </div>
           <div className="relative mt-12">
-            <Food item="pizza" size={160} className="absolute -left-10 -top-14 hidden -rotate-12 drop-shadow-xl lg:block" />
-            <Food item="tacos" size={150} className="absolute -right-8 -top-10 hidden rotate-6 drop-shadow-xl lg:block" />
-            <Food item="tempura" size={140} className="absolute -bottom-12 -left-6 hidden rotate-3 drop-shadow-xl lg:block" />
-            <Food item="poke" size={140} className="absolute -bottom-10 -right-4 hidden -rotate-6 drop-shadow-xl lg:block" />
+            <Food item="pizza" size={160} className="absolute -left-10 -top-14 hidden -rotate-12 lg:block" />
+            <Food item="tacos" size={150} className="absolute -right-8 -top-10 hidden rotate-6 lg:block" />
+            <Food item="tempura" size={140} className="absolute -bottom-12 -left-6 hidden rotate-3 lg:block" />
+            <Food item="poke" size={140} className="absolute -bottom-10 -right-4 hidden -rotate-6 lg:block" />
             <DashboardPreview />
           </div>
         </div>
@@ -152,7 +152,7 @@ export default async function LandingPage() {
       {/* FAQ */}
       <section id="faq" className="py-24">
         <div className="container-x relative max-w-3xl">
-          <Food item="curry" size={150} className="absolute -top-8 right-0 hidden rotate-6 drop-shadow-lg sm:block" />
+          <Food item="curry" size={150} className="absolute -top-8 right-0 hidden rotate-6 sm:block" />
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{t('faq.title')}</h2>
           <div className="mt-10 divide-y divide-ink-100">
             {faqs.map((i) => (
@@ -175,7 +175,7 @@ export default async function LandingPage() {
         <div className="container-x text-center">
           <div className="mb-8 flex items-end justify-center gap-2 sm:gap-5">
             {(['burger', 'ramen', 'sushi', 'dumplings', 'pad_thai', 'boba'] as const).map((f, i) => (
-              <Food key={f} item={f} size={i === 2 || i === 3 ? 104 : 84} className={`${i % 2 ? 'rotate-3' : '-rotate-3'} drop-shadow-md ${i === 0 || i === 5 ? 'hidden sm:inline-block' : ''}`} />
+              <Food key={f} item={f} size={i === 2 || i === 3 ? 104 : 84} className={`${i % 2 ? 'rotate-3' : '-rotate-3'} ${i === 0 || i === 5 ? 'hidden sm:inline-block' : ''}`} />
             ))}
           </div>
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{t('cta.title')}</h2>
