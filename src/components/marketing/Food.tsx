@@ -32,3 +32,19 @@ export function Food({ item, size = 96, className = '', style }: { item: FoodIte
     />
   )
 }
+
+const ALL: FoodItem[] = ['ramen', 'dumplings', 'sushi', 'fried_rice', 'boba', 'pad_thai', 'tempura', 'curry', 'poke', 'wings', 'burger', 'tacos', 'pizza', 'salad', 'steak', 'burrito', 'chicken_sandwich', 'breakfast_sandwich', 'fries', 'acai']
+
+/** Endless horizontal marquee of every dish (CSS-only; the list is duplicated so the loop is seamless). Pauses on hover. */
+export function FoodMarquee({ size = 64 }: { size?: number }) {
+  const row = (key: string) => (
+    <div key={key} className="flex shrink-0 items-end gap-6 pr-6" aria-hidden="true">
+      {ALL.map((f) => <Food key={f} item={f} size={size} />)}
+    </div>
+  )
+  return (
+    <div className="food-marquee mb-8 overflow-hidden" style={{ maskImage: 'linear-gradient(90deg, transparent, black 12%, black 88%, transparent)', WebkitMaskImage: 'linear-gradient(90deg, transparent, black 12%, black 88%, transparent)' }}>
+      <div className="food-marquee-track flex w-max">{row('a')}{row('b')}</div>
+    </div>
+  )
+}

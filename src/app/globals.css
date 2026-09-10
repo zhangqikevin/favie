@@ -174,3 +174,12 @@ body {
 }
 .app-shell .caption { @apply text-xs text-ink-500; }
 .app-shell .value { @apply text-[15px] font-semibold text-ink-900; }
+
+/* Landing: endless food marquee. Two identical rows; translating by -50% loops seamlessly. */
+@keyframes food-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.food-marquee-track { animation: food-marquee 45s linear infinite; }
+.food-marquee:hover .food-marquee-track { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .food-marquee-track { animation: none; } }
