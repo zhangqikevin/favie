@@ -42,6 +42,9 @@ async function runAgentTurn(restaurantId: string, message: string, jobId: string
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), opts.budgetMs ?? 25 * 60_000)
   let res
+  // The model sometimes hands its final block to the `message` tool instead of writing it as its reply;
+  // that text never reaches the assistant transcript, so capture it here and append it.
+  const misdelivered: string[] = []
   try {
     res = await streamTurn(zc, agent.zooworkAgentId, session.session_id, {
       signal: ctl.signal,
@@ -49,12 +52,14 @@ async function runAgentTurn(restaurantId: string, message: string, jobId: string
         const t = toolCall(ev)
         if (t?.phase === 'start') {
           const a = (t.args ?? {}) as Record<string, unknown>
+          if (t.toolName === 'message' && typeof a.message === 'string') misdelivered.push(a.message)
           const line = t.toolName === 'browser' ? `${a.action ?? ''} ${a.url ?? a.selector ?? a.op ?? ''}` : t.toolName
           void note(jobId, line.trim())
         }
       },
     })
   } finally { clearTimeout(timer) }
+  if (misdelivered.length) res = { ...res, text: `${res.text}\n${misdelivered.join('\n')}` }
   if (!res.outcome) {
     await zc.postEvents(agent.zooworkAgentId, session.session_id, [{ type: 'user.interrupt' }]).catch(() => {})
     await db.update(schema.agentRuns).set({ status: 'timed_out', finalText: res.text.slice(-20_000), updatedAt: new Date() }).where(eq(schema.agentRuns.id, run!.id))

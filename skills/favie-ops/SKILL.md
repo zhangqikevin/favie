@@ -209,7 +209,8 @@ You are the executor, not the planner:
 - Photos: `exec` downloads the file as written; then the browser `upload` action on the given input. If
   `upload` needs an `r2Key` you do not have, record `photo_skipped` for that item and keep going.
 - Close the browser at the end. Reply with the one-line count and exactly one `favie-menu-apply` block
-  as the message specifies. No favie-summary block for this task.
+  as the message specifies — as your final assistant reply, NOT through the `message` tool (that text
+  never reaches Favie). No favie-summary block for this task.
 
 **FAVIE_MENU_PHOTOS <platform>** — no browser, no context fetch, no login. The message gives `storefront_url`.
 Call `web_fetch` exactly once on it (`extractMode: "markdown"`, `maxChars: 200000`). The markdown shape varies by
