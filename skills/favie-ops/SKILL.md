@@ -146,18 +146,23 @@ connected right now, that is the whole point of the handoff).
 
 ## Menu Clinic (owner-triggered)
 
-**FAVIE_MENU_PULL <platform>** — read the store's whole menu. Change nothing.
+**FAVIE_MENU_PULL <platform>** — read the store's whole menu. Change nothing. Two passes, both cheap:
 1. Step 0 (context), restore the login profile, open the platform's menu editor (Uber Eats Manager →
    Menu; DoorDash Merchant Portal → Menu Manager) and select the store from the context.
-2. Enumerate every category and every sellable item. Per item read: `name`, `category`, `price_cents`,
-   the full `description` (open the item only if the list truncates it), `image_url` (the `src` of its
-   photo in the snapshot; `null` when there is no photo or only a placeholder), `availability`
-   (`available` / `sold_out` / `hidden` / `unknown`), `unit` when the platform shows one (e.g. "per lb"),
-   `external_id` (the platform item id when the URL or DOM shows it, else `null`), `position`.
-   Skip modifier groups and options ("Add extra noodles", "Choose spice level") — they are not items.
-3. Menus are long: prefer full-page snapshots and scrolling over clicking into items; expand collapsed
-   categories. Budget about 150 tool calls. If you cannot finish, report what you have with `truncated: true`.
-4. Close the browser. Reply with one line — `<platform>: read N items in M categories` — then exactly one block:
+2. **Pass A — the editor list.** Expand every category and read the list view only: `category`, `name`,
+   `price_cents`, `availability` (`available` / `sold_out` / `hidden` / `unknown`), `unit` when shown,
+   `external_id` when the URL or DOM shows one, `position`. Skip modifier groups and options ("Add
+   extra noodles", "Choose spice level"). **Do not open individual items** — that is 70+ dialogs and
+   never finishes. Full-page snapshots and scrolling only.
+3. **Pass B — the public storefront.** From the editor, follow the "View store" / "Preview menu" /
+   "View as customer" link (or navigate to the store's public page on doordash.com / ubereats.com).
+   That page lists every visible item with its complete `description` and its photo. Read
+   `description` and `image_url` (the `src` of the item's photo in the snapshot; `null` when there is
+   no photo or only a placeholder) for every item, matching by exact name. Two or three full-page
+   snapshots (scroll between them) normally cover a menu. Items that exist in Pass A but not on the
+   storefront keep `description: null`, `image_url: null` and are usually `hidden`.
+4. Budget about 60 tool calls total. If you cannot finish, report what you have with `truncated: true`.
+5. Close the browser. Reply with one line — `<platform>: read N items in M categories` — then exactly one block:
 
 ````
 ```favie-menu

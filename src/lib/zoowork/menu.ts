@@ -119,11 +119,10 @@ export async function runMenuPull(jobId: string) {
     const message = [
       `FAVIE_MENU_PULL ${job.platform}`,
       `Read the complete ${PLATFORM_LABEL[job.platform]} menu of the store in the context. Change nothing.`,
-      'For EVERY item I need two things the list view may hide: the full `description` text (null if none) and the `image_url`',
-      '(the src of its photo in the snapshot; null if it has no photo). Open an item only when the list does not show its',
-      'description or photo. Also record price_cents, availability and external_id when visible.',
-      'Reply with ONE ```favie-menu``` block using the flat schema from the skill: a top-level `items` array where each item',
-      'carries its own `category`. Do not nest items under categories and do not omit `description` / `image_url` keys.',
+      'Two passes as the skill says: (A) the editor list for names, categories, prices, availability — do NOT open',
+      'individual items; (B) the public storefront page ("View store" / "Preview menu") for every item\'s full description',
+      'and photo URL, matched by name. Reply with ONE ```favie-menu``` block using the flat schema: a top-level `items`',
+      'array where each item carries its own `category`, `description` and `image_url` keys (null when absent).',
     ].join('\n')
     const { text } = await runAgentTurn(job.restaurantId, message, jobId, { budgetMs: 35 * 60_000 })
     await ingestMenu(jobId, text)
