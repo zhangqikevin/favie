@@ -56,6 +56,10 @@ export function MenuClinic({ restaurantId, connected, initial }: {
   const groups = new Map<string, Item[]>()
   for (const i of visible) { const k = i.category ?? '—'; groups.set(k, [...(groups.get(k) ?? []), i]) }
   const activePull = s.active.find((j) => j.kind === 'pull')
+  const activeApply = s.active.find((j) => j.kind === 'apply')
+  // One sync at a time per restaurant (the agent has one browser); the next batch waits for this one.
+  const anyApplyActive = (['uber_eats', 'doordash'] as Platform[]).some((p) => state[p].active.some((j) => j.kind === 'apply') || state[p].items.some((i) => i.status === 'saving'))
+  const estMinutes = (n: number) => Math.max(1, Math.ceil(n * (platform === 'doordash' ? 2 : 1)))
 
   return (
     <div className="space-y-6">
@@ -110,13 +114,10 @@ export function MenuClinic({ restaurantId, connected, initial }: {
       )}
       {s.pull?.status === 'failed' && !activePull && !(s.storefront.candidates?.length) && <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{t('menu.jobError', { error: s.pull.error ?? '' })}</div>}
 
-      {s.active.some((j) => j.kind === 'apply') && (
+      {activeApply && (
         <div className="card flex items-center gap-4 p-5">
           <Spinner />
-          <div>
-            <p className="text-sm font-semibold">{t('menu.publishing', { platform: LABEL[platform] })}</p>
-            <p className="mt-0.5 text-xs text-ink-500">{s.active.find((j) => j.kind === 'apply')?.note}</p>
-          </div>
+          <p className="text-sm font-semibold">{t('menu.publishing', { platform: LABEL[platform], min: estMinutes(s.items.filter((i) => i.status === 'saving').length || 1) })}</p>
         </div>
       )}
       {s.counts.total > 0 && (
@@ -125,12 +126,13 @@ export function MenuClinic({ restaurantId, connected, initial }: {
             <h2 className="font-display text-lg font-semibold">{t('menu.diag.title')}</h2>
             <div className="flex items-center gap-3">
               {s.counts.queued > 0 && !busy && (
-                <button type="button" disabled={pending}
-                  onClick={() => { if (!window.confirm(t('menu.sync.confirm', { n: s.counts.queued, platform: LABEL[platform] }))) return; start(async () => { await publishDrafts(restaurantId, platform); await refresh() }) }}
+                <button type="button" disabled={pending || anyApplyActive} title={anyApplyActive ? t('menu.syncBusy') : undefined}
+                  onClick={() => { if (anyApplyActive) return; if (!window.confirm(t('menu.sync.confirm', { n: s.counts.queued, platform: LABEL[platform], min: estMinutes(s.counts.queued) }))) return; start(async () => { await publishDrafts(restaurantId, platform); await refresh() }) }}
                   className="pill pill-active !py-1.5 text-xs">
                   {t('menu.sync', { n: s.counts.queued, platform: LABEL[platform] })}
                 </button>
               )}
+              {s.counts.queued > 0 && anyApplyActive && !activeApply && <span className="text-xs text-ink-500">{t('menu.syncBusy')}</span>}
               <p className="text-xs text-ink-500">{t('menu.diag.hint')}</p>
             </div>
           </div>
@@ -236,7 +238,6 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
           </button>
         </div>
       </div>
-      {generating && jobs[0]?.note && <p className="mt-2 text-xs text-ink-500 lg:pl-[88px]">{t('menu.agentBusy', { note: jobs[0].note })}</p>}
       {(open || item.status === 'draft' || queued || saving || item.status === 'failed') && (
         <div className="mt-4 grid gap-4 rounded-2xl bg-ink-100/60 p-4 lg:grid-cols-[260px_1fr]">
           <div className="space-y-2">
@@ -281,7 +282,6 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
                   )}
                 </>
               )}
-              {saving && jobs.find((j) => j.kind === 'apply')?.note && <span className="text-xs text-ink-500">{jobs.find((j) => j.kind === 'apply')!.note}</span>}
             </div>
           </div>
         </div>

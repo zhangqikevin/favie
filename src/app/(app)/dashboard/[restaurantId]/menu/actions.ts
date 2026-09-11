@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { requireUser } from '@/server/auth'
 import { getRestaurantForUser } from '@/server/restaurants'
@@ -112,6 +112,10 @@ export async function unqueueItem(menuItemId: string) {
 export async function publishDrafts(restaurantId: string, platform: Platform) {
   const { r } = await own(restaurantId)
   if (!isPlatform(platform)) throw new Error('platform')
+  // Serial: one sync per restaurant at a time (the agent has one browser); the UI disables the button too.
+  const running = await db.select({ id: schema.menuJobs.id }).from(schema.menuJobs)
+    .where(and(eq(schema.menuJobs.restaurantId, r.id), eq(schema.menuJobs.kind, 'apply'), inArray(schema.menuJobs.status, ['queued', 'running']))).limit(1)
+  if (running.length) return { error: 'busy' as const }
   const scope = and(eq(schema.menuItems.restaurantId, r.id), eq(schema.menuItems.platform, platform), eq(schema.menuItems.status, 'queued'))
   const queued = await db.select({ id: schema.menuItems.id }).from(schema.menuItems).where(scope)
   if (!queued.length) return { error: 'nothing' as const }

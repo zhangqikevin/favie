@@ -53,8 +53,7 @@ async function runAgentTurn(restaurantId: string, message: string, jobId: string
         if (t?.phase === 'start') {
           const a = (t.args ?? {}) as Record<string, unknown>
           if (t.toolName === 'message' && typeof a.message === 'string') misdelivered.push(a.message)
-          const line = t.toolName === 'browser' ? `${a.action ?? ''} ${a.url ?? a.selector ?? a.op ?? ''}` : t.toolName
-          void note(jobId, line.trim())
+          // Tool-call details stay in agent_runs / the admin run view; owners only see the step-level notes.
         }
       },
     })
