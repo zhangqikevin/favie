@@ -183,12 +183,19 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
   const [pending, start] = useTransition()
   const fileRef = useRef<HTMLInputElement>(null)
   useEffect(() => { setText(item.draftDescription ?? item.description ?? '') }, [item.draftDescription, item.description])
+  // What the textarea would store as a draft right now (null = same as the platform → no draft).
+  const pendingDraft = text.trim() === (item.description ?? '').trim() ? null : text
+  const hasChanges = !!pendingDraft || !!item.draftImageUrl
   const commitText = () => {
     if (text === base) return
-    // Typing the platform's own text back means "no change": drop the draft instead of storing a copy.
-    const next = text.trim() === (item.description ?? '').trim() ? null : text
-    start(async () => { await updateDraft(item.id, { description: next }); await onChange() })
+    start(async () => { await updateDraft(item.id, { description: pendingDraft }); await onChange() })
   }
+  // "Add to save queue" straight after typing: persist the text first, then queue — the blur handler may not have run yet.
+  const queueNow = () => start(async () => {
+    if (pendingDraft !== (item.draftDescription ?? null)) await updateDraft(item.id, { description: pendingDraft })
+    await queueItem(item.id)
+    await onChange()
+  })
   const generating = jobs.some((j) => j.kind === 'generate')
   const saving = item.status === 'saving' || jobs.some((j) => j.kind === 'apply')
   const queued = item.status === 'queued'
@@ -268,7 +275,7 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
                   <button type="button" disabled={pending || generating} onClick={() => start(async () => { await aiOptimize(item.id); await onChange() })} className="pill !py-1.5 text-xs">
                     {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.optimize')}
                   </button>
-                  <button type="button" disabled={pending || generating || (!item.draftDescription && !item.draftImageUrl)} onClick={() => start(async () => { await queueItem(item.id); await onChange() })} className="pill pill-active !py-1.5 text-xs">{t('menu.queue')}</button>
+                  <button type="button" disabled={pending || generating || !hasChanges} onMouseDown={(e) => e.preventDefault()} onClick={queueNow} className="pill pill-active !py-1.5 text-xs">{t('menu.queue')}</button>
                   {(item.draftDescription || item.draftImageUrl) && (
                     <button type="button" disabled={pending} onClick={() => start(async () => { await discardDraft(item.id); setText(''); await onChange() })} className="text-xs text-ink-500 hover:text-ink-900">{t('menu.discard')}</button>
                   )}
