@@ -383,6 +383,7 @@ const es: Dictionary = {
   'menu.pulling': 'Favie está leyendo el menú en su navegador… un menú completo suele tardar unos minutos.',
   'menu.publishAll': "Publicar {n} borradores en {platform}",
   'menu.queue': "Añadir a la cola",
+  'menu.working': "Procesando…",
   'menu.queued': "En cola",
   'menu.unqueue': "Deshacer",
   'menu.diag.queued': "Por sincronizar",

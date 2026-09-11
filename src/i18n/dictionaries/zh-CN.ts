@@ -383,6 +383,7 @@ const zhCN: Dictionary = {
   'menu.pulling': 'Favie 正在浏览器里读取菜单……完整菜单通常需要几分钟。',
   'menu.publishAll': "把 {n} 条草稿发布到 {platform}",
   'menu.queue': "加入待保存",
+  'menu.working': "处理中……",
   'menu.queued': "已加入待保存",
   'menu.unqueue': "撤销保存",
   'menu.diag.queued': "待保存",

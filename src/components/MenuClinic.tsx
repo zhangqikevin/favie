@@ -206,12 +206,25 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
     if (text === base) return
     start(async () => { await updateDraft(item.id, { description: pendingDraft }); await onChange() })
   }
+  // Immediate feedback: the button locks the instant it is clicked (server round trips can take seconds).
+  const [acting, setActing] = useState<'queue' | 'unqueue' | null>(null)
   // "Add to save queue" straight after typing: persist the text first, then queue — the blur handler may not have run yet.
-  const queueNow = () => start(async () => {
-    if (pendingDraft !== (item.draftDescription ?? null)) await updateDraft(item.id, { description: pendingDraft })
-    await queueItem(item.id)
-    await onChange()
-  })
+  const queueNow = () => {
+    if (acting) return
+    setActing('queue')
+    start(async () => {
+      try {
+        if (pendingDraft !== (item.draftDescription ?? null)) await updateDraft(item.id, { description: pendingDraft })
+        await queueItem(item.id)
+        await onChange()
+      } finally { setActing(null) }
+    })
+  }
+  const unqueueNow = () => {
+    if (acting) return
+    setActing('unqueue')
+    start(async () => { try { await unqueueItem(item.id); await onChange() } finally { setActing(null) } })
+  }
   const generating = jobs.some((j) => j.kind === 'generate')
   const saving = item.status === 'saving' || jobs.some((j) => j.kind === 'apply')
   const queued = item.status === 'queued'
@@ -282,7 +295,9 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
                 <span className="pill !py-1.5 text-xs"><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</span>
               ) : queued ? (
                 <>
-                  <button type="button" disabled={pending} onClick={() => start(async () => { await unqueueItem(item.id); await onChange() })} className="pill !py-1.5 text-xs">{t('menu.unqueue')}</button>
+                  <button type="button" disabled={pending || !!acting} onClick={unqueueNow} className="pill !py-1.5 text-xs disabled:opacity-60">
+                    {acting === 'unqueue' ? <><Spinner small /> {t('menu.working')}</> : t('menu.unqueue')}
+                  </button>
                   <span className="text-xs text-ink-500">{t('menu.queuedHint')}</span>
                 </>
               ) : (
@@ -290,7 +305,9 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
                   <button type="button" disabled={pending || generating} onClick={() => start(async () => { await aiOptimize(item.id); await onChange() })} className="pill !py-1.5 text-xs">
                     {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.optimize')}
                   </button>
-                  <button type="button" disabled={pending || generating || !hasChanges} onMouseDown={(e) => e.preventDefault()} onClick={queueNow} className="pill pill-active !py-1.5 text-xs">{t('menu.queue')}</button>
+                  <button type="button" disabled={pending || generating || !hasChanges || !!acting} onMouseDown={(e) => e.preventDefault()} onClick={queueNow} className="pill pill-active !py-1.5 text-xs disabled:opacity-60">
+                    {acting === 'queue' ? <><Spinner small /> {t('menu.working')}</> : t('menu.queue')}
+                  </button>
                   {(item.draftDescription || item.draftImageUrl) && (
                     <button type="button" disabled={pending} onClick={() => start(async () => { await discardDraft(item.id); setText(''); await onChange() })} className="text-xs text-ink-500 hover:text-ink-900">{t('menu.discard')}</button>
                   )}

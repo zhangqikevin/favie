@@ -387,6 +387,7 @@ const en = {
   'menu.pulling': 'Favie is reading the menu in its browser… this usually takes a few minutes for a full menu.',
   'menu.publishAll': "Publish {n} drafts to {platform}",
   'menu.queue': "Add to save queue",
+  'menu.working': "Working…",
   'menu.queued': "In save queue",
   'menu.unqueue': "Undo",
   'menu.diag.queued': "Waiting to sync",

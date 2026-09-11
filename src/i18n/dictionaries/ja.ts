@@ -383,6 +383,7 @@ const ja: Dictionary = {
   'menu.pulling': 'Favie がブラウザでメニューを読み取り中… フルメニューは数分かかります。',
   'menu.publishAll': "{n} 件の下書きを {platform} に公開",
   'menu.queue': "保存待ちに追加",
+  'menu.working': "処理中…",
   'menu.queued': "保存待ち",
   'menu.unqueue': "取り消す",
   'menu.diag.queued': "同期待ち",

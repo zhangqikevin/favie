@@ -383,6 +383,7 @@ const zhTW: Dictionary = {
   'menu.pulling': 'Favie 正在瀏覽器裡讀取菜單……完整菜單通常需要幾分鐘。',
   'menu.publishAll': "把 {n} 條草稿發布到 {platform}",
   'menu.queue': "加入待儲存",
+  'menu.working': "處理中……",
   'menu.queued': "已加入待儲存",
   'menu.unqueue': "撤銷儲存",
   'menu.diag.queued': "待儲存",
