@@ -253,7 +253,6 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
                 <span className="pill !py-1.5 text-xs"><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</span>
               ) : queued ? (
                 <>
-                  <span className="pill pill-active !py-1.5 text-xs opacity-70">{t('menu.queued')}</span>
                   <button type="button" disabled={pending} onClick={() => start(async () => { await unqueueItem(item.id); await onChange() })} className="pill !py-1.5 text-xs">{t('menu.unqueue')}</button>
                   <span className="text-xs text-ink-500">{t('menu.queuedHint')}</span>
                 </>
