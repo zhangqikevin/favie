@@ -205,9 +205,11 @@ open the merchant portal (Step 0 + login restore) and follow its "View store" / 
    why it could not be saved (item not found, photo rejected with the platform's message, no permission).
 
 **FAVIE_MENU_PHOTOS <platform>** — no browser, no context fetch, no login. The message gives `storefront_url`.
-Call `web_fetch` exactly once on it (`extractMode: "markdown"`, `maxChars: 200000`). The markdown lists items as
-`### name` … `$price` … `![name](https://…)`. Reply with one line and exactly one block listing every item that has
-an image line — `name` verbatim from the `###` heading, `image_url` verbatim:
+Call `web_fetch` exactly once on it (`extractMode: "markdown"`, `maxChars: 200000`). The markdown shape varies by
+platform (`![name](url)`, `[![name](url)](link)`, images inside list items or under headings). Collect EVERY dish
+image: `name` = the image's alt text or the nearest item name, `image_url` = the address verbatim (Uber Eats:
+tb-static.uber.com, DoorDash: img.cdn4dd.com). Skip the store header, logo, banner and promo images. A truncated
+fetch is fine — return what you have. Reply with one line and exactly one block:
 
 ````
 ```favie-menu-photos
