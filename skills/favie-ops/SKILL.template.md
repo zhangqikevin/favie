@@ -149,8 +149,15 @@ connected right now, that is the whole point of the handoff).
 **FAVIE_MENU_PULL <platform>** — read the store's whole menu from its PUBLIC storefront. Change nothing.
 No login is needed for this page. The message gives `storefront_url` when Favie knows it; otherwise
 open the merchant portal (Step 0 + login restore) and follow its "View store" / "Preview menu" link.
-1. `browser action:"session" op:"restart"` with the context's `login_label` (needed only so the profile
-   lock is respected), then navigate to the storefront URL. Close any address / promo modal.
+1. `browser action:"session" op:"restart"` with the context's `login_label` (this also carries the
+   merchant login cookies, which usually lets the storefront load without a bot check), then navigate to
+   the storefront URL. Close any address / promo modal.
+   - If the page is a security check ("One more step", "automated security check", a CAPTCHA), do NOT
+     try to solve it. Instead open the merchant portal (Step 0 + login restore) — Uber Eats:
+     `https://merchants.ubereats.com/manager/menu` (pick the store, open the menu editor and read the
+     item list there: category, name, price, description text, whether an item has a photo, "Sold out");
+     DoorDash: `https://www.doordash.com/merchant/menu-editor`. Same output format. Do not click into
+     items unless the list hides the description; then open at most the items in one category at a time.
 2. Take a `snapshot` (mode "full"). Then loop: `act` kind `scroll` down three times → `snapshot` (full)
    again. The page renders each category only when it scrolls into view. Stop when the LAST category
    heading has items rendered under it, or after 12 rounds. Do not click items.
