@@ -177,10 +177,18 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
   const t = useT()
   const intl = INTL_TAG[useLocale()]
   const [open, setOpen] = useState(false)
-  const [text, setText] = useState(item.draftDescription ?? '')
+  // The editor starts from the draft when there is one, else from what the platform currently shows.
+  const base = item.draftDescription ?? item.description ?? ''
+  const [text, setText] = useState(base)
   const [pending, start] = useTransition()
   const fileRef = useRef<HTMLInputElement>(null)
-  useEffect(() => { setText(item.draftDescription ?? '') }, [item.draftDescription])
+  useEffect(() => { setText(item.draftDescription ?? item.description ?? '') }, [item.draftDescription, item.description])
+  const commitText = () => {
+    if (text === base) return
+    // Typing the platform's own text back means "no change": drop the draft instead of storing a copy.
+    const next = text.trim() === (item.description ?? '').trim() ? null : text
+    start(async () => { await updateDraft(item.id, { description: next }); await onChange() })
+  }
   const generating = jobs.some((j) => j.kind === 'generate')
   const saving = item.status === 'saving' || jobs.some((j) => j.kind === 'apply')
   const queued = item.status === 'queued'
@@ -216,10 +224,9 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
         <span className="text-sm font-semibold">{money(item.priceCents)}</span>
         <p className={`line-clamp-3 text-sm ${shown ? 'text-ink-700' : 'italic text-ink-300'}`}>{shown || t('menu.noDesc')}</p>
         <div className="flex flex-wrap gap-2 lg:justify-end">
-          <button type="button" disabled={pending || generating || frozen} onClick={() => start(async () => { await aiOptimize(item.id); await onChange() })} className="pill pill-active !py-1.5 text-xs">
-            {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.optimize')}
+          <button type="button" onClick={() => setOpen((o) => !o)} className="pill !py-1.5 text-xs">
+            {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.edit')}
           </button>
-          <button type="button" onClick={() => setOpen((o) => !o)} className="pill !py-1.5 text-xs">{t('menu.edit')}</button>
         </div>
       </div>
       {generating && jobs[0]?.note && <p className="mt-2 text-xs text-ink-500 lg:pl-[88px]">{t('menu.agentBusy', { note: jobs[0].note })}</p>}
@@ -245,8 +252,8 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
           </div>
           <div className="space-y-2">
             <label className="text-xs font-medium text-ink-700">{t('menu.draftDesc')}</label>
-            <textarea value={text} disabled={frozen} onChange={(e) => setText(e.target.value)} onBlur={() => { if (text !== (item.draftDescription ?? '')) start(async () => { await updateDraft(item.id, { description: text }); await onChange() }) }}
-              rows={5} className="input !rounded-2xl text-sm leading-relaxed" placeholder={item.description ?? ''} />
+            <textarea value={text} disabled={frozen} onChange={(e) => setText(e.target.value)} onBlur={commitText}
+              rows={5} className="input !rounded-2xl text-sm leading-relaxed" placeholder={t('menu.noDesc')} />
             {item.lastError && item.status === 'failed' && <p className="text-xs text-red-700">{item.lastError}</p>}
             <div className="flex flex-wrap items-center gap-2">
               {saving ? (
@@ -258,7 +265,10 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
                 </>
               ) : (
                 <>
-                  <button type="button" disabled={pending || (!item.draftDescription && !item.draftImageUrl)} onClick={() => start(async () => { await queueItem(item.id); await onChange() })} className="pill pill-active !py-1.5 text-xs">{t('menu.queue')}</button>
+                  <button type="button" disabled={pending || generating} onClick={() => start(async () => { await aiOptimize(item.id); await onChange() })} className="pill !py-1.5 text-xs">
+                    {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.optimize')}
+                  </button>
+                  <button type="button" disabled={pending || generating || (!item.draftDescription && !item.draftImageUrl)} onClick={() => start(async () => { await queueItem(item.id); await onChange() })} className="pill pill-active !py-1.5 text-xs">{t('menu.queue')}</button>
                   {(item.draftDescription || item.draftImageUrl) && (
                     <button type="button" disabled={pending} onClick={() => start(async () => { await discardDraft(item.id); setText(''); await onChange() })} className="text-xs text-ink-500 hover:text-ink-900">{t('menu.discard')}</button>
                   )}
