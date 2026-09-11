@@ -65,6 +65,9 @@ async function runAgentTurn(restaurantId: string, message: string, jobId: string
   return { text: res.text, outcome: res.outcome, runId: run!.id }
 }
 
+/** Name key: NFKC folds CJK radical / compatibility variants (⽣ vs 生), then case and whitespace. */
+const norm = (v: string | null | undefined) => (v ?? '').normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim()
+
 function fenced(text: string, lang: string): unknown | null {
   const re = new RegExp('```' + lang + '\\s*\\n([\\s\\S]*?)\\n```', 'g')
   let last: string | null = null
@@ -159,7 +162,7 @@ export async function ingestMenu(jobId: string, text: string) {
     let sales: Awaited<ReturnType<ReturnType<typeof zoodataFor>['client']['getMenuItems']>> = []
     try { sales = (await zoodataFor(r!).client.getMenuItems()).filter((m) => m.platform === toZoodataPlatform(job.platform)) } catch { sales = [] }
     const byId = new Map(sales.filter((m) => m.platformItemId).map((m) => [m.platformItemId!, m]))
-    const byName = new Map(sales.map((m) => [m.name.trim().toLowerCase(), m]))
+    const byName = new Map(sales.map((m) => [norm(m.name), m]))
 
     const now = new Date()
     const seen = new Set<string>()
@@ -167,12 +170,12 @@ export async function ingestMenu(jobId: string, text: string) {
     for (const it of parsed.items) {
       if (!it?.name) continue
       i++
-      const key = it.external_id ? `id:${it.external_id}` : `name:${(it.category ?? '').trim().toLowerCase()}/${it.name.trim().toLowerCase()}`
+      const key = it.external_id ? `id:${it.external_id}` : `name:${norm(it.category)}/${norm(it.name)}`
       if (seen.has(key)) continue
       seen.add(key)
       const photo = it.image_url ? await photoFlags(it.image_url) : { photoMissing: it.has_photo === false, photoPoor: false }
       const desc = descriptionFlags(it.description)
-      const s = (it.external_id ? byId.get(it.external_id) : undefined) ?? byName.get(it.name.trim().toLowerCase())
+      const s = (it.external_id ? byId.get(it.external_id) : undefined) ?? byName.get(norm(it.name))
       const values = {
         restaurantId: job.restaurantId, platform: job.platform, itemKey: key, externalId: it.external_id ?? null, category: it.category ?? null, name: it.name,
         description: it.description ?? null, priceCents: it.price_cents ?? s?.priceCents ?? null, imageUrl: photo.photoMissing ? null : (it.image_url ?? null),
@@ -187,12 +190,12 @@ export async function ingestMenu(jobId: string, text: string) {
       if (i % 20 === 0) await note(jobId, `Checked ${i} of ${parsed.items.length} items…`)
     }
     // Items Zoodata saw selling recently but the storefront does not show are hidden (or removed) on the platform.
-    const seenNames = new Set(parsed.items.map((x) => x.name.trim().toLowerCase()))
+    const seenNames = new Set(parsed.items.map((x) => norm(x.name)))
     let hidden = 0
     for (const m of sales) {
-      if (!m.orderCnt || seenNames.has(m.name.trim().toLowerCase())) continue
+      if (!m.orderCnt || seenNames.has(norm(m.name))) continue
       if (/^(add|extra|choose|select|no |with )/i.test(m.name)) continue // modifiers, not items
-      const key = `name:${(m.category ?? '').trim().toLowerCase()}/${m.name.trim().toLowerCase()}`
+      const key = `name:${norm(m.category)}/${norm(m.name)}`
       if (seen.has(key)) continue
       seen.add(key); hidden++
       const values = { restaurantId: job.restaurantId, platform: job.platform, itemKey: key, externalId: m.platformItemId, category: m.category, name: m.name, description: null, priceCents: m.priceCents, imageUrl: null, availability: 'hidden', unit: null, position: 9000 + hidden, orderCnt: m.orderCnt, raw: { from: 'zoodata' }, pulledAt: now, photoMissing: false, photoPoor: false, descMissing: false, descThin: false, updatedAt: now }
