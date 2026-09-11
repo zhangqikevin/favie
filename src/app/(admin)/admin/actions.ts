@@ -166,3 +166,13 @@ export async function clearFirecrawlKey() {
   await deleteSetting(SETTING_KEYS.firecrawlApiKey)
   revalidatePath('/admin/settings')
 }
+
+/** Menu Clinic: which image model the agent's image_generate tool uses ("provider/model" or a provider name). */
+export async function saveMenuImageModel(_prev: AdminState, fd: FormData): Promise<AdminState> {
+  const user = await requireAdmin()
+  const model = String(fd.get('model') ?? '').trim()
+  if (!/^[a-z0-9][a-z0-9._/-]{1,60}$/i.test(model)) return { error: 'Use provider/model, e.g. openai/gpt-image-1.5.' }
+  await setSetting(SETTING_KEYS.menuImageModel, model, { userId: user.id })
+  revalidatePath('/admin/menu-prompts')
+  return { ok: `Dish photos now use ${model}.` }
+}

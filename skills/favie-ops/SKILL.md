@@ -22,6 +22,7 @@ The backend's message starts with a keyword. Jump straight to that section:
 | `FAVIE_MENU_PULL <platform>` | "Menu Clinic" — read the whole menu, change nothing, reply with a `favie-menu` block | Yes |
 | `FAVIE_MENU_APPLY <platform>` | "Menu Clinic" — executor mode: run the numbered browser steps in the message exactly, write the owner-approved descriptions / photos | Yes |
 | `FAVIE_MENU_DESCRIBE` | "Menu Clinic" — write bilingual dish descriptions; no browser | **No.** Text only |
+| `FAVIE_MENU_IMAGE` | "Menu Clinic" — generate ONE dish photo with `image_generate`, publish it, reply with a `favie-menu-image` block; no browser | **No.** image_generate only |
 | `FAVIE_MENU_PHOTOS <platform>` | "Menu Clinic" — one `web_fetch` of the public storefront, reply with a `favie-menu-photos` block | **No.** web_fetch only |
 | anything else (the daily cron message) | Mode `daily` | Yes |
 
@@ -224,6 +225,23 @@ fetch is fine — return what you have. Reply with one line and exactly one bloc
 { "items": [ { "name": "...", "image_url": "https://..." } ] }
 ```
 ````
+
+**FAVIE_MENU_IMAGE** — no browser, no context fetch. The message gives `model`, `prompt`, `filename`.
+1. `image_generate` action "generate" with exactly that prompt and model, size "1024x1024", quality "high",
+   outputFormat "jpeg", count 1, timeoutMs 300000. It runs as a background task: do NOT call generate again.
+   Wait for the completion event (yield if the runtime asks you to); poll action "status" at most every 10 s.
+2. When the image is complete: `attachment_publish` with the result's attachmentId (or materialize it to
+   `/workspace/output/<filename>` and publish that path) so Favie can download it. Also `artifact_publish`
+   the file when a path exists.
+3. Reply — as your final assistant message, not via the `message` tool — with one line and exactly one block:
+
+````
+```favie-menu-image
+{ "model": "<model reported by the tool>", "r2Key": "...", "attachmentId": "...", "url": "<attachment or artifact URL>", "seconds": 0, "error": null }
+```
+````
+
+If generation fails, reply with the same block, `url: null` and the tool's error text in `error`.
 
 **FAVIE_MENU_DESCRIBE** — no browser, no context fetch. The message lists dishes (name, category,
 current description, cuisine hints) and carries the *writing guidelines* (length, tone, what to cover);

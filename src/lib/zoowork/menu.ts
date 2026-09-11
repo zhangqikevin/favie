@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNotNull, ne } from 'drizzle-orm'
 import { canonicalStorefrontUrl, firecrawlKey, readStorefront, searchStorefront } from '@/lib/menu/firecrawl'
-import { menuDescribePrompt } from '@/lib/menu/prompts'
+import { menuDescribePrompt, menuImageModel } from '@/lib/menu/prompts'
+import { generateDishImageViaAgent } from './menu-image'
 import { buildApplyScript } from '@/lib/menu/recipes'
 import { toolCall, type SessionEvent } from '@zoowork-ai/sdk'
 import { db, schema } from '@/lib/db/client'
@@ -8,7 +9,7 @@ import { zoowork, logged } from './client'
 import { streamTurn } from './streamTurn'
 import { collectRun, localDate } from './collect'
 import { descriptionFlags, photoFlags } from '@/lib/menu/diagnose'
-import { dishPrompt, generateDishImage, imageGenerationAvailable } from '@/lib/ai/image'
+import { dishPrompt, generateDishImage, imageGenerationAvailable, directOpenAiAvailable } from '@/lib/ai/image'
 import { putImage } from '@/lib/storage'
 import { zoodataFor, toZoodataPlatform } from '@/lib/zoodata'
 import type { Platform } from '@/lib/db/schema'
@@ -405,14 +406,19 @@ export async function runMenuGenerate(jobId: string) {
     const { en, zh } = splitBilingual(got)
     if (!en) throw new Error('the agent did not return a description')
     await db.update(schema.menuItems).set({ aiDescriptionEn: en, aiDescriptionZh: zh || null, draftDescription: zh ? `${en}\n${zh}` : en, status: 'draft', updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
-    if (imageGenerationAvailable()) {
-      await note(jobId, 'Generating the photo…')
-      const img = await generateDishImage(await dishPrompt(item.name, { category: item.category, cuisine: r?.cuisine, descriptionEn: en }))
+    // Photo: the agent's image_generate tool (ZooWork-hosted providers); the legacy direct-OpenAI path only when forced.
+    await note(jobId, 'Generating the photo…')
+    try {
+      const prompt = await dishPrompt(item.name, { category: item.category, cuisine: r?.cuisine, descriptionEn: en })
+      const img = process.env.MENU_IMAGE_DIRECT_OPENAI === '1' && directOpenAiAvailable()
+        ? { ...(await generateDishImage(prompt)), model: 'openai-direct', artifactUrl: null as string | null, r2Key: null as string | null, ms: 0 }
+        : await generateDishImageViaAgent(job.restaurantId, { prompt, model: await menuImageModel(), filename: `${item.id}.jpg`, jobId })
       const url = await putImage(job.restaurantId, `${item.id}-ai-${Date.now()}.jpg`, img.bytes, img.contentType)
-      await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
+      await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, raw: { ...(item.raw as Record<string, unknown> ?? {}), aiImage: { model: img.model, r2Key: img.r2Key, artifactUrl: img.artifactUrl, prompt, ms: img.ms } }, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
       await note(jobId, 'Description and photo ready', { status: 'done' })
-    } else {
-      await note(jobId, 'Description ready (photo generation not configured)', { status: 'done' })
+    } catch (e) {
+      console.warn('[menuGenerate] photo failed:', (e as Error).message)
+      await note(jobId, `Description ready · photo failed: ${(e as Error).message.slice(0, 160)}`, { status: 'done' })
     }
   } catch (e) {
     await fail(jobId, (e as Error).message)

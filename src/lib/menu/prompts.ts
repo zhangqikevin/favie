@@ -11,11 +11,19 @@ Be specific to this dish and this restaurant's cuisine; vary sentence openings a
 No clichés ("mouth-watering", "authentic", "delicious"), no health or allergen claims you cannot know, no prices, no emojis.
 Keep each description at or under 380 characters. If the current description already says something specific (portion, spice level, sides), keep those facts.`
 
-/** Placeholders: {name} {category} {cuisine} {description_en} — empty when unknown. */
-export const DEFAULT_IMAGE_PROMPT = `Professional food photograph of "{name}" ({category}, {cuisine}) for a restaurant delivery app listing.
+/** Placeholders: {name} {category} {cuisine} {description_en} — empty when unknown. Tuned for Uber Eats / DoorDash listing photos (square, food-first, no props). */
+export const DEFAULT_IMAGE_PROMPT = `Ultra-realistic food photograph of "{name}" ({category}, {cuisine}) for a restaurant delivery app listing.
 The dish: {description_en}
-Single plated dish, centered, filling most of the frame, on a clean neutral table with soft natural daylight from the side, shallow depth of field, appetizing steam or glossy sauce where natural, realistic colors.
-No people, no hands, no text, no logos, no extra props. Square 1:1 composition, sharp focus on the food.`
+Show the dish exactly as a customer would receive it: generous portion, fresh and glossy, natural textures (glaze, steam, crisp edges) rendered faithfully, plated in a simple white ceramic bowl or plate. Camera at a 45-degree angle with an 85mm lens look, shallow depth of field, soft natural window light from the left, faint steam where the dish is served hot.
+Clean light-grey linen table, minimal background. No people, no hands, no chopsticks or cutlery, no text, no logos, no watermark, no extra props, nothing outside the frame. Centered composition, square 1:1, tack-sharp focus on the food.`
+
+/** Default image model for the agent's image_generate tool ("provider/model"; provider alone picks its default). */
+export const DEFAULT_IMAGE_MODEL = 'openai/gpt-image-1.5'
+export const IMAGE_MODEL_CHOICES = ['openai/gpt-image-1.5', 'openai/gpt-image-2', 'gemini', 'grok'] as const
+
+export async function menuImageModel(): Promise<string> {
+  return (await getSetting(SETTING_KEYS.menuImageModel))?.value?.trim() || DEFAULT_IMAGE_MODEL
+}
 
 export async function menuDescribePrompt(): Promise<string> {
   return (await getSetting(SETTING_KEYS.menuDescribePrompt))?.value?.trim() || DEFAULT_DESCRIBE_PROMPT

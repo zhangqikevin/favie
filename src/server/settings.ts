@@ -7,6 +7,7 @@ export const SETTING_KEYS = {
   zooworkDefaultModel: 'zoowork_default_model',
   menuDescribePrompt: 'menu_describe_prompt',
   menuImagePrompt: 'menu_image_prompt',
+  menuImageModel: 'menu_image_model',
   firecrawlApiKey: 'firecrawl_api_key',
 } as const
 type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS]
