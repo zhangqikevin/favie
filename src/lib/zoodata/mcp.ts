@@ -1,4 +1,4 @@
-import type { ChannelRow, DateRange, PlatformDailyRow, PlatformHealthRow, ZoodataClient, ZoodataRestaurant } from './types'
+import type { ChannelRow, DateRange, PlatformDailyRow, PlatformHealthRow, ZoodataClient, ZoodataMenuItem, ZoodataRestaurant } from './types'
 
 /**
  * Minimal MCP streamable-http client for the Zoodata restaurant server (JSON-RPC over POST).
@@ -27,6 +27,15 @@ export class McpZoodataClient implements ZoodataClient {
     const env = JSON.parse(text) as { success: boolean; data: T; error: unknown }
     if (r.isError || !env.success) throw new Error(`zoodata ${name}: ${JSON.stringify(env.error ?? text).slice(0, 300)}`)
     return env.data
+  }
+
+  /** restaurant_v2_menu_items: every item ever sold with lifetime order counts (no photos or descriptions). */
+  async getMenuItems(): Promise<ZoodataMenuItem[]> {
+    const d = await this.call<{ items: Record<string, unknown>[] }>('restaurant_v2_menu_items', {})
+    return (d.items ?? []).map((m) => ({
+      platform: String(m.platform ?? ''), platformItemId: (m.platformItemId as string | null) ?? null, name: String(m.name ?? ''), category: (m.category as string | null) ?? null,
+      priceCents: typeof m.latestPriceAmount === 'number' ? m.latestPriceAmount : null, orderCnt: typeof m.orderCnt === 'number' ? m.orderCnt : null,
+    }))
   }
 
   async listRestaurants() {

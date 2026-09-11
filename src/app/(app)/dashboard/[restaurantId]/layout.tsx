@@ -18,6 +18,7 @@ export default async function DashboardLayout({ children, params }: { children: 
   const { t } = await getT()
   const items: NavItem[] = [
     { href: base, key: 'dash.nav.activity', exact: true },
+    { href: `${base}/menu`, key: 'dash.nav.menu' },
     { href: `${base}/orders`, key: 'dash.nav.orders' },
     { href: `${base}/marketing`, key: 'dash.nav.adCaps' },
     { href: `${base}/settings`, key: 'dash.nav.settings' },

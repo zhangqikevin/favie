@@ -95,8 +95,15 @@ export async function confirmLoggedIn(platform: 'uber_eats' | 'doordash') {
   await enqueueConfirmLogin(r.id, platform).catch((e) => console.warn('[onboarding] confirm enqueue failed', e))
 }
 
+/** After connecting: the Menu Clinic step (skippable). Kept name for the connect panel's footer. */
 export async function continueToPreferences() {
   const { r } = await ownRestaurant()
-  if (r.onboardingStep === 'connect') await db.update(schema.restaurants).set({ onboardingStep: 'preferences', updatedAt: new Date() }).where(eq(schema.restaurants.id, r.id))
+  if (r.onboardingStep === 'connect') await db.update(schema.restaurants).set({ onboardingStep: 'menu', updatedAt: new Date() }).where(eq(schema.restaurants.id, r.id))
+  redirect(r.onboardingStep === 'done' ? `/dashboard/${r.id}` : '/onboarding/menu')
+}
+
+export async function continueFromMenu() {
+  const { r } = await ownRestaurant()
+  if (r.onboardingStep === 'menu') await db.update(schema.restaurants).set({ onboardingStep: 'preferences', updatedAt: new Date() }).where(eq(schema.restaurants.id, r.id))
   redirect(r.onboardingStep === 'done' ? `/dashboard/${r.id}` : '/onboarding/preferences')
 }

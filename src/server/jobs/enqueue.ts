@@ -12,6 +12,9 @@ export const JOBS = {
   manualRun: 'manual-run',
   weeklyDigest: 'weekly-digest', // placeholder in V1
   decommissionAgent: 'decommission-agent',
+  menuPull: 'menu-pull',
+  menuGenerate: 'menu-generate',
+  menuSave: 'menu-save',
 } as const
 
 declare global {
@@ -61,4 +64,20 @@ export async function enqueueConfirmLogin(restaurantId: string, platform: 'uber_
 export async function enqueueManualRun(restaurantId: string, prompt?: string) {
   const b = await boss()
   await b.send(JOBS.manualRun, { restaurantId, prompt }, { singletonKey: `manual:${restaurantId}`, singletonSeconds: 30, retryLimit: 0, expireInSeconds: 30 * 60 })
+}
+
+/** Menu Clinic: read the platform menu (browser) — one per restaurant+platform at a time. */
+export async function enqueueMenuPull(jobId: string, restaurantId: string, platform: 'uber_eats' | 'doordash') {
+  const b = await boss()
+  await b.send(JOBS.menuPull, { jobId, restaurantId, platform }, { singletonKey: `menu-pull:${restaurantId}:${platform}`, singletonSeconds: 60, retryLimit: 0, expireInSeconds: 40 * 60 })
+}
+/** Menu Clinic: AI description + photo for one item (no browser). */
+export async function enqueueMenuGenerate(jobId: string, menuItemId: string) {
+  const b = await boss()
+  await b.send(JOBS.menuGenerate, { jobId, menuItemId }, { singletonKey: `menu-gen:${menuItemId}`, singletonSeconds: 30, retryLimit: 0, expireInSeconds: 15 * 60 })
+}
+/** Menu Clinic: write one approved item to the platform (browser). */
+export async function enqueueMenuSave(jobId: string, menuItemId: string) {
+  const b = await boss()
+  await b.send(JOBS.menuSave, { jobId, menuItemId }, { singletonKey: `menu-save:${menuItemId}`, singletonSeconds: 60, retryLimit: 0, expireInSeconds: 30 * 60 })
 }

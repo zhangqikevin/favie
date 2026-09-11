@@ -99,6 +99,13 @@
       "when": 1789074725797,
       "tag": "0013_known_cobalt_man",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789087276525,
+      "tag": "0014_spicy_hiroim",
+      "breakpoints": true
     }
   ]
 }

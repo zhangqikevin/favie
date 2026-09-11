@@ -8,11 +8,11 @@ import {
 export const platformEnum = pgEnum('platform', ['uber_eats', 'doordash'])
 export const actionPlatformEnum = pgEnum('action_platform', ['uber_eats', 'doordash', 'none'])
 export const goalEnum = pgEnum('restaurant_goal', ['orders', 'profit'])
-export const onboardingStepEnum = pgEnum('onboarding_step', ['billing', 'connect', 'preferences', 'done'])
+export const onboardingStepEnum = pgEnum('onboarding_step', ['billing', 'connect', 'menu', 'preferences', 'done'])
 export const agentKindEnum = pgEnum('agent_kind', ['delivery-ops'])
 export const agentStatusEnum = pgEnum('agent_status', ['none', 'creating', 'created', 'running', 'ready', 'failed'])
 export const connectionStatusEnum = pgEnum('connection_status', ['not_started', 'awaiting_login', 'verifying', 'select_store', 'connected', 'broken'])
-export const runKindEnum = pgEnum('run_kind', ['daily', 'verify', 'manual'])
+export const runKindEnum = pgEnum('run_kind', ['daily', 'verify', 'manual', 'menu'])
 export const runStatusEnum = pgEnum('run_status', ['discovered', 'running', 'finished', 'collected', 'parse_failed', 'timed_out', 'interrupted'])
 export const runOutcomeEnum = pgEnum('run_outcome', ['succeeded', 'failed', 'aborted'])
 export const actionCategoryEnum = pgEnum('action_category', [
@@ -20,8 +20,12 @@ export const actionCategoryEnum = pgEnum('action_category', [
   'item_availability_flagged', 'store_status_checked', 'store_offline_flagged', 'review_flagged',
   'issue_flagged', 'no_action', 'login_failed', 'store_not_visible', 'run_unparsed', 'interrupted',
   'recommendation', // something only the owner can do (photos, bundles, menu names); never needs_attention
+  'menu_item_updated', // Menu Clinic: description / photo written to the platform
 ])
 export const metricSourceEnum = pgEnum('metric_source', ['zoodata', 'mock', 'platform_ui'])
+export const menuItemStatusEnum = pgEnum('menu_item_status', ['synced', 'draft', 'saving', 'saved', 'failed'])
+export const menuJobKindEnum = pgEnum('menu_job_kind', ['pull', 'generate', 'save'])
+export const menuJobStatusEnum = pgEnum('menu_job_status', ['queued', 'running', 'done', 'failed'])
 export const subscriptionStatusEnum = pgEnum('subscription_status', [
   'incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused',
 ])
@@ -294,3 +298,54 @@ export const appSettings = pgTable('app_settings', {
   updatedByUserId: uuid('updated_by_user_id').references(() => users.id),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ---------------------------------------------------------------------------------------------
+// Menu Clinic — the platform menus as the agent read them, plus Favie's drafts (AI text, photos).
+export const menuItems = pgTable('menu_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
+  platform: platformEnum('platform').notNull(),
+  // Stable key within (restaurant, platform): the platform's item id when we have it, else category/name.
+  itemKey: text('item_key').notNull(),
+  externalId: text('external_id'),
+  category: text('category'),
+  name: text('name').notNull(),
+  description: text('description'),
+  priceCents: integer('price_cents'),
+  imageUrl: text('image_url'),
+  availability: text('availability'), // available | sold_out | hidden | unknown
+  unit: text('unit'), // "each", "per lb" … when the platform shows one
+  position: integer('position'),
+  orderCnt: integer('order_cnt'), // from Zoodata when the restaurant has a key
+  raw: jsonb('raw'),
+  pulledAt: timestamp('pulled_at', { withTimezone: true }),
+  // Diagnostics (computed at pull time)
+  photoMissing: boolean('photo_missing').notNull().default(false),
+  photoPoor: boolean('photo_poor').notNull().default(false),
+  descMissing: boolean('desc_missing').notNull().default(false),
+  descThin: boolean('desc_thin').notNull().default(false),
+  // Favie drafts
+  aiDescriptionEn: text('ai_description_en'),
+  aiDescriptionZh: text('ai_description_zh'),
+  aiImageUrl: text('ai_image_url'),
+  customImageUrl: text('custom_image_url'),
+  draftDescription: text('draft_description'), // what will be written (owner-edited); null = untouched
+  draftImageUrl: text('draft_image_url'),      // chosen photo to upload; null = keep the platform photo
+  status: menuItemStatusEnum('status').notNull().default('synced'),
+  lastSavedAt: timestamp('last_saved_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  ...timestamps,
+}, (t) => [uniqueIndex('menu_items_restaurant_platform_key_uq').on(t.restaurantId, t.platform, t.itemKey), index('menu_items_restaurant_idx').on(t.restaurantId, t.platform)])
+
+export const menuJobs = pgTable('menu_jobs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
+  platform: platformEnum('platform').notNull(),
+  kind: menuJobKindEnum('kind').notNull(),
+  menuItemId: uuid('menu_item_id').references(() => menuItems.id),
+  status: menuJobStatusEnum('status').notNull().default('queued'),
+  note: text('note'),   // live progress line for the UI
+  error: text('error'),
+  runId: uuid('run_id'),
+  ...timestamps,
+}, (t) => [index('menu_jobs_restaurant_idx').on(t.restaurantId, t.createdAt)])

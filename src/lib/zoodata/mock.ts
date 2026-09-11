@@ -15,6 +15,8 @@ function* days(range: DateRange) {
 export class MockZoodataClient implements ZoodataClient {
   constructor(private seed = 'favie-mock') {}
 
+  async getMenuItems() { return [] }
+
   async listRestaurants(): Promise<ZoodataRestaurant[]> {
     return [{ restaurantId: 'mock', name: 'Mock Restaurant', timezone: 'America/Los_Angeles', platformBindings: [{ platform: 'doordash', platformStoreId: '1' }, { platform: 'ubereats', platformStoreId: '2' }] }]
   }

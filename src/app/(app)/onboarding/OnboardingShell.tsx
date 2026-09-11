@@ -6,11 +6,12 @@ import { getT } from '@/i18n/server'
 const STEPS = [
   { key: 'billing', label: 'ob.steps.billing' },
   { key: 'connect', label: 'ob.steps.connect' },
+  { key: 'menu', label: 'ob.steps.menu' },
   { key: 'preferences', label: 'ob.steps.preferences' },
 ] as const
 
-export async function OnboardingShell({ step, title, subtitle, children }: {
-  step: (typeof STEPS)[number]['key']; title: string; subtitle?: string; children: React.ReactNode
+export async function OnboardingShell({ step, title, subtitle, children, wide = false }: {
+  step: (typeof STEPS)[number]['key']; title: string; subtitle?: string; children: React.ReactNode; wide?: boolean
 }) {
   const { t } = await getT()
   const idx = STEPS.findIndex((s) => s.key === step)
@@ -40,7 +41,7 @@ export async function OnboardingShell({ step, title, subtitle, children }: {
           <LanguageSwitcher />
         </div>
       </header>
-      <div className="container-x max-w-3xl py-12">
+      <div className={`container-x py-12 ${wide ? 'max-w-6xl' : 'max-w-3xl'}`}>
         <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">{t('ob.step', { n: idx + 1, total: STEPS.length })}</p>
         <h1 className="font-display mt-2 text-3xl font-bold tracking-tight">{title}</h1>
         {subtitle && <p className="mt-2 text-ink-500">{subtitle}</p>}

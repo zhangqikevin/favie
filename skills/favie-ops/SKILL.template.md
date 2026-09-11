@@ -19,6 +19,9 @@ The backend's message starts with a keyword. Jump straight to that section:
 | `FAVIE_HANDOFF <platform>` | "Connecting a platform (handoff)" — three browser calls, reply JSON | **No.** The message carries every parameter (loginLabel, egressCountry, portal URL, reason) |
 | `FAVIE_CONFIRM_LOGIN <platform>` | "FAVIE_CONFIRM_LOGIN" below — save_login, list stores | **No.** Same session as the handoff |
 | `FAVIE_VERIFY <platform>` | Mode `verify` | Yes |
+| `FAVIE_MENU_PULL <platform>` | "Menu Clinic" — read the whole menu, change nothing, reply with a `favie-menu` block | Yes |
+| `FAVIE_MENU_SAVE <platform>` | "Menu Clinic" — write ONE item's description / photo the owner approved | Yes |
+| `FAVIE_MENU_DESCRIBE` | "Menu Clinic" — write bilingual dish descriptions; no browser | **No.** Text only |
 | anything else (the daily cron message) | Mode `daily` | Yes |
 
 ## Hard rules
@@ -32,7 +35,8 @@ The backend's message starts with a keyword. Jump straight to that section:
    recommend) and report each change you *would* have made as `no_action` with a title starting
    `Observe-only:` and the intended change in `after`. Stay inside the monthly marketing cap
    (ads + promotions). If a platform has no cap (`marketing.cap_cents` is null) you may only observe
-   and recommend.
+   and recommend. `FAVIE_MENU_SAVE` is an explicit request from the owner for one item they approved
+   on screen; it is allowed even when `actions_enabled` is false.
 3. Never touch payout, banking, tax, legal, or account-security settings. Never accept new terms,
    agreements, or permission prompts. Never add or remove users. If a page demands any of these to
    continue, stop on that platform and report `issue_flagged` with `needs_attention: true`.
@@ -139,6 +143,64 @@ connected right now, that is the whole point of the handoff).
    array; the owner picks one. Record `role_seen` only if it is already on screen. Change nothing.
 4. If a login form is still visible: report `login: "failed"`, `login_failure_reason: "not_logged_in"`. Type nothing.
 5. Close the browser session and end with the summary block (`mode: "verify"`).
+
+## Menu Clinic (owner-triggered)
+
+**FAVIE_MENU_PULL <platform>** — read the store's whole menu. Change nothing.
+1. Step 0 (context), restore the login profile, open the platform's menu editor (Uber Eats Manager →
+   Menu; DoorDash Merchant Portal → Menu Manager) and select the store from the context.
+2. Enumerate every category and every sellable item. Per item read: `name`, `category`, `price_cents`,
+   the full `description` (open the item only if the list truncates it), `image_url` (the `src` of its
+   photo in the snapshot; `null` when there is no photo or only a placeholder), `availability`
+   (`available` / `sold_out` / `hidden` / `unknown`), `unit` when the platform shows one (e.g. "per lb"),
+   `external_id` (the platform item id when the URL or DOM shows it, else `null`), `position`.
+   Skip modifier groups and options ("Add extra noodles", "Choose spice level") — they are not items.
+3. Menus are long: prefer full-page snapshots and scrolling over clicking into items; expand collapsed
+   categories. Budget about 150 tool calls. If you cannot finish, report what you have with `truncated: true`.
+4. Close the browser. Reply with one line — `<platform>: read N items in M categories` — then exactly one block:
+
+````
+```favie-menu
+{
+  "favie_menu_version": 1,
+  "platform": "doordash" | "uber_eats",
+  "store_name": "...",
+  "truncated": false,
+  "items": [
+    { "external_id": "..." | null, "category": "...", "name": "...", "description": "..." | null,
+      "price_cents": 1299 | null, "image_url": "https://..." | null,
+      "availability": "available" | "sold_out" | "hidden" | "unknown", "unit": null, "position": 1 }
+  ]
+}
+```
+````
+
+**FAVIE_MENU_SAVE <platform>** — write the owner-approved draft for ONE item. The message carries
+`item` (name, category, external_id), `description` (new text, or null = keep the current one) and
+`image_url` (a public https URL of the new photo, or null = keep the current photo).
+1. Step 0, restore the login profile, open the menu editor, select the store, find the item — by
+   `external_id` when given, else by exact name inside its category. Open its edit form.
+2. Description given → select the description field, clear it, type the new text exactly.
+3. Image given → `exec`: `curl -fsSL -o /workspace/dish.jpg "<image_url>"`, then the browser `upload`
+   action on the item's photo input with `/workspace/dish.jpg`; wait until the platform shows the new
+   photo (crop dialogs: accept the default crop).
+4. Save the item and confirm the saved values on screen. Touch nothing else: not price, name,
+   availability, modifiers, or other items. Close the browser.
+5. End with the summary block (`mode: "verify"`): one `menu_item_updated` action with `before` /
+   `after` (description, has_photo), or one `issue_flagged` with `needs_attention: true` saying exactly
+   why it could not be saved (item not found, photo rejected with the platform's message, no permission).
+
+**FAVIE_MENU_DESCRIBE** — no browser, no context fetch. The message lists dishes (name, category,
+current description, cuisine hints). For each write `description_en` and `description_zh`: 3–4
+sentences covering flavor profile, main ingredients, cooking method, and what it comes with or who
+it suits. Be specific to the dish; vary sentence openings across dishes; no clichés ("mouth-watering",
+"authentic"), no health or allergen claims you cannot know; each ≤ 380 characters. Reply with exactly:
+
+````
+```favie-menu-text
+{ "items": [ { "name": "...", "description_en": "...", "description_zh": "..." } ] }
+```
+````
 
 ## Mode `verify`
 

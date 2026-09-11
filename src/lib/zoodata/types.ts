@@ -29,7 +29,10 @@ export interface PlatformHealthRow {
   raw: Record<string, unknown>
 }
 
+export interface ZoodataMenuItem { platform: string; platformItemId: string | null; name: string; category: string | null; priceCents: number | null; orderCnt: number | null }
+
 export interface ZoodataClient {
+  getMenuItems(): Promise<ZoodataMenuItem[]>
   listRestaurants(): Promise<ZoodataRestaurant[]>
   getChannelEconomics(range: DateRange): Promise<ChannelRow[]>
   getPlatformDaily(range: DateRange, platform?: 'doordash' | 'ubereats'): Promise<PlatformDailyRow[]>
