@@ -123,14 +123,18 @@ and costs time).
 
 ## Connecting a platform (handoff) — onboarding only
 
-**FAVIE_HANDOFF <platform>** (message from the backend). The owner is waiting on this link, so it
-is a three-call task with the parameters given in the message (no context fetch, no store lookup;
-the `enabled` flag is about the daily routine and has no bearing here — this platform is being
-connected right now, that is the whole point of the handoff).
-1. `browser action:"session" op:"restart"` with the given `loginLabel` and `egressCountry: "US"`.
-2. `browser action:"navigate"` to the given portal login URL. Do not type anything.
-3. `browser action:"handoff"` with the given reason. The tool returns `{ ok, op: "handoff", liveUrl, instructions }`.
-4. Reply with that JSON verbatim and nothing else. **Leave the browser session open.** Your turn ends here.
+**FAVIE_HANDOFF <platform>** (messages from the backend). The owner is waiting on this link. The
+backend sends the task as separate messages — STEP A, then STEP B — do exactly the step asked and
+nothing more (no context fetch, no store lookup; the `enabled` flag is about the daily routine and has
+no bearing here — this platform is being connected right now, that is the whole point of the handoff).
+- STEP A: `browser action:"session" op:"restart"` with the given `loginLabel` and `egressCountry: "US"`;
+  `browser action:"navigate"` to the given portal login URL; wait; `snapshot`; reply with one line
+  `PAGE <url> | <title>`. Do not type anything. Do NOT call handoff in this step — the handoff tool
+  does not navigate, so a handoff before the page is open shows the owner a blank browser.
+- STEP B: `browser action:"handoff"` with the given reason. The tool returns `{ ok, op: "handoff", liveUrl, instructions }`.
+  Reply with that JSON verbatim and nothing else. **Leave the browser session open.** Your turn ends here.
+- If a browser call answers 409 "profile is locked by another session", call `session restart` once and
+  repeat the step that failed.
 
 **FAVIE_CONFIRM_LOGIN <platform>** (the owner says they finished logging in, same session):
 1. Snapshot the current page.

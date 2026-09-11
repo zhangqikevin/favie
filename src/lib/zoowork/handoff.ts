@@ -140,23 +140,47 @@ export async function startHandoff(restaurantId: string, platform: Platform) {
       await releaseBrowser(agent.zooworkAgentId, c.handoffSessionId, agent.id)
     }
   }
-  const message = [
-    `FAVIE_HANDOFF ${platform}`,
-    `loginLabel: ${label}`,
-    'egressCountry: US',
-    `portalUrl: ${PORTAL_URL[platform]}`,
-    `reason: Log in to ${PLATFORM_NAME[platform]}`,
-    'Reply with the handoff tool\'s JSON (it contains liveUrl) and leave the browser session open.',
+  // Two turns in one session. The agent used to skip the navigate step and hand off a blank browser,
+  // so step A (open the login page, prove it loaded) is checked before step B (handoff) is even asked.
+  const stepA = [
+    `FAVIE_HANDOFF ${platform} — STEP A only (do NOT call handoff yet).`,
+    `1. browser action "session" op "restart" with loginLabel "${label}" and egressCountry "US".`,
+    `2. browser action "navigate" to ${PORTAL_URL[platform]}`,
+    '3. browser action "act" kind "wait" for 3 seconds, then browser action "snapshot" (mode "efficient").',
+    `4. Reply with exactly one line: PAGE <current url> | <page title or first heading>. Type nothing into the page. Leave the browser open.`,
   ].join('\n')
   const session = await logged('createSession.handoff', agent.id, { platform }, () =>
     zc.createSession(agent.zooworkAgentId!, {
-      initial_events: [{ type: 'user.message', content: message }],
+      initial_events: [{ type: 'user.message', content: stepA }],
       metadata: { kind: 'handoff', restaurant_id: restaurantId, platform },
     }, `handoff-${restaurantId}-${platform}-${Date.now()}`))
-  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 3 * 60_000)
-  let res
   const note = progressNoter(restaurantId, platform)
-  try { res = await streamTurn(zc, agent.zooworkAgentId, session.session_id, { signal: ctl.signal, onEvent: note }) } finally { clearTimeout(t); note.stopped = true }
+  const turn = async (afterSeq: number, budgetMs: number) => {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), budgetMs)
+    try { return await streamTurn(zc, agent.zooworkAgentId, session.session_id, { signal: ctl.signal, onEvent: note, afterSeq }) } finally { clearTimeout(t) }
+  }
+  const post = async (content: string) => {
+    const prior = await zc.listAllEvents(agent.zooworkAgentId, session.session_id)
+    const afterSeq = prior.reduce((m, e) => Math.max(m, e.seq), -1)
+    await zc.postEvents(agent.zooworkAgentId, session.session_id, [{ type: 'user.message', content, idempotency_key: `handoff-${session.session_id}-${Date.now()}` }])
+    return afterSeq
+  }
+  const host = platform === 'doordash' ? 'doordash.com' : 'uber.com|ubereats.com'
+  const onPortal = (text: string) => new RegExp(`(${host})`, 'i').test(text)
+  let res
+  try {
+    res = await turn(-1, 2 * 60_000)
+    if (!onPortal(res.text)) {
+      // One retry: the first navigate sometimes lands on a blank tab or an interstitial.
+      const afterSeq = await post(`The page is not the ${PLATFORM_NAME[platform]} login page yet. browser action "navigate" to ${PORTAL_URL[platform]} again, wait 3 seconds, snapshot, and reply with the same one-line PAGE report.`)
+      res = await turn(afterSeq, 90_000)
+    }
+    const afterSeq = await post([
+      `STEP B: browser action "handoff" with reason "Log in to ${PLATFORM_NAME[platform]}".`,
+      'Reply with the handoff tool\'s JSON verbatim (it contains liveUrl) and nothing else. Leave the browser session open; your turn ends there.',
+    ].join('\n'))
+    res = await turn(afterSeq, 90_000)
+  } finally { note.stopped = true }
   const liveUrl = extractLiveUrl(res.text)
   if (!liveUrl) {
     await db.update(schema.platformConnections).set({ status: 'broken', lastError: 'Could not open the login browser. Please try again.', updatedAt: new Date() })
