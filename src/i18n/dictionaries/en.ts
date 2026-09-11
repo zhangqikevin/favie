@@ -391,6 +391,7 @@ const en = {
   'menu.unqueue': "Undo",
   'menu.diag.queued': "Waiting to sync",
   'menu.sync': "Sync {n} to {platform}",
+  'menu.sync.confirm': "Write {n} queued item(s) to {platform} now? Favie logs in once and updates them one by one; this changes your live menu.",
   'menu.status.queued': "Waiting to sync",
   'menu.queuedHint': "Frozen until synced. Undo to edit again.",
   'menu.publishing': "Favie is writing your changes to {platform}… one login, then item by item.",

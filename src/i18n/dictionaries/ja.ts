@@ -387,6 +387,7 @@ const ja: Dictionary = {
   'menu.unqueue': "取り消す",
   'menu.diag.queued': "同期待ち",
   'menu.sync': "{n} 件を {platform} に同期",
+  'menu.sync.confirm': "保存待ちの {n} 件を今 {platform} に書き込みますか？Favie が1回ログインして1件ずつ更新します。公開中のメニューが変わります。",
   'menu.status.queued': "同期待ち",
   'menu.queuedHint': "同期まで編集不可。取り消すと再編集できます。",
   'menu.publishing': "Favie が {platform} に変更を書き込んでいます…ログインは1回、その後1品ずつ。",

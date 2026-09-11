@@ -387,6 +387,7 @@ const es: Dictionary = {
   'menu.unqueue': "Deshacer",
   'menu.diag.queued': "Por sincronizar",
   'menu.sync': "Sincronizar {n} con {platform}",
+  'menu.sync.confirm': "¿Escribir {n} elemento(s) en cola en {platform} ahora? Favie inicia sesión una vez y los actualiza uno por uno; esto cambia tu menú publicado.",
   'menu.status.queued': "Por sincronizar",
   'menu.queuedHint': "Bloqueado hasta sincronizar. Deshacer para editar.",
   'menu.publishing': "Favie está escribiendo tus cambios en {platform}… un inicio de sesión y luego plato por plato.",

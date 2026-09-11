@@ -125,7 +125,9 @@ export function MenuClinic({ restaurantId, connected, initial }: {
             <h2 className="font-display text-lg font-semibold">{t('menu.diag.title')}</h2>
             <div className="flex items-center gap-3">
               {s.counts.queued > 0 && !busy && (
-                <button type="button" disabled={pending} onClick={() => start(async () => { await publishDrafts(restaurantId, platform); await refresh() })} className="pill pill-active !py-1.5 text-xs">
+                <button type="button" disabled={pending}
+                  onClick={() => { if (!window.confirm(t('menu.sync.confirm', { n: s.counts.queued, platform: LABEL[platform] }))) return; start(async () => { await publishDrafts(restaurantId, platform); await refresh() }) }}
+                  className="pill pill-active !py-1.5 text-xs">
                   {t('menu.sync', { n: s.counts.queued, platform: LABEL[platform] })}
                 </button>
               )}

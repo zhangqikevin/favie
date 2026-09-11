@@ -387,6 +387,7 @@ const zhTW: Dictionary = {
   'menu.unqueue': "撤銷儲存",
   'menu.diag.queued': "待儲存",
   'menu.sync': "同步 {n} 條到 {platform}",
+  'menu.sync.confirm': "現在把 {n} 條待儲存內容寫入 {platform}？Favie 會登入一次並逐條更新，這會改動線上菜單。",
   'menu.status.queued': "待儲存",
   'menu.queuedHint': "同步前不可編輯，點「撤銷儲存」可恢復編輯。",
   'menu.publishing': "Favie 正在把變更寫入 {platform}……登入一次，然後逐個品項寫入。",

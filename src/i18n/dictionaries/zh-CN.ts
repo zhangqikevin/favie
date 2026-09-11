@@ -387,6 +387,7 @@ const zhCN: Dictionary = {
   'menu.unqueue': "撤销保存",
   'menu.diag.queued': "待保存",
   'menu.sync': "同步 {n} 条到 {platform}",
+  'menu.sync.confirm': "现在把 {n} 条待保存内容写入 {platform}？Favie 会登录一次并逐条更新，这会改动线上菜单。",
   'menu.status.queued': "待保存",
   'menu.queuedHint': "同步前不可编辑，点\"撤销保存\"可恢复编辑。",
   'menu.publishing': "Favie 正在把改动写入 {platform}……登录一次，然后逐个菜品写入。",
