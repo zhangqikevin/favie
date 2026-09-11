@@ -21,7 +21,49 @@ export type GeneratedImage = { bytes: Uint8Array; contentType: string; model: st
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-export async function generateDishImageViaAgent(restaurantId: string, opts: { prompt: string; model: string; filename: string; references?: string[]; jobId?: string; budgetMs?: number }): Promise<GeneratedImage> {
+export type StyleCheck = { pass: boolean; edge_to_edge: boolean; same_surface: boolean; same_container: boolean; same_angle: boolean; clean: boolean; issues: string }
+
+/**
+ * Generate, then (when reference photos were given) have the agent's vision tool compare the result with
+ * the references. A failed check regenerates once with the concrete complaint appended to the prompt;
+ * the second attempt is kept either way (with its check recorded) so the owner always gets a photo.
+ */
+export async function generateDishImageViaAgent(restaurantId: string, opts: { prompt: string; model: string; filename: string; references?: string[]; jobId?: string; budgetMs?: number }): Promise<GeneratedImage & { check?: StyleCheck; attempts: number }> {
+  const first = await generateOnce(restaurantId, opts)
+  if (!opts.references?.length) return { ...first, attempts: 1 }
+  const check = await checkStyle(first.sessionId, first.agentId, first.artifactUrl, opts.references).catch((e) => { console.warn('[menuImage] style check failed:', (e as Error).message); return null })
+  if (!check || check.pass) return { ...first, check: check ?? undefined, attempts: 1 }
+  const correction = `\nPREVIOUS ATTEMPT WAS REJECTED because: ${check.issues}. Fix exactly that. ${!check.edge_to_edge ? 'The table surface must fill the whole frame edge to edge with no table edge, chair, wall or room visible, as in the references.' : ''}`
+  const second = await generateOnce(restaurantId, { ...opts, prompt: opts.prompt + correction, filename: opts.filename.replace(/(\.[a-z]+)?$/i, '-2$1') })
+  const check2 = await checkStyle(second.sessionId, second.agentId, second.artifactUrl, opts.references).catch(() => null)
+  return { ...second, check: check2 ?? undefined, attempts: 2 }
+}
+
+/** Vision comparison inside the same session: the `image` tool takes URLs, so the published artifact and the reference photos go in together. */
+async function checkStyle(sessionId: string, agentId: string, artifactUrl: string, references: string[]): Promise<StyleCheck> {
+  const zc = zoowork()
+  const ask = [
+    'FAVIE_MENU_IMAGE — quality check. Call the `image` tool ONCE with images = [the generated photo, then the reference photos] and this prompt:',
+    `"Image 1 is a newly generated dish photo; images 2..${references.length + 1} are reference photos from the same restaurant menu. Answer strictly as JSON: {\"edge_to_edge\": <true if in image 1 the table/background surface fills the entire frame edge to edge with NO table edge, chair, wall, window, floor or room visible>, \"same_surface\": <true if image 1 uses the same kind of table/background surface and colour as the references>, \"same_container\": <true if the bowl/plate type and colour match the references>, \"same_angle\": <true if camera angle and framing distance are similar>, \"clean\": <true if image 1 has no people, hands, text, logos or watermark>, \"issues\": \"<one sentence naming what differs, or empty>\"}"`,
+    `Generated photo: ${artifactUrl}`,
+    ...references.map((r, i) => `Reference ${i + 1}: ${r}`),
+    'Reply with the JSON object only, as your final message (not via the message tool).',
+  ].join('\n')
+  const prior = await zc.listAllEvents(agentId, sessionId)
+  const afterSeq = prior.reduce((m, e) => Math.max(m, e.seq), -1)
+  await zc.postEvents(agentId, sessionId, [{ type: 'user.message', content: ask, idempotency_key: `menu-image-check-${sessionId}-${Date.now()}` }])
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 120_000)
+  let text = ''
+  try { text = (await streamTurn(zc, agentId, sessionId, { signal: ctl.signal, afterSeq })).text } finally { clearTimeout(t) }
+  const m = /\{[\s\S]*\}/.exec(text)
+  if (!m) throw new Error('no JSON in style check')
+  const j = JSON.parse(m[0]) as Partial<StyleCheck>
+  const c: StyleCheck = { edge_to_edge: !!j.edge_to_edge, same_surface: !!j.same_surface, same_container: !!j.same_container, same_angle: !!j.same_angle, clean: j.clean !== false, issues: String(j.issues ?? ''), pass: false }
+  c.pass = c.edge_to_edge && c.same_surface && c.clean // container/angle are advisory
+  return c
+}
+
+async function generateOnce(restaurantId: string, opts: { prompt: string; model: string; filename: string; references?: string[]; jobId?: string; budgetMs?: number }): Promise<GeneratedImage & { sessionId: string; agentId: string }> {
   const t0 = Date.now()
   const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1)
   const [agent] = await db.select().from(schema.restaurantAgents).where(eq(schema.restaurantAgents.restaurantId, restaurantId)).limit(1)
@@ -112,7 +154,7 @@ export async function generateDishImageViaAgent(restaurantId: string, opts: { pr
     const bytes = new Uint8Array(await res.arrayBuffer())
     const contentType = res.headers.get('content-type')?.split(';')[0] || att.mimeType
     await db.update(schema.agentRuns).set({ status: 'finished', outcome: 'succeeded', finalText: `image ${artifactId ?? ''} ${artifactUrl}`, finishedAt: new Date(), updatedAt: new Date() }).where(eq(schema.agentRuns.id, run!.id))
-    return { bytes, contentType, model: opts.model, artifactUrl, r2Key: att.r2Key, ms: Date.now() - t0 }
+    return { bytes, contentType, model: opts.model, artifactUrl, r2Key: att.r2Key, ms: Date.now() - t0, sessionId: session.session_id, agentId }
   } catch (e) {
     await db.update(schema.agentRuns).set({ status: 'finished', outcome: 'failed', finalText: (e as Error).message.slice(0, 2000), finishedAt: new Date(), updatedAt: new Date() }).where(eq(schema.agentRuns.id, run!.id))
     throw e

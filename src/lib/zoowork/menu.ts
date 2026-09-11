@@ -429,7 +429,7 @@ export async function runMenuGenerate(jobId: string) {
         ? { ...(await generateDishImage(prompt)), model: 'openai-direct', artifactUrl: null as string | null, r2Key: null as string | null, ms: 0 }
         : await generateDishImageViaAgent(job.restaurantId, { prompt, model: await menuImageModel(), filename: `${item.id}.jpg`, references, jobId })
       const url = await putImage(job.restaurantId, `${item.id}-ai-${Date.now()}.jpg`, img.bytes, img.contentType)
-      await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, raw: { ...(item.raw as Record<string, unknown> ?? {}), aiImage: { model: img.model, r2Key: img.r2Key, artifactUrl: img.artifactUrl, prompt, references, ms: img.ms } }, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
+      await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, raw: { ...(item.raw as Record<string, unknown> ?? {}), aiImage: { model: img.model, r2Key: img.r2Key, artifactUrl: img.artifactUrl, prompt, references, ms: img.ms, check: 'check' in img ? img.check ?? null : null, attempts: 'attempts' in img ? img.attempts : 1 } }, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
       await note(jobId, 'Description and photo ready', { status: 'done' })
     } catch (e) {
       console.warn('[menuGenerate] photo failed:', (e as Error).message)
