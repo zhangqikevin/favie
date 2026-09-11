@@ -133,3 +133,23 @@ export async function discardDraft(menuItemId: string) {
 }
 
 export async function revalidateMenu(restaurantId: string) { revalidatePath(`/dashboard/${restaurantId}/menu`) }
+
+/** "同步到平台" from the 待保存 view: every queued item on BOTH platforms — one job per platform, executed one after the other. */
+export async function publishAllQueued(restaurantId: string) {
+  const { r } = await own(restaurantId)
+  const running = await db.select({ id: schema.menuJobs.id }).from(schema.menuJobs)
+    .where(and(eq(schema.menuJobs.restaurantId, r.id), eq(schema.menuJobs.kind, 'apply'), inArray(schema.menuJobs.status, ['queued', 'running']))).limit(1)
+  if (running.length) return { error: 'busy' as const }
+  const started: Platform[] = []
+  for (const platform of ['uber_eats', 'doordash'] as Platform[]) {
+    const scope = and(eq(schema.menuItems.restaurantId, r.id), eq(schema.menuItems.platform, platform), eq(schema.menuItems.status, 'queued'))
+    const queued = await db.select({ id: schema.menuItems.id }).from(schema.menuItems).where(scope)
+    if (!queued.length) continue
+    const [job] = await db.insert(schema.menuJobs).values({ restaurantId: r.id, platform, kind: 'apply', note: 'Queued…' }).returning()
+    await db.update(schema.menuItems).set({ status: 'saving', lastError: null, updatedAt: new Date() }).where(scope)
+    await enqueueMenuApply(job!.id, r.id, platform)
+    started.push(platform)
+  }
+  if (!started.length) return { error: 'nothing' as const }
+  return { ok: true as const, platforms: started }
+}

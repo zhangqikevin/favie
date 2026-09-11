@@ -4,7 +4,7 @@ import { useT, useLocale } from '@/i18n/client'
 import { INTL_TAG } from '@/i18n/config'
 import type { DictKey } from '@/i18n'
 import { PlatformIcon } from '@/components/PlatformIcon'
-import { pullMenu, pickStorefront, publishDrafts, aiOptimize, updateDraft, uploadPhoto, queueItem, unqueueItem, discardDraft } from '@/app/(app)/dashboard/[restaurantId]/menu/actions'
+import { pullMenu, pickStorefront, publishAllQueued, aiOptimize, updateDraft, uploadPhoto, queueItem, unqueueItem, discardDraft } from '@/app/(app)/dashboard/[restaurantId]/menu/actions'
 import type { MenuState } from '@/lib/zoowork/menu'
 
 type Platform = 'uber_eats' | 'doordash'
@@ -29,21 +29,18 @@ export function MenuClinic({ restaurantId, connected, initial }: {
   const busy = s.active.length > 0 || s.items.some((i) => i.status === 'saving')
 
   // Poll while the agent works.
+  const load = async (p: Platform) => {
+    const res = await fetch(`/api/restaurants/${restaurantId}/menu?platform=${p}`, { cache: 'no-store' })
+    if (res.ok) { const j = (await res.json()) as MenuState; setState((st) => ({ ...st, [p]: j })) }
+  }
+  const anyBusy = busy || (['uber_eats', 'doordash'] as Platform[]).some((p) => state[p].active.length > 0 || state[p].items.some((i) => i.status === 'saving'))
   useEffect(() => {
-    if (!busy) return
-    const tick = async () => {
-      try {
-        const res = await fetch(`/api/restaurants/${restaurantId}/menu?platform=${platform}`, { cache: 'no-store' })
-        if (res.ok) { const j = (await res.json()) as MenuState; setState((st) => ({ ...st, [platform]: j })) }
-      } catch {}
-    }
+    if (!anyBusy) return
+    const tick = () => { for (const p of ['uber_eats', 'doordash'] as Platform[]) void load(p).catch(() => {}) }
     const id = setInterval(tick, 3000)
     return () => clearInterval(id)
-  }, [busy, platform, restaurantId])
-  const refresh = async () => {
-    const res = await fetch(`/api/restaurants/${restaurantId}/menu?platform=${platform}`, { cache: 'no-store' })
-    if (res.ok) { const j = (await res.json()) as MenuState; setState((st) => ({ ...st, [platform]: j })) }
-  }
+  }, [anyBusy, restaurantId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const refresh = async () => { await Promise.all((['uber_eats', 'doordash'] as Platform[]).map((p) => load(p).catch(() => {}))) }
 
   const visible = s.items.filter((i) => {
     if (filter === 'all') return true
@@ -56,10 +53,13 @@ export function MenuClinic({ restaurantId, connected, initial }: {
   const groups = new Map<string, Item[]>()
   for (const i of visible) { const k = i.category ?? '—'; groups.set(k, [...(groups.get(k) ?? []), i]) }
   const activePull = s.active.find((j) => j.kind === 'pull')
-  const activeApply = s.active.find((j) => j.kind === 'apply')
+  const PLATFORMS: Platform[] = ['uber_eats', 'doordash']
+  // The save queue spans both platforms: one click writes everything, Uber Eats first, then DoorDash.
+  const queuedAll = PLATFORMS.flatMap((p) => state[p].items.filter((i) => i.status === 'queued' || i.status === 'saving').map((i) => ({ item: i, platform: p })))
+  const savingAll = queuedAll.filter((q) => q.item.status === 'saving')
   // One sync at a time per restaurant (the agent has one browser); the next batch waits for this one.
-  const anyApplyActive = (['uber_eats', 'doordash'] as Platform[]).some((p) => state[p].active.some((j) => j.kind === 'apply') || state[p].items.some((i) => i.status === 'saving'))
-  const estMinutes = (n: number) => Math.max(1, Math.ceil(n * (platform === 'doordash' ? 2 : 1)))
+  const anyApplyActive = PLATFORMS.some((p) => state[p].active.some((j) => j.kind === 'apply')) || savingAll.length > 0
+  const estMinutes = (rows: { platform: Platform }[]) => Math.max(1, Math.ceil(rows.reduce((m, q) => m + (q.platform === 'doordash' ? 2 : 1), 0)))
 
   return (
     <div className="space-y-6">
@@ -114,10 +114,10 @@ export function MenuClinic({ restaurantId, connected, initial }: {
       )}
       {s.pull?.status === 'failed' && !activePull && !(s.storefront.candidates?.length) && <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{t('menu.jobError', { error: s.pull.error ?? '' })}</div>}
 
-      {activeApply && (
+      {anyApplyActive && (
         <div className="card flex items-center gap-4 p-5">
           <Spinner />
-          <p className="text-sm font-semibold">{t('menu.publishing', { platform: LABEL[platform], min: estMinutes(s.items.filter((i) => i.status === 'saving').length || 1) })}</p>
+          <p className="text-sm font-semibold">{t('menu.publishing', { platform: [...new Set(savingAll.map((q) => LABEL[q.platform]))].join(' · ') || LABEL[platform], min: estMinutes(savingAll.length ? savingAll : [{ platform }]) })}</p>
         </div>
       )}
       {s.counts.total > 0 && (
@@ -125,14 +125,13 @@ export function MenuClinic({ restaurantId, connected, initial }: {
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-display text-lg font-semibold">{t('menu.diag.title')}</h2>
             <div className="flex items-center gap-3">
-              {s.counts.queued > 0 && !busy && (
-                <button type="button" disabled={pending || anyApplyActive} title={anyApplyActive ? t('menu.syncBusy') : undefined}
-                  onClick={() => { if (anyApplyActive) return; if (!window.confirm(t('menu.sync.confirm', { n: s.counts.queued, platform: LABEL[platform], min: estMinutes(s.counts.queued) }))) return; start(async () => { await publishDrafts(restaurantId, platform); await refresh() }) }}
+              {queuedAll.length > 0 && !anyApplyActive && (
+                <button type="button" disabled={pending}
+                  onClick={() => { if (!window.confirm(t('menu.sync.confirm', { n: queuedAll.length, min: estMinutes(queuedAll) }))) return; start(async () => { await publishAllQueued(restaurantId); await refresh() }) }}
                   className="pill pill-active !py-1.5 text-xs">
-                  {t('menu.sync', { n: s.counts.queued, platform: LABEL[platform] })}
+                  {t('menu.sync', { n: queuedAll.length })}
                 </button>
               )}
-              {s.counts.queued > 0 && anyApplyActive && !activeApply && <span className="text-xs text-ink-500">{t('menu.syncBusy')}</span>}
               <p className="text-xs text-ink-500">{t('menu.diag.hint')}</p>
             </div>
           </div>
@@ -143,7 +142,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
               ['photoPoor', s.counts.photoPoor, 'menu.diag.photoPoor', 'text-amber-600'],
               ['descMissing', s.counts.descMissing, 'menu.diag.descMissing', 'text-[color:var(--accent-orange)]'],
               ['descThin', s.counts.descThin, 'menu.diag.descThin', 'text-amber-600'],
-              ['queued', s.counts.queued, 'menu.diag.queued', 'text-[color:var(--accent-blue,#2f66ff)]'],
+              ['queued', queuedAll.length, 'menu.diag.queued', 'text-[color:var(--accent-blue,#2f66ff)]'],
             ] as [Filter, number, DictKey, string][]).map(([f, n, key, tone]) => (
               <button key={f} type="button" onClick={() => setFilter(f)} className={`rounded-2xl p-4 text-left transition-colors ${filter === f ? 'bg-ink-900 text-[color:var(--app-bg)]' : 'bg-ink-100/70 hover:bg-ink-100'}`}>
                 <p className={`font-display text-3xl font-semibold tracking-tight ${filter === f ? '' : n > 0 ? tone : 'text-ink-500'}`}>{n}</p>
@@ -157,7 +156,22 @@ export function MenuClinic({ restaurantId, connected, initial }: {
 
       {s.counts.total === 0 && connected[platform] && !activePull && <div className="card p-8 text-center text-sm text-ink-500">{t('menu.empty')}</div>}
 
-      {[...groups.entries()].map(([cat, items]) => (
+      {filter === 'queued' && PLATFORMS.map((p) => {
+        const rows = queuedAll.filter((q) => q.platform === p).map((q) => q.item)
+        if (!rows.length) return null
+        return (
+          <section key={p} className="card overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-3">
+              <h3 className="flex items-center gap-2 font-display text-base font-semibold"><PlatformIcon platform={p} className="h-5 w-5 rounded-md" />{LABEL[p]}</h3>
+              <span className="text-xs text-ink-500">{rows.length}</span>
+            </div>
+            <ul className="divide-y divide-ink-100 border-t border-ink-100">
+              {rows.map((i) => <Row key={i.id} item={i} platform={p} jobs={state[p].active.filter((j) => j.menuItemId === i.id)} onChange={refresh} />)}
+            </ul>
+          </section>
+        )
+      })}
+      {filter !== 'queued' && [...groups.entries()].map(([cat, items]) => (
         <section key={cat} className="card overflow-hidden">
           <div className="flex items-center justify-between px-6 py-3">
             <h3 className="font-display text-base font-semibold">{cat}</h3>

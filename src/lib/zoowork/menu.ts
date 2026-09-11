@@ -186,7 +186,7 @@ async function waitForAgentBrowser(restaurantId: string, jobId: string, maxMs = 
   let noted = false
   for (;;) {
     const busy = await db.select({ id: schema.menuJobs.id }).from(schema.menuJobs)
-      .where(and(eq(schema.menuJobs.restaurantId, restaurantId), eq(schema.menuJobs.status, 'running'), ne(schema.menuJobs.id, jobId), inArray(schema.menuJobs.kind, ['pull', 'save'])))
+      .where(and(eq(schema.menuJobs.restaurantId, restaurantId), eq(schema.menuJobs.status, 'running'), ne(schema.menuJobs.id, jobId), inArray(schema.menuJobs.kind, ['pull', 'save', 'apply'])))
       .limit(1)
     if (!busy.length) return
     if (Date.now() - started > maxMs) throw new Error('another Favie browser task on this restaurant did not finish in time')
