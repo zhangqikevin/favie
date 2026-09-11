@@ -383,6 +383,7 @@ const es: Dictionary = {
   'menu.empty': 'Aún no se ha leído el menú.',
   'menu.diag.title': 'Diagnóstico del menú',
   'menu.diag.photoMissing': 'Sin foto',
+  'menu.photoOnPlatform': 'Foto en la plataforma',
   'menu.diag.photoPoor': 'Foto deficiente',
   'menu.diag.descMissing': 'Sin descripción',
   'menu.diag.descThin': 'Descripción escasa',

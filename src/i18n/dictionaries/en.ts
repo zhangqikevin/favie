@@ -387,6 +387,7 @@ const en = {
   'menu.empty': 'No menu read yet.',
   'menu.diag.title': 'Menu diagnosis',
   'menu.diag.photoMissing': 'Missing photo',
+  'menu.photoOnPlatform': 'Photo on platform',
   'menu.diag.photoPoor': 'Weak photo',
   'menu.diag.descMissing': 'Missing description',
   'menu.diag.descThin': 'Thin description',

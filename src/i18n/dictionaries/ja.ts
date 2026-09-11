@@ -383,6 +383,7 @@ const ja: Dictionary = {
   'menu.empty': 'まだメニューを読み取っていません。',
   'menu.diag.title': 'メニュー診断結果',
   'menu.diag.photoMissing': '写真なし',
+  'menu.photoOnPlatform': '掲載済みの写真',
   'menu.diag.photoPoor': '写真が弱い',
   'menu.diag.descMissing': '説明なし',
   'menu.diag.descThin': '説明が不十分',

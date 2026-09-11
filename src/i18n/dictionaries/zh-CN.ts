@@ -383,6 +383,7 @@ const zhCN: Dictionary = {
   'menu.empty': '还没有读取菜单。',
   'menu.diag.title': '菜单诊断结果',
   'menu.diag.photoMissing': '缺少图片',
+  'menu.photoOnPlatform': '平台已有图片',
   'menu.diag.photoPoor': '图片不佳',
   'menu.diag.descMissing': '缺少描述',
   'menu.diag.descThin': '描述不全面',

@@ -383,6 +383,7 @@ const zhTW: Dictionary = {
   'menu.empty': '還沒有讀取菜單。',
   'menu.diag.title': '菜單診斷結果',
   'menu.diag.photoMissing': '缺少圖片',
+  'menu.photoOnPlatform': '平台已有圖片',
   'menu.diag.photoPoor': '圖片不佳',
   'menu.diag.descMissing': '缺少描述',
   'menu.diag.descThin': '描述不全面',
