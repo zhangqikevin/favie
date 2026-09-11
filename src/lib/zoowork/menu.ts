@@ -1,4 +1,5 @@
 import { and, eq, inArray, ne } from 'drizzle-orm'
+import { firecrawlEnabled, parseStorefrontMarkdown, scrapeStorefront } from '@/lib/menu/firecrawl'
 import { toolCall, type SessionEvent } from '@zoowork-ai/sdk'
 import { db, schema } from '@/lib/db/client'
 import { zoowork, logged } from './client'
@@ -125,7 +126,7 @@ function normalizeMenu(raw: unknown): { items: PulledItem[]; truncated: boolean;
   return { items: out, truncated: o.truncated === true, storefrontUrl: su }
 }
 
-type PulledItem = { external_id?: string | null; category?: string | null; name: string; description?: string | null; price_cents?: number | null; image_url?: string | null; has_photo?: boolean | null; availability?: string | null; unit?: string | null; position?: number | null }
+export type PulledItem = { external_id?: string | null; category?: string | null; name: string; description?: string | null; price_cents?: number | null; image_url?: string | null; has_photo?: boolean | null; availability?: string | null; unit?: string | null; position?: number | null }
 
 
 /** Public storefront URL from the Zoodata store binding, when the restaurant has a key. */
@@ -184,6 +185,20 @@ export async function runMenuPull(jobId: string) {
       'no item clicks, skip Featured / Most Ordered carousels). Change nothing. Reply with ONE ```favie-menu``` block: flat `items`',
       'array, each item with its own `category`, `description` (null if none), `has_photo`, `price_cents`, `availability`.',
     ].join('\n')
+    // Fast path: a server-side Firecrawl scrape (seconds, includes photo URLs). Falls back to the agent's browser.
+    if (url && firecrawlEnabled()) {
+      try {
+        await note(jobId, 'Reading the storefront…')
+        const scraped = await scrapeStorefront(url)
+        const parsed = scraped ? parseStorefrontMarkdown(scraped.markdown) : null
+        if (parsed && parsed.items.length >= 5) {
+          const block = JSON.stringify({ favie_menu_version: 1, platform: job.platform, store_name: parsed.storeName, storefront_url: url, truncated: false, items: parsed.items })
+          await ingestMenu(jobId, '```favie-menu\n' + block + '\n```')
+          return
+        }
+        console.warn('[menuPull] firecrawl returned too few items, using the agent', parsed?.items.length ?? 0)
+      } catch (e) { console.warn('[menuPull] firecrawl failed, using the agent:', (e as Error).message) }
+    }
     const { text } = await runAgentTurn(job.restaurantId, message, jobId, { budgetMs: 35 * 60_000 })
     await ingestMenu(jobId, text)
   } catch (e) {

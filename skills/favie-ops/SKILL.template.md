@@ -166,9 +166,14 @@ open the merchant portal (Step 0 + login restore) and follow its "View store" / 
    current price; ignore struck-through prices and deal badges), `description` (the text under the
    name, `null` when there is none), `has_photo` (`true` when the card has an `img` with the item's name
    as alt text, else `false`), `availability` (`sold_out` when the card says Sold out / Unavailable, else
-   `available`). Dedupe by name. `external_id`, `unit` and `image_url` are `null` here.
-4. Budget about 30 tool calls. If you cannot finish, report what you have with `truncated: true`.
-5. Close the browser. Reply with one line — `<platform>: read N items in M categories` — then exactly one block:
+   `available`). Dedupe by name. `external_id` and `unit` are `null` here; `image_url` comes from step 4.
+4. Photo URLs: the snapshot never exposes image addresses, so after the scroll rounds make ONE
+   `web_fetch` call on the same storefront URL (`extractMode: "markdown"`, `maxChars: 200000`). Its
+   markdown lists items as `### name` … `$price` … `![name](https://…)`. For every item whose block has an
+   image line, set `image_url` to that address (verbatim). Items the fetch does not reach keep
+   `image_url: null` (their `has_photo` still comes from the snapshot). Do not call web_fetch more than once.
+5. Budget about 30 tool calls. If you cannot finish, report what you have with `truncated: true`.
+6. Close the browser. Reply with one line — `<platform>: read N items in M categories` — then exactly one block:
 
 ````
 ```favie-menu
@@ -180,7 +185,7 @@ open the merchant portal (Step 0 + login restore) and follow its "View store" / 
   "truncated": false,
   "items": [
     { "external_id": null, "category": "...", "name": "...", "description": "..." | null,
-      "price_cents": 1299 | null, "has_photo": true, "image_url": null,
+      "price_cents": 1299 | null, "has_photo": true, "image_url": "https://…" | null,
       "availability": "available" | "sold_out", "unit": null, "position": 1 }
   ]
 }
