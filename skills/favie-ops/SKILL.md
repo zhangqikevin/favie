@@ -146,22 +146,21 @@ connected right now, that is the whole point of the handoff).
 
 ## Menu Clinic (owner-triggered)
 
-**FAVIE_MENU_PULL <platform>** — read the store's whole menu. Change nothing. Two passes, both cheap:
-1. Step 0 (context), restore the login profile, open the platform's menu editor (Uber Eats Manager →
-   Menu; DoorDash Merchant Portal → Menu Manager) and select the store from the context.
-2. **Pass A — the editor list.** Expand every category and read the list view only: `category`, `name`,
-   `price_cents`, `availability` (`available` / `sold_out` / `hidden` / `unknown`), `unit` when shown,
-   `external_id` when the URL or DOM shows one, `position`. Skip modifier groups and options ("Add
-   extra noodles", "Choose spice level"). **Do not open individual items** — that is 70+ dialogs and
-   never finishes. Full-page snapshots and scrolling only.
-3. **Pass B — the public storefront.** From the editor, follow the "View store" / "Preview menu" /
-   "View as customer" link (or navigate to the store's public page on doordash.com / ubereats.com).
-   That page lists every visible item with its complete `description` and its photo. Read
-   `description` and `image_url` (the `src` of the item's photo in the snapshot; `null` when there is
-   no photo or only a placeholder) for every item, matching by exact name. Two or three full-page
-   snapshots (scroll between them) normally cover a menu. Items that exist in Pass A but not on the
-   storefront keep `description: null`, `image_url: null` and are usually `hidden`.
-4. Budget about 60 tool calls total. If you cannot finish, report what you have with `truncated: true`.
+**FAVIE_MENU_PULL <platform>** — read the store's whole menu from its PUBLIC storefront. Change nothing.
+No login is needed for this page. The message gives `storefront_url` when Favie knows it; otherwise
+open the merchant portal (Step 0 + login restore) and follow its "View store" / "Preview menu" link.
+1. `browser action:"session" op:"restart"` with the context's `login_label` (needed only so the profile
+   lock is respected), then navigate to the storefront URL. Close any address / promo modal.
+2. Take a `snapshot` (mode "full"). Then loop: `act` kind `scroll` down three times → `snapshot` (full)
+   again. The page renders each category only when it scrolls into view. Stop when the LAST category
+   heading has items rendered under it, or after 12 rounds. Do not click items.
+3. From the snapshots read every item under the real category sections (skip the "Featured Items" /
+   "Most Ordered" / "Popular" carousels — those repeat items): `category`, `name`, `price_cents` (the
+   current price; ignore struck-through prices and deal badges), `description` (the text under the
+   name, `null` when there is none), `has_photo` (`true` when the card has an `img` with the item's name
+   as alt text, else `false`), `availability` (`sold_out` when the card says Sold out / Unavailable, else
+   `available`). Dedupe by name. `external_id`, `unit` and `image_url` are `null` here.
+4. Budget about 30 tool calls. If you cannot finish, report what you have with `truncated: true`.
 5. Close the browser. Reply with one line — `<platform>: read N items in M categories` — then exactly one block:
 
 ````
@@ -172,9 +171,9 @@ connected right now, that is the whole point of the handoff).
   "store_name": "...",
   "truncated": false,
   "items": [
-    { "external_id": "..." | null, "category": "...", "name": "...", "description": "..." | null,
-      "price_cents": 1299 | null, "image_url": "https://..." | null,
-      "availability": "available" | "sold_out" | "hidden" | "unknown", "unit": null, "position": 1 }
+    { "external_id": null, "category": "...", "name": "...", "description": "..." | null,
+      "price_cents": 1299 | null, "has_photo": true, "image_url": null,
+      "availability": "available" | "sold_out", "unit": null, "position": 1 }
   ]
 }
 ```

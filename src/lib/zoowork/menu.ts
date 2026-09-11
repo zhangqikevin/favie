@@ -95,6 +95,7 @@ function normalizeMenu(raw: unknown): { items: PulledItem[]; truncated: boolean 
     out.push({
       external_id: (it.external_id ?? it.id ?? it.item_id ?? null) as string | null, category: (it.category as string | undefined) ?? category, name,
       description: (it.description as string | null | undefined) ?? null, price_cents: price, image_url: img && /^https?:/.test(img) ? img : null,
+      has_photo: typeof it.has_photo === 'boolean' ? it.has_photo : typeof it.hasPhoto === 'boolean' ? (it.hasPhoto as boolean) : img ? true : null,
       availability, unit: (it.unit as string | null | undefined) ?? null, position: num(it.position) ?? idx,
     })
   }
@@ -110,19 +111,33 @@ function normalizeMenu(raw: unknown): { items: PulledItem[]; truncated: boolean 
   return { items: out, truncated: o.truncated === true }
 }
 
-type PulledItem = { external_id?: string | null; category?: string | null; name: string; description?: string | null; price_cents?: number | null; image_url?: string | null; availability?: string | null; unit?: string | null; position?: number | null }
+type PulledItem = { external_id?: string | null; category?: string | null; name: string; description?: string | null; price_cents?: number | null; image_url?: string | null; has_photo?: boolean | null; availability?: string | null; unit?: string | null; position?: number | null }
+
+
+/** Public storefront URL from the Zoodata store binding, when the restaurant has a key. */
+async function storefrontUrl(r: typeof schema.restaurants.$inferSelect, platform: Platform): Promise<string | null> {
+  try {
+    const list = await zoodataFor(r).client.listRestaurants()
+    const want = toZoodataPlatform(platform)
+    for (const z of list) for (const b of z.platformBindings) if (b.platform === want && b.platformStoreId) {
+      return platform === 'doordash' ? `https://www.doordash.com/store/${b.platformStoreId}/` : `https://www.ubereats.com/store/menu/${b.platformStoreId}`
+    }
+  } catch {}
+  return null
+}
 
 export async function runMenuPull(jobId: string) {
   const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
   if (!job) return
   try {
+    const [rr] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, job.restaurantId)).limit(1)
+    const url = rr ? await storefrontUrl(rr, job.platform) : null
     const message = [
       `FAVIE_MENU_PULL ${job.platform}`,
-      `Read the complete ${PLATFORM_LABEL[job.platform]} menu of the store in the context. Change nothing.`,
-      'Two passes as the skill says: (A) the editor list for names, categories, prices, availability — do NOT open',
-      'individual items; (B) the public storefront page ("View store" / "Preview menu") for every item\'s full description',
-      'and photo URL, matched by name. Reply with ONE ```favie-menu``` block using the flat schema: a top-level `items`',
-      'array where each item carries its own `category`, `description` and `image_url` keys (null when absent).',
+      url ? `storefront_url: ${url}` : 'storefront_url: unknown — open the merchant portal and follow its "View store" / "Preview menu" link.',
+      `Read the complete ${PLATFORM_LABEL[job.platform]} menu from the public storefront as the skill describes (scroll + snapshot rounds,`,
+      'no item clicks, skip Featured / Most Ordered carousels). Change nothing. Reply with ONE ```favie-menu``` block: flat `items`',
+      'array, each item with its own `category`, `description` (null if none), `has_photo`, `price_cents`, `availability`.',
     ].join('\n')
     const { text } = await runAgentTurn(job.restaurantId, message, jobId, { budgetMs: 35 * 60_000 })
     await ingestMenu(jobId, text)
@@ -155,7 +170,8 @@ export async function ingestMenu(jobId: string, text: string) {
       const key = it.external_id ? `id:${it.external_id}` : `name:${(it.category ?? '').trim().toLowerCase()}/${it.name.trim().toLowerCase()}`
       if (seen.has(key)) continue
       seen.add(key)
-      const [photo, desc] = [await photoFlags(it.image_url), descriptionFlags(it.description)]
+      const photo = it.image_url ? await photoFlags(it.image_url) : { photoMissing: it.has_photo === false, photoPoor: false }
+      const desc = descriptionFlags(it.description)
       const s = (it.external_id ? byId.get(it.external_id) : undefined) ?? byName.get(it.name.trim().toLowerCase())
       const values = {
         restaurantId: job.restaurantId, platform: job.platform, itemKey: key, externalId: it.external_id ?? null, category: it.category ?? null, name: it.name,
@@ -169,6 +185,18 @@ export async function ingestMenu(jobId: string, text: string) {
         set: { externalId: values.externalId, category: values.category, name: values.name, description: values.description, priceCents: values.priceCents, imageUrl: values.imageUrl, availability: values.availability, unit: values.unit, position: values.position, orderCnt: values.orderCnt, raw: values.raw, pulledAt: now, photoMissing: values.photoMissing, photoPoor: values.photoPoor, descMissing: values.descMissing, descThin: values.descThin, updatedAt: now },
       })
       if (i % 20 === 0) await note(jobId, `Checked ${i} of ${parsed.items.length} items…`)
+    }
+    // Items Zoodata saw selling recently but the storefront does not show are hidden (or removed) on the platform.
+    const seenNames = new Set(parsed.items.map((x) => x.name.trim().toLowerCase()))
+    let hidden = 0
+    for (const m of sales) {
+      if (!m.orderCnt || seenNames.has(m.name.trim().toLowerCase())) continue
+      if (/^(add|extra|choose|select|no |with )/i.test(m.name)) continue // modifiers, not items
+      const key = `name:${(m.category ?? '').trim().toLowerCase()}/${m.name.trim().toLowerCase()}`
+      if (seen.has(key)) continue
+      seen.add(key); hidden++
+      const values = { restaurantId: job.restaurantId, platform: job.platform, itemKey: key, externalId: m.platformItemId, category: m.category, name: m.name, description: null, priceCents: m.priceCents, imageUrl: null, availability: 'hidden', unit: null, position: 9000 + hidden, orderCnt: m.orderCnt, raw: { from: 'zoodata' }, pulledAt: now, photoMissing: false, photoPoor: false, descMissing: false, descThin: false, updatedAt: now }
+      await db.insert(schema.menuItems).values(values).onConflictDoUpdate({ target: [schema.menuItems.restaurantId, schema.menuItems.platform, schema.menuItems.itemKey], set: { availability: 'hidden', orderCnt: m.orderCnt, pulledAt: now, updatedAt: now } })
     }
     // Items that vanished from the platform menu are removed unless Favie has a pending draft on them.
     const stale = await db.select().from(schema.menuItems).where(and(eq(schema.menuItems.restaurantId, job.restaurantId), eq(schema.menuItems.platform, job.platform)))
