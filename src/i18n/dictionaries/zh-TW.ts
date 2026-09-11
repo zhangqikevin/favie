@@ -164,6 +164,8 @@ const zhTW: Dictionary = {
   'ob.connect.embed.hide': '隱藏內嵌檢視',
   'ob.connect.popup': '如果沒有彈出視窗,表示瀏覽器攔截了彈出視窗:請允許本站彈出視窗,或把下面的連結複製到新分頁開啟:',
   'ob.connect.expires': '工作階段約一小時內有效。過期後請再點連接。',
+  'ob.connect.expired': '之前開啟的安全瀏覽器已過期。',
+  'ob.connect.again': '重新連接',
   'ob.connect.opening': '正在準備安全瀏覽器…',
   'ob.connect.opening.hint': '(通常不到一分鐘)',
   'ob.connect.verifying': '正在儲存登入狀態並讀取你的門市…',

@@ -164,6 +164,8 @@ const zhCN: Dictionary = {
   'ob.connect.embed.hide': '隐藏内嵌视图',
   'ob.connect.popup': '如果没有弹出窗口,说明浏览器拦截了弹窗:请允许本站弹窗,或把下面的链接复制到新标签页打开:',
   'ob.connect.expires': '会话约一小时内有效。过期后请再点连接。',
+  'ob.connect.expired': '之前打开的安全浏览器已过期。',
+  'ob.connect.again': '重新连接',
   'ob.connect.opening': '正在准备安全浏览器…',
   'ob.connect.opening.hint': '(通常不到一分钟)',
   'ob.connect.verifying': '正在保存登录状态并读取你的门店…',

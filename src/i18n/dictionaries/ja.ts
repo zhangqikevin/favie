@@ -164,6 +164,8 @@ const ja: Dictionary = {
   'ob.connect.embed.hide': '埋め込み表示を隠す',
   'ob.connect.popup': '何も開かない場合はブラウザがポップアップをブロックしています。このサイトのポップアップを許可するか、次のリンクを新しいタブにコピーしてください:',
   'ob.connect.expires': 'セッションは約1時間有効です。期限が切れたら再度「連携」をクリックしてください。',
+  'ob.connect.expired': '先ほどの安全なブラウザは期限切れです。',
+  'ob.connect.again': '再度連携',
   'ob.connect.opening': '安全なブラウザを準備中…',
   'ob.connect.opening.hint': '(通常1分以内)',
   'ob.connect.verifying': 'セッションを保存し、店舗を読み取っています…',

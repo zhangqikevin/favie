@@ -167,6 +167,8 @@ const en = {
   'ob.connect.embed.hide': 'Hide embedded view',
   'ob.connect.popup': 'If nothing opened, your browser blocked the pop-up: allow pop-ups for this site, or copy this link into a new tab:',
   'ob.connect.expires': 'The session stays open for about an hour. If it expires, click Connect again.',
+  'ob.connect.expired': 'The secure browser from earlier has expired.',
+  'ob.connect.again': 'Connect again',
   'ob.connect.opening': 'Preparing your secure browser…',
   'ob.connect.opening.hint': '(usually under a minute)',
   'ob.connect.verifying': 'Saving your session and reading your stores…',

@@ -164,6 +164,8 @@ const es: Dictionary = {
   'ob.connect.embed.hide': 'Ocultar vista integrada',
   'ob.connect.popup': 'Si no se abrió nada, tu navegador bloqueó la ventana emergente: permite las ventanas emergentes para este sitio o copia este enlace en una pestaña nueva:',
   'ob.connect.expires': 'La sesión permanece abierta alrededor de una hora. Si caduca, haz clic en Conectar de nuevo.',
+  'ob.connect.expired': 'El navegador seguro anterior ha caducado.',
+  'ob.connect.again': 'Conectar de nuevo',
   'ob.connect.opening': 'Preparando tu navegador seguro…',
   'ob.connect.opening.hint': '(normalmente menos de un minuto)',
   'ob.connect.verifying': 'Guardando tu sesión y leyendo tus tiendas…',

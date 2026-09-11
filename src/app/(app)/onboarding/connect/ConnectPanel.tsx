@@ -91,7 +91,13 @@ export function ConnectPanel({ restaurantId, initial, agentStatus, onboardingDon
 
             {c.status === 'awaiting_login' && (
               <div className="mt-5">
-                {c.handoffUrl ? (
+                {c.handoffUrl && c.handoffStartedAt && Date.now() - new Date(c.handoffStartedAt).getTime() > 55 * 60_000 ? (
+                  // The live browser's access token lasts an hour; past that the link (and the embedded view) is dead.
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-sm text-ink-700">{t('ob.connect.expired')}</p>
+                    <button type="button" disabled={pending || agent !== 'ready'} onClick={() => connect(c.platform)} className="btn-primary !px-5 !py-2.5 text-sm">{t('ob.connect.again')}</button>
+                  </div>
+                ) : c.handoffUrl ? (
                   <>
                     <p className="text-sm text-ink-700">{t('ob.connect.ready.pre', { portal })}<b>{t('ob.connect.loggedIn')}</b>.</p>
                     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -109,7 +115,8 @@ export function ConnectPanel({ restaurantId, initial, agentStatus, onboardingDon
                     </p>
                     {embedded[c.platform] && (
                       <div className="mt-4 overflow-hidden rounded-xl border border-ink-100 bg-ink-900">
-                        <iframe src={c.handoffUrl} title={portal} className="h-[560px] w-full" allow="clipboard-read; clipboard-write" />
+                        {/* Served from our origin: the VNC page's own cookie auth does not survive a cross-site iframe. */}
+                        <iframe src={`/api/restaurants/${restaurantId}/handoff/${c.platform}/embed`} title={portal} className="h-[560px] w-full" allow="clipboard-read; clipboard-write" />
                       </div>
                     )}
                     <p className="mt-2 text-xs text-ink-500">{t('ob.connect.expires')}</p>
