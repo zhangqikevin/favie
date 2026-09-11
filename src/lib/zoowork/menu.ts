@@ -76,17 +76,70 @@ function fenced(text: string, lang: string): unknown | null {
 // ---------------------------------------------------------------------------------------------
 // Pull
 
+/**
+ * Accept the block whether the agent followed the flat schema or nested items under categories, and map
+ * the field names models tend to drift to (status/in_stock, price/price_dollars, image/photo_url…).
+ */
+function normalizeMenu(raw: unknown): { items: PulledItem[]; truncated: boolean } | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  const out: PulledItem[] = []
+  const num = (v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' && v.trim() && !Number.isNaN(Number(v.replace(/[$,]/g, ''))) ? Number(v.replace(/[$,]/g, '')) : null)
+  const push = (it: Record<string, unknown>, category: string | null, idx: number) => {
+    const name = String(it.name ?? it.title ?? '').trim()
+    if (!name) return
+    const price = num(it.price_cents) ?? (num(it.price) != null ? Math.round(num(it.price)! * (num(it.price)! < 500 && String(it.price).includes('.') ? 100 : 1)) : null)
+    const statusRaw = String(it.availability ?? it.status ?? it.stock ?? 'unknown').toLowerCase()
+    const availability = /sold|out/.test(statusRaw) ? 'sold_out' : /hid|inactive|off/.test(statusRaw) ? 'hidden' : /avail|in_stock|active|in stock/.test(statusRaw) ? 'available' : 'unknown'
+    const img = (it.image_url ?? it.image ?? it.photo_url ?? it.photo ?? null) as string | null
+    out.push({
+      external_id: (it.external_id ?? it.id ?? it.item_id ?? null) as string | null, category: (it.category as string | undefined) ?? category, name,
+      description: (it.description as string | null | undefined) ?? null, price_cents: price, image_url: img && /^https?:/.test(img) ? img : null,
+      availability, unit: (it.unit as string | null | undefined) ?? null, position: num(it.position) ?? idx,
+    })
+  }
+  if (Array.isArray(o.items)) o.items.forEach((it, i) => push(it as Record<string, unknown>, null, i + 1))
+  if (Array.isArray(o.categories)) {
+    let i = 0
+    for (const c of o.categories as Record<string, unknown>[]) {
+      const cname = String(c.name ?? c.category ?? '').trim() || null
+      for (const it of (Array.isArray(c.items) ? c.items : []) as Record<string, unknown>[]) push(it, cname, ++i)
+    }
+  }
+  if (!out.length) return null
+  return { items: out, truncated: o.truncated === true }
+}
+
 type PulledItem = { external_id?: string | null; category?: string | null; name: string; description?: string | null; price_cents?: number | null; image_url?: string | null; availability?: string | null; unit?: string | null; position?: number | null }
 
 export async function runMenuPull(jobId: string) {
   const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
   if (!job) return
   try {
-    const message = `FAVIE_MENU_PULL ${job.platform}\nRead the complete ${PLATFORM_LABEL[job.platform]} menu of the store in the context and reply with the favie-menu block. Change nothing.`
+    const message = [
+      `FAVIE_MENU_PULL ${job.platform}`,
+      `Read the complete ${PLATFORM_LABEL[job.platform]} menu of the store in the context. Change nothing.`,
+      'For EVERY item I need two things the list view may hide: the full `description` text (null if none) and the `image_url`',
+      '(the src of its photo in the snapshot; null if it has no photo). Open an item only when the list does not show its',
+      'description or photo. Also record price_cents, availability and external_id when visible.',
+      'Reply with ONE ```favie-menu``` block using the flat schema from the skill: a top-level `items` array where each item',
+      'carries its own `category`. Do not nest items under categories and do not omit `description` / `image_url` keys.',
+    ].join('\n')
     const { text } = await runAgentTurn(job.restaurantId, message, jobId, { budgetMs: 35 * 60_000 })
-    const parsed = fenced(text, 'favie-menu') as { items?: PulledItem[]; truncated?: boolean } | null
-    if (!parsed?.items) throw new Error('the agent did not return a favie-menu block')
-    await note(jobId, `Read ${parsed.items.length} items; checking photos and descriptions…`)
+    await ingestMenu(jobId, text)
+  } catch (e) {
+    await fail(jobId, (e as Error).message)
+  }
+}
+
+/** Turn the agent's reply into menu_items rows (also used to re-ingest a stored reply without a new browser run). */
+export async function ingestMenu(jobId: string, text: string) {
+  const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
+  if (!job) return
+  try {
+    const parsed = normalizeMenu(fenced(text, 'favie-menu') ?? fenced(text, 'json'))
+    if (!parsed) throw new Error('the agent did not return a favie-menu block')
+    await note(jobId, `Read ${parsed.items.length} items; checking photos and descriptions…`, { status: 'running' })
     // Zoodata sales counts, when the restaurant has a key (matched by platform item id, then by name).
     const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, job.restaurantId)).limit(1)
     let sales: Awaited<ReturnType<ReturnType<typeof zoodataFor>['client']['getMenuItems']>> = []
