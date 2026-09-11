@@ -1,5 +1,6 @@
 import { and, eq, inArray, ne } from 'drizzle-orm'
 import { firecrawlEnabled, parseStorefrontMarkdown, scrapeStorefront } from '@/lib/menu/firecrawl'
+import { menuDescribePrompt } from '@/lib/menu/prompts'
 import { toolCall, type SessionEvent } from '@zoowork-ai/sdk'
 import { db, schema } from '@/lib/db/client'
 import { zoowork, logged } from './client'
@@ -360,6 +361,10 @@ export async function runMenuGenerate(jobId: string) {
       `- name: ${item.name}`,
       `  category: ${item.category ?? ''}`,
       `  current_description: ${item.description ?? '(none)'}`,
+      '',
+      'Writing guidelines:',
+      await menuDescribePrompt(),
+      '',
       'Reply with ONE ```favie-menu-text``` block and nothing else, exactly this shape — two SEPARATE fields, English in',
       '`description_en` and Chinese in `description_zh` (never combined into one string):',
       '{ "items": [ { "name": "<same name>", "description_en": "3-4 sentences in English", "description_zh": "3-4 句中文" } ] }',
@@ -372,7 +377,7 @@ export async function runMenuGenerate(jobId: string) {
     await db.update(schema.menuItems).set({ aiDescriptionEn: en, aiDescriptionZh: zh || null, draftDescription: zh ? `${en}\n${zh}` : en, status: 'draft', updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
     if (imageGenerationAvailable()) {
       await note(jobId, 'Generating the photo…')
-      const img = await generateDishImage(dishPrompt(item.name, { category: item.category, cuisine: r?.cuisine, descriptionEn: en }))
+      const img = await generateDishImage(await dishPrompt(item.name, { category: item.category, cuisine: r?.cuisine, descriptionEn: en }))
       const url = await putImage(job.restaurantId, `${item.id}-ai-${Date.now()}.jpg`, img.bytes, img.contentType)
       await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
       await note(jobId, 'Description and photo ready', { status: 'done' })

@@ -218,10 +218,9 @@ fetch is fine — return what you have. Reply with one line and exactly one bloc
 ````
 
 **FAVIE_MENU_DESCRIBE** — no browser, no context fetch. The message lists dishes (name, category,
-current description, cuisine hints). For each write `description_en` and `description_zh`: 3–4
-sentences covering flavor profile, main ingredients, cooking method, and what it comes with or who
-it suits. Be specific to the dish; vary sentence openings across dishes; no clichés ("mouth-watering",
-"authentic"), no health or allergen claims you cannot know; each ≤ 380 characters. Reply with exactly:
+current description, cuisine hints) and carries the *writing guidelines* (length, tone, what to cover);
+follow those guidelines exactly — they are managed by Favie and may change between runs. For each dish
+write `description_en` and `description_zh` as two separate fields. Reply with exactly:
 
 ````
 ```favie-menu-text

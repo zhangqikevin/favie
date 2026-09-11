@@ -1,0 +1,41 @@
+import { getSetting, SETTING_KEYS } from '@/server/settings'
+import { DEFAULT_DESCRIBE_PROMPT, DEFAULT_IMAGE_PROMPT, renderImagePrompt } from '@/lib/menu/prompts'
+import { imageGenerationAvailable } from '@/lib/ai/image'
+import { MenuPromptEditor } from './MenuPromptEditor'
+
+export default async function AdminMenuPrompts() {
+  const [describe, image] = await Promise.all([getSetting(SETTING_KEYS.menuDescribePrompt), getSetting(SETTING_KEYS.menuImagePrompt)])
+  const imageTemplate = image?.value ?? DEFAULT_IMAGE_PROMPT
+  const preview = renderImagePrompt(imageTemplate, { name: 'Braised Spicy Chicken Rice Bowl-无骨大盘鸡饭', category: 'Rice Bowl-饭', cuisine: 'Northwestern Chinese', descriptionEn: 'Tender boneless chicken braised in a bold, spicy sauce over steamed rice.' })
+  return (
+    <section className="space-y-8">
+      <div>
+        <h1 className="font-display text-2xl font-bold tracking-tight">Menu Clinic prompts</h1>
+        <p className="mt-1 max-w-3xl text-sm text-ink-500">
+          What "Favie AI optimize" asks for when it writes a dish description or generates a dish photo. Saved prompts take effect on the next click; no skill publish needed.
+          The output format the backend parses (two separate fields, the image size) is fixed in code.
+        </p>
+      </div>
+
+      <MenuPromptEditor
+        which="describe"
+        title="Dish description — writing guidelines"
+        help="Sent to the restaurant's agent together with the dish name, category, current description and cuisine. The agent must return description_en and description_zh; tell it here how long, what to cover, what tone."
+        value={describe?.value ?? null}
+        defaultValue={DEFAULT_DESCRIBE_PROMPT}
+        updatedAt={describe?.updatedAt.toISOString() ?? null}
+      />
+
+      <MenuPromptEditor
+        which="image"
+        title="Dish photo — image prompt"
+        help="Template for the image model. Placeholders: {name} {category} {cuisine} {description_en} (empty when unknown). Square 1024×1024 output."
+        value={image?.value ?? null}
+        defaultValue={DEFAULT_IMAGE_PROMPT}
+        updatedAt={image?.updatedAt.toISOString() ?? null}
+        preview={preview}
+        footnote={imageGenerationAvailable() ? 'Image generation is configured (OPENAI_API_KEY).' : 'Image generation is not configured yet (set OPENAI_API_KEY on the worker); descriptions still work.'}
+      />
+    </section>
+  )
+}

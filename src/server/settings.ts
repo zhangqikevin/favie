@@ -5,6 +5,8 @@ import { decrypt, encrypt } from '@/lib/crypto'
 export const SETTING_KEYS = {
   zooworkApiKey: 'zoowork_api_key',
   zooworkDefaultModel: 'zoowork_default_model',
+  menuDescribePrompt: 'menu_describe_prompt',
+  menuImagePrompt: 'menu_image_prompt',
 } as const
 type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS]
 

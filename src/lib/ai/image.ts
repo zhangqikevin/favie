@@ -3,19 +3,14 @@
  * and it is only active when OPENAI_API_KEY is set. Without a key, `imageGenerationAvailable()` is
  * false and the UI offers upload only.
  */
+import { menuImagePromptTemplate, renderImagePrompt } from '@/lib/menu/prompts'
+
 export function imageGenerationAvailable() {
   return !!process.env.OPENAI_API_KEY
 }
 
-export function dishPrompt(name: string, opts: { category?: string | null; cuisine?: string | null; descriptionEn?: string | null }) {
-  const hints = [opts.category, opts.cuisine].filter(Boolean).join(', ')
-  return [
-    `Professional food photograph of "${name}"${hints ? ` (${hints})` : ''} for a restaurant delivery app listing.`,
-    opts.descriptionEn ? `The dish: ${opts.descriptionEn}` : '',
-    'Single plated dish, centered, filling most of the frame, on a clean neutral table with soft natural daylight from the side,',
-    'shallow depth of field, appetizing steam or glossy sauce where natural, realistic colors, no people, no hands, no text, no logos, no extra props.',
-    'Square 1:1 composition, sharp focus on the food.',
-  ].filter(Boolean).join(' ')
+export async function dishPrompt(name: string, opts: { category?: string | null; cuisine?: string | null; descriptionEn?: string | null }) {
+  return renderImagePrompt(await menuImagePromptTemplate(), { name, ...opts })
 }
 
 /** Returns JPEG/PNG bytes. Throws when no provider is configured or the provider fails. */
