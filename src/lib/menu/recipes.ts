@@ -25,7 +25,11 @@ export type ApplyContext = {
 const SEL = {
   dd: {
     search: '[data-testid="comboboxTextField"]',
-    firstRowEdit: '[data-testid="EntityListItem"] [data-testid="编辑"], [data-testid="EntityListItem"] [data-testid="Edit"]',
+    // Typing into the search box opens a suggestion list; the first option (#combobox-item-0) is the matching
+    // item and clicking it opens that item's sheet directly. The list under the box is NOT filtered, so never
+    // click "the first row" — that is just the first item of the first category.
+    suggestion: '[data-testid="comboboxItems"] #combobox-item-0',
+    searchHint: '[data-testid="searchHintListCell"]',
     sheet: '[data-testid="LAYER-MANAGER-SHEET"]',
     description: '[data-testid="LAYER-MANAGER-SHEET"] textarea',
     photoInput: '[data-testid="LAYER-MANAGER-SHEET"] input[type="file"]',
@@ -75,15 +79,17 @@ export function buildApplyScript(ctx: ApplyContext, items: ApplyItem[]): { text:
     step(`snapshot mode "efficient" — checkpoint: confirm the item search box (${SEL.dd.search}) and item rows exist. If a store/business chooser shows instead, pick ${q(storeId ?? '')} / the store named in the storefront title, then repeat this checkpoint.`)
     items.forEach((it, i) => {
       lines.push(`--- item ${i + 1}/${items.length}: ${it.name}`)
-      step(`act kind "fill" fields [{ "selector": ${q(SEL.dd.search)}, "value": ${q(it.name)} }]; then act kind "wait" 1500`)
-      step(`act kind "click" selector ${q(SEL.dd.firstRowEdit)} (the first row is the search hit); act kind "wait" 1500 (a right-side sheet opens)`)
+      step(`act kind "click" selector ${q(SEL.dd.search)}; act kind "press" key "Control+a"; act kind "type" selector ${q(SEL.dd.search)} text ${q(it.name)} (typing — not fill — so the suggestion list opens); act kind "wait" 1500`)
+      step(`snapshot mode "efficient" — the suggestion list (${SEL.dd.suggestion.split(' ')[0]}) must show an option named exactly ${q(it.name)}. If the only option is the "搜索…按 Enter" hint, the item does not exist under this name: record "failed" (reason "item not found in Menu Manager"), press Escape, and continue with the next item.`)
+      step(`act kind "click" selector ${q(SEL.dd.suggestion)} (the matching option; it opens the item's sheet directly); act kind "wait" 2000`)
+      step(`snapshot mode "efficient" — checkpoint: the right-side sheet heading is ${q(it.name)}. If it is a different item, click the sheet's Close, record "failed" (reason "wrong item opened"), and continue.`)
       if (it.description) step(`act kind "fill" fields [{ "selector": ${q(SEL.dd.description)}, "value": ${q(it.description)} }]`)
       if (it.imageUrl) {
         step(`exec: curl -fsSL -o /workspace/photo-${i + 1}.jpg ${q(it.imageUrl)}; then browser action "upload" on selector ${q(SEL.dd.photoInput)} with that file (if upload needs an r2Key you cannot obtain, record the item as "photo_skipped" and continue with the description)`)
       }
       step(`snapshot mode "efficient" — find the sheet footer button named ${SEL.dd.saveText.map(q).join(' / ')} and act kind "click" it by ref. NEVER click any "删除" / "Delete" / "Remove" button and never use button[type="submit"].`)
       step(`act kind "wait" 3000; snapshot mode "efficient". If a dialog "Are you sure?" / "确定吗？" offers "Keep changes" / "保留更改" (the POS-integration warning), click "Keep changes" by ref and wait 3000. If the save button still shows "Loading", wait 3000 more and snapshot again (up to 3 times). Saving is complete only when the Loading state is gone and no error banner is shown.`)
-      step(`Verify: act kind "click" selector ${q(SEL.dd.close)}; act kind "wait" 1500; if an "Are you sure?" dialog appears now, the change was NOT saved — click "Keep changes", repeat the save step once, then close again. Then re-open the item: act kind "fill" fields [{ "selector": ${q(SEL.dd.search)}, "value": ${q(it.name)} }]; act kind "wait" 1500; act kind "click" selector ${q(SEL.dd.firstRowEdit)}; act kind "wait" 2000; snapshot mode "efficient" — the description textbox must now contain the new text; report "saved" only if it does, else "failed" with reason "description did not persist". Then act kind "click" selector ${q(SEL.dd.close)}.`)
+      step(`Verify: act kind "click" selector ${q(SEL.dd.close)}; act kind "wait" 1500; if an "Are you sure?" dialog appears now, the change was NOT saved — click "Keep changes", repeat the save step once, then close again. Then re-open the item the same way: click the search box, Control+a, type ${q(it.name)}, wait 1500, click ${q(SEL.dd.suggestion)}, wait 2000; snapshot mode "efficient" — the sheet heading is ${q(it.name)} and its description textbox contains the new text; report "saved" only if both hold, else "failed" with reason "description did not persist". Then act kind "click" selector ${q(SEL.dd.close)}.`)
       calibrate = true
     })
   } else {
