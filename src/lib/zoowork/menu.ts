@@ -141,7 +141,9 @@ async function storefrontUrl(r: typeof schema.restaurants.$inferSelect, platform
     .where(and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))).limit(1)
   if (conn?.storeId) return platform === 'doordash' ? `https://www.doordash.com/store/${conn.storeId}/` : ueStorefrontUrl(r.name, conn.storeId)
   try {
-    const list = await zoodataFor(r).client.listRestaurants()
+    const zd = zoodataFor(r)
+    if (zd.source !== 'zoodata') return null // sample data must never point the agent at another store
+    const list = await zd.client.listRestaurants()
     const want = toZoodataPlatform(platform)
     for (const z of list) for (const b of z.platformBindings) if (b.platform === want && b.platformStoreId) {
       return platform === 'doordash' ? `https://www.doordash.com/store/${b.platformStoreId}/` : ueStorefrontUrl(r.name, b.platformStoreId)
@@ -197,7 +199,8 @@ export async function ingestMenu(jobId: string, text: string) {
     // Zoodata sales counts, when the restaurant has a key (matched by platform item id, then by name).
     const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, job.restaurantId)).limit(1)
     let sales: Awaited<ReturnType<ReturnType<typeof zoodataFor>['client']['getMenuItems']>> = []
-    try { sales = (await zoodataFor(r!).client.getMenuItems()).filter((m) => m.platform === toZoodataPlatform(job.platform)) } catch { sales = [] }
+    const zd = zoodataFor(r!)
+    if (zd.source === 'zoodata') { try { sales = (await zd.client.getMenuItems()).filter((m) => m.platform === toZoodataPlatform(job.platform)) } catch { sales = [] } }
     const byId = new Map(sales.filter((m) => m.platformItemId).map((m) => [m.platformItemId!, m]))
     const byName = new Map<string, (typeof sales)[number]>()
     for (const m of sales) for (const k of looseKeys(m.name)) if (!byName.has(k)) byName.set(k, m)
