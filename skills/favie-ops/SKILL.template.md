@@ -22,6 +22,7 @@ The backend's message starts with a keyword. Jump straight to that section:
 | `FAVIE_MENU_PULL <platform>` | "Menu Clinic" — read the whole menu, change nothing, reply with a `favie-menu` block | Yes |
 | `FAVIE_MENU_SAVE <platform>` | "Menu Clinic" — write ONE item's description / photo the owner approved | Yes |
 | `FAVIE_MENU_DESCRIBE` | "Menu Clinic" — write bilingual dish descriptions; no browser | **No.** Text only |
+| `FAVIE_MENU_PHOTOS <platform>` | "Menu Clinic" — one `web_fetch` of the public storefront, reply with a `favie-menu-photos` block | **No.** web_fetch only |
 | anything else (the daily cron message) | Mode `daily` | Yes |
 
 ## Hard rules
@@ -166,12 +167,8 @@ open the merchant portal (Step 0 + login restore) and follow its "View store" / 
    current price; ignore struck-through prices and deal badges), `description` (the text under the
    name, `null` when there is none), `has_photo` (`true` when the card has an `img` with the item's name
    as alt text, else `false`), `availability` (`sold_out` when the card says Sold out / Unavailable, else
-   `available`). Dedupe by name. `external_id` and `unit` are `null` here; `image_url` comes from step 4.
-4. Photo URLs: the snapshot never exposes image addresses, so after the scroll rounds make ONE
-   `web_fetch` call on the same storefront URL (`extractMode: "markdown"`, `maxChars: 200000`). Its
-   markdown lists items as `### name` … `$price` … `![name](https://…)`. For every item whose block has an
-   image line, set `image_url` to that address (verbatim). Items the fetch does not reach keep
-   `image_url: null` (their `has_photo` still comes from the snapshot). Do not call web_fetch more than once.
+   `available`). Dedupe by name. `external_id`, `unit` and `image_url` are `null` here.
+4. Do not call web_fetch here; photo addresses are collected by a separate `FAVIE_MENU_PHOTOS` task.
 5. Budget about 30 tool calls. If you cannot finish, report what you have with `truncated: true`.
 6. Close the browser. Reply with one line — `<platform>: read N items in M categories` — then exactly one block:
 
@@ -185,7 +182,7 @@ open the merchant portal (Step 0 + login restore) and follow its "View store" / 
   "truncated": false,
   "items": [
     { "external_id": null, "category": "...", "name": "...", "description": "..." | null,
-      "price_cents": 1299 | null, "has_photo": true, "image_url": "https://…" | null,
+      "price_cents": 1299 | null, "has_photo": true, "image_url": null,
       "availability": "available" | "sold_out", "unit": null, "position": 1 }
   ]
 }
@@ -206,6 +203,17 @@ open the merchant portal (Step 0 + login restore) and follow its "View store" / 
 5. End with the summary block (`mode: "verify"`): one `menu_item_updated` action with `before` /
    `after` (description, has_photo), or one `issue_flagged` with `needs_attention: true` saying exactly
    why it could not be saved (item not found, photo rejected with the platform's message, no permission).
+
+**FAVIE_MENU_PHOTOS <platform>** — no browser, no context fetch, no login. The message gives `storefront_url`.
+Call `web_fetch` exactly once on it (`extractMode: "markdown"`, `maxChars: 200000`). The markdown lists items as
+`### name` … `$price` … `![name](https://…)`. Reply with one line and exactly one block listing every item that has
+an image line — `name` verbatim from the `###` heading, `image_url` verbatim:
+
+````
+```favie-menu-photos
+{ "items": [ { "name": "...", "image_url": "https://..." } ] }
+```
+````
 
 **FAVIE_MENU_DESCRIBE** — no browser, no context fetch. The message lists dishes (name, category,
 current description, cuisine hints). For each write `description_en` and `description_zh`: 3–4

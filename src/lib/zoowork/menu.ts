@@ -121,7 +121,12 @@ function normalizeMenu(raw: unknown): { items: PulledItem[]; truncated: boolean;
       for (const it of (Array.isArray(c.items) ? c.items : []) as Record<string, unknown>[]) push(it, cname, ++i)
     }
   }
-  if (!out.length) return null
+  // Promo carousels repeat real items; drop them here so the agent's compliance does not matter.
+  const CAROUSEL = /^(featured items?|most ordered|popular items?|save on select items|frequently bought|recommended|buy 1,? get 1|picked for you)/i
+  const real = out.filter((it) => !(it.category && CAROUSEL.test(it.category.trim())))
+  const kept = real.length ? real : out
+  if (!kept.length) return null
+  out.length = 0; out.push(...kept)
   const su = typeof o.storefront_url === 'string' && /^https:\/\/(www\.)?(doordash|ubereats)\.com\/store\//i.test(o.storefront_url) ? o.storefront_url.split('?')[0] : null
   return { items: out, truncated: o.truncated === true, storefrontUrl: su }
 }
@@ -171,6 +176,41 @@ async function waitForAgentBrowser(restaurantId: string, jobId: string, maxMs = 
   }
 }
 
+/** Photo URLs: one no-browser agent turn (web_fetch → markdown with image links), merged into menu_items by name. */
+export async function runMenuPhotos(jobId: string, restaurantId: string, platform: Platform, url: string) {
+  await note(jobId, 'Collecting photo links…')
+  const message = [
+    `FAVIE_MENU_PHOTOS ${platform}`,
+    `storefront_url: ${url}`,
+    'No browser, no context fetch, change nothing. Call web_fetch ONCE on storefront_url with extractMode "markdown" and',
+    'maxChars 200000. From the markdown, list every menu item that has an image line (`### name` … `![name](https://…)`).',
+    'Reply with exactly one block:',
+    '```favie-menu-photos',
+    '{ "items": [ { "name": "exact item name from the ### heading", "image_url": "https://…" } ] }',
+    '```',
+  ].join('\n')
+  const { text } = await runAgentTurn(restaurantId, message, jobId, { budgetMs: 6 * 60_000 })
+  const block = fenced(text, 'favie-menu-photos') ?? fenced(text, 'json')
+  const list = Array.isArray((block as { items?: unknown } | null)?.items) ? ((block as { items: unknown[] }).items as { name?: unknown; image_url?: unknown }[]) : []
+  const rows = await db.select({ id: schema.menuItems.id, name: schema.menuItems.name, imageUrl: schema.menuItems.imageUrl })
+    .from(schema.menuItems).where(and(eq(schema.menuItems.restaurantId, restaurantId), eq(schema.menuItems.platform, platform)))
+  const byKey = new Map<string, typeof rows[number]>()
+  for (const r of rows) for (const k of looseKeys(r.name)) if (!byKey.has(k)) byKey.set(k, r)
+  let matched = 0
+  for (const it of list) {
+    const name = typeof it.name === 'string' ? it.name : ''
+    const img = typeof it.image_url === 'string' && /^https?:\/\//.test(it.image_url) ? it.image_url : null
+    if (!name || !img) continue
+    let row: typeof rows[number] | undefined
+    for (const k of looseKeys(name)) { row = byKey.get(k); if (row) break }
+    if (!row) continue
+    const photo = await photoFlags(img)
+    await db.update(schema.menuItems).set({ imageUrl: img, photoMissing: false, photoPoor: photo.photoPoor, updatedAt: new Date() }).where(eq(schema.menuItems.id, row.id))
+    matched++
+  }
+  return { listed: list.length, matched, total: rows.length }
+}
+
 export async function runMenuPull(jobId: string) {
   const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
   if (!job) return
@@ -182,8 +222,9 @@ export async function runMenuPull(jobId: string) {
       `FAVIE_MENU_PULL ${job.platform}`,
       url ? `storefront_url: ${url}` : 'storefront_url: unknown — open the merchant portal and follow its "View store" / "Preview menu" link.',
       `Read the complete ${PLATFORM_LABEL[job.platform]} menu from the public storefront as the skill describes (scroll + snapshot rounds,`,
-      'no item clicks, skip Featured / Most Ordered carousels). Change nothing. Reply with ONE ```favie-menu``` block: flat `items`',
-      'array, each item with its own `category`, `description` (null if none), `has_photo`, `price_cents`, `availability`.',
+      'no item clicks, skip Featured / Most Ordered carousels, no web_fetch — photos are collected separately). Change nothing.',
+      'Reply with ONE ```favie-menu``` block: `storefront_url` plus a flat `items` array, each item with its own `category`,',
+      '`description` (null if none), `has_photo`, `price_cents`, `availability`.',
     ].join('\n')
     // Fast path: a server-side Firecrawl scrape (seconds, includes photo URLs). Falls back to the agent's browser.
     if (url && firecrawlEnabled()) {
@@ -201,6 +242,17 @@ export async function runMenuPull(jobId: string) {
     }
     const { text } = await runAgentTurn(job.restaurantId, message, jobId, { budgetMs: 35 * 60_000 })
     await ingestMenu(jobId, text)
+    // Photos: the browser snapshot never exposes image addresses; fetch them separately and merge by name.
+    const [fresh] = await db.select({ status: schema.menuJobs.status, note: schema.menuJobs.note }).from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
+    const [conn] = await db.select({ url: schema.platformConnections.storefrontUrl }).from(schema.platformConnections)
+      .where(and(eq(schema.platformConnections.restaurantId, job.restaurantId), eq(schema.platformConnections.platform, job.platform))).limit(1)
+    const photoUrl = conn?.url ?? url
+    if (fresh?.status === 'done' && photoUrl) {
+      try {
+        const res = await runMenuPhotos(jobId, job.restaurantId, job.platform, photoUrl)
+        await note(jobId, `${fresh.note ?? 'Read menu'} · photos for ${res.matched} of ${res.total}`, { status: 'done' })
+      } catch (e) { console.warn('[menuPull] photo step failed:', (e as Error).message); await note(jobId, fresh.note ?? 'Read menu', { status: 'done' }) }
+    }
   } catch (e) {
     await fail(jobId, (e as Error).message)
   }
