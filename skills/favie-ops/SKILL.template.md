@@ -152,8 +152,8 @@ open the merchant portal (Step 0 + login restore) and follow its "View store" / 
 1. `browser action:"session" op:"restart"` with the context's `login_label` (this also carries the
    merchant login cookies, which usually lets the storefront load without a bot check), then navigate to
    the storefront URL. Close any address / promo modal.
-   - If the page is a security check ("One more step", "automated security check", a CAPTCHA), do NOT
-     try to solve it. Instead open the merchant portal (Step 0 + login restore) — Uber Eats:
+   - If the page is a security check ("One more step", "automated security check", a CAPTCHA) or does
+     not show this store (not found / wrong store), do NOT try to solve or search around. Instead open the merchant portal (Step 0 + login restore) — Uber Eats:
      `https://merchants.ubereats.com/manager/menu` (pick the store, open the menu editor and read the
      item list there: category, name, price, description text, whether an item has a photo, "Sold out");
      DoorDash: `https://www.doordash.com/merchant/menu-editor`. Same output format. Do not click into

@@ -67,6 +67,16 @@ async function runAgentTurn(restaurantId: string, message: string, jobId: string
 
 /** Name key: NFKC folds CJK radical / compatibility variants (⽣ vs 生), then case and whitespace. */
 const norm = (v: string | null | undefined) => (v ?? '').normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim()
+/** Loose keys for matching a platform item name against Zoodata's copy of it: letters/digits only, and the
+ *  English part alone ("Beef Rib Oil SplashedHand-Pulled Noodles" ≈ "Beef Rib Oil Splashed Hand-Pulled Noodles-牛肋骨油泼面"). */
+function looseKeys(v: string | null | undefined): string[] {
+  const n = norm(v)
+  const all = n.replace(/[^\p{L}\p{N}]+/gu, '')
+  const en = n.replace(/[\u3000-\u9fff\uf900-\ufaff].*$/u, '').replace(/[^\p{L}\p{N}]+/gu, '')
+  return [all, en].filter((k, i, a) => k.length >= 4 && a.indexOf(k) === i)
+}
+/** Zoodata reports every item a handful of times; only a clear sales signal marks a missing item as hidden. */
+const HIDDEN_MIN_ORDERS = 3
 
 function fenced(text: string, lang: string): unknown | null {
   const re = new RegExp('```' + lang + '\\s*\\n([\\s\\S]*?)\\n```', 'g')
@@ -127,6 +137,9 @@ function ueStorefrontUrl(name: string, storeUuid: string) {
 }
 
 async function storefrontUrl(r: typeof schema.restaurants.$inferSelect, platform: Platform): Promise<string | null> {
+  const [conn] = await db.select({ storeId: schema.platformConnections.storeExternalId }).from(schema.platformConnections)
+    .where(and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))).limit(1)
+  if (conn?.storeId) return platform === 'doordash' ? `https://www.doordash.com/store/${conn.storeId}/` : ueStorefrontUrl(r.name, conn.storeId)
   try {
     const list = await zoodataFor(r).client.listRestaurants()
     const want = toZoodataPlatform(platform)
@@ -186,7 +199,9 @@ export async function ingestMenu(jobId: string, text: string) {
     let sales: Awaited<ReturnType<ReturnType<typeof zoodataFor>['client']['getMenuItems']>> = []
     try { sales = (await zoodataFor(r!).client.getMenuItems()).filter((m) => m.platform === toZoodataPlatform(job.platform)) } catch { sales = [] }
     const byId = new Map(sales.filter((m) => m.platformItemId).map((m) => [m.platformItemId!, m]))
-    const byName = new Map(sales.map((m) => [norm(m.name), m]))
+    const byName = new Map<string, (typeof sales)[number]>()
+    for (const m of sales) for (const k of looseKeys(m.name)) if (!byName.has(k)) byName.set(k, m)
+    const findSale = (name: string) => { for (const k of looseKeys(name)) { const m = byName.get(k); if (m) return m } }
 
     const now = new Date()
     const seen = new Set<string>()
@@ -199,7 +214,7 @@ export async function ingestMenu(jobId: string, text: string) {
       seen.add(key)
       const photo = it.image_url ? await photoFlags(it.image_url) : { photoMissing: it.has_photo === false, photoPoor: false }
       const desc = descriptionFlags(it.description)
-      const s = (it.external_id ? byId.get(it.external_id) : undefined) ?? byName.get(norm(it.name))
+      const s = (it.external_id ? byId.get(it.external_id) : undefined) ?? findSale(it.name)
       const values = {
         restaurantId: job.restaurantId, platform: job.platform, itemKey: key, externalId: it.external_id ?? null, category: it.category ?? null, name: it.name,
         description: it.description ?? null, priceCents: it.price_cents ?? s?.priceCents ?? null, imageUrl: photo.photoMissing ? null : (it.image_url ?? null),
@@ -214,10 +229,10 @@ export async function ingestMenu(jobId: string, text: string) {
       if (i % 20 === 0) await note(jobId, `Checked ${i} of ${parsed.items.length} items…`)
     }
     // Items Zoodata saw selling recently but the storefront does not show are hidden (or removed) on the platform.
-    const seenNames = new Set(parsed.items.map((x) => norm(x.name)))
+    const seenNames = new Set(parsed.items.flatMap((x) => looseKeys(x.name)))
     let hidden = 0
     for (const m of sales) {
-      if (!m.orderCnt || seenNames.has(norm(m.name))) continue
+      if (!m.orderCnt || m.orderCnt < HIDDEN_MIN_ORDERS || looseKeys(m.name).some((k) => seenNames.has(k))) continue
       if (/^(add|extra|choose|select|no |with )/i.test(m.name)) continue // modifiers, not items
       const key = `name:${norm(m.category)}/${norm(m.name)}`
       if (seen.has(key)) continue
