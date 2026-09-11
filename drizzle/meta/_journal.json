@@ -120,6 +120,13 @@
       "when": 1789153264102,
       "tag": "0016_regular_dorian_gray",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789158310915,
+      "tag": "0017_simple_absorbing_man",
+      "breakpoints": true
     }
   ]
 }

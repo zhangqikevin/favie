@@ -91,17 +91,34 @@ export async function saveToPlatform(menuItemId: string) {
   return { ok: true as const, jobId: job!.id }
 }
 
-/** "Publish all drafts": every approved draft of this platform in ONE agent session (one login, one editor load). */
+/** "加入待保存": freeze the draft (no more edits) and put the item in the platform's save queue. */
+export async function queueItem(menuItemId: string) {
+  const { item } = await ownItem(menuItemId)
+  if (!item.draftDescription && !item.draftImageUrl) return { error: 'nothing' as const }
+  if (item.status === 'saving') return { error: 'busy' as const }
+  await db.update(schema.menuItems).set({ status: 'queued', lastError: null, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
+  return { ok: true as const }
+}
+
+/** "撤销保存": take the item out of the queue; the draft stays and is editable again. */
+export async function unqueueItem(menuItemId: string) {
+  const { item } = await ownItem(menuItemId)
+  if (item.status !== 'queued') return { error: 'not_queued' as const }
+  await db.update(schema.menuItems).set({ status: 'draft', updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
+  return { ok: true as const }
+}
+
+/** "同步到平台": every queued item of this platform in ONE agent session (one login, one editor load). */
 export async function publishDrafts(restaurantId: string, platform: Platform) {
   const { r } = await own(restaurantId)
   if (!isPlatform(platform)) throw new Error('platform')
-  const drafts = await db.select({ id: schema.menuItems.id }).from(schema.menuItems)
-    .where(and(eq(schema.menuItems.restaurantId, r.id), eq(schema.menuItems.platform, platform), eq(schema.menuItems.status, 'draft')))
-  if (!drafts.length) return { error: 'nothing' as const }
+  const scope = and(eq(schema.menuItems.restaurantId, r.id), eq(schema.menuItems.platform, platform), eq(schema.menuItems.status, 'queued'))
+  const queued = await db.select({ id: schema.menuItems.id }).from(schema.menuItems).where(scope)
+  if (!queued.length) return { error: 'nothing' as const }
   const [job] = await db.insert(schema.menuJobs).values({ restaurantId: r.id, platform, kind: 'apply', note: 'Queued…' }).returning()
-  await db.update(schema.menuItems).set({ status: 'saving', lastError: null, updatedAt: new Date() }).where(and(eq(schema.menuItems.restaurantId, r.id), eq(schema.menuItems.platform, platform), eq(schema.menuItems.status, 'draft')))
+  await db.update(schema.menuItems).set({ status: 'saving', lastError: null, updatedAt: new Date() }).where(scope)
   await enqueueMenuApply(job!.id, r.id, platform)
-  return { ok: true as const, jobId: job!.id, count: drafts.length }
+  return { ok: true as const, jobId: job!.id, count: queued.length }
 }
 
 /** Drop Favie's draft and keep what the platform has. */

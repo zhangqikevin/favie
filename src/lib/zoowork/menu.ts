@@ -432,7 +432,8 @@ export async function runMenuGenerate(jobId: string) {
 export async function runMenuApply(jobId: string) {
   const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
   if (!job) return
-  const scope = and(eq(schema.menuItems.restaurantId, job.restaurantId), eq(schema.menuItems.platform, job.platform), job.menuItemId ? eq(schema.menuItems.id, job.menuItemId) : eq(schema.menuItems.status, 'draft'))
+  // Batch: the action already moved the queued items to `saving`; single item: whatever the owner pointed at.
+  const scope = and(eq(schema.menuItems.restaurantId, job.restaurantId), eq(schema.menuItems.platform, job.platform), job.menuItemId ? eq(schema.menuItems.id, job.menuItemId) : inArray(schema.menuItems.status, ['saving', 'queued']))
   const items = (await db.select().from(schema.menuItems).where(scope)).filter((i) => i.draftDescription || i.draftImageUrl)
   if (!items.length) { await fail(jobId, 'nothing to save'); return }
   const ids = items.map((i) => i.id)
@@ -520,6 +521,7 @@ export async function menuState(restaurantId: string, platform: Platform) {
     descMissing: items.filter((i) => i.descMissing && !i.draftDescription).length,
     descThin: items.filter((i) => i.descThin && !i.draftDescription).length,
     drafts: items.filter((i) => i.status === 'draft').length,
+    queued: items.filter((i) => i.status === 'queued' || i.status === 'saving').length,
   }
   return {
     items: items as MenuItem[], pull: pull as MenuJob | null, active: active as MenuJob[], counts, imageGeneration: imageGenerationAvailable(),

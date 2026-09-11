@@ -23,7 +23,7 @@ export const actionCategoryEnum = pgEnum('action_category', [
   'menu_item_updated', // Menu Clinic: description / photo written to the platform
 ])
 export const metricSourceEnum = pgEnum('metric_source', ['zoodata', 'mock', 'platform_ui'])
-export const menuItemStatusEnum = pgEnum('menu_item_status', ['synced', 'draft', 'saving', 'saved', 'failed'])
+export const menuItemStatusEnum = pgEnum('menu_item_status', ['synced', 'draft', 'queued', 'saving', 'saved', 'failed'])
 export const menuJobKindEnum = pgEnum('menu_job_kind', ['pull', 'generate', 'save', 'apply'])
 export const menuJobStatusEnum = pgEnum('menu_job_status', ['queued', 'running', 'done', 'failed'])
 export const subscriptionStatusEnum = pgEnum('subscription_status', [

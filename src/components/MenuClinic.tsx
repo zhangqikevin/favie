@@ -4,12 +4,12 @@ import { useT, useLocale } from '@/i18n/client'
 import { INTL_TAG } from '@/i18n/config'
 import type { DictKey } from '@/i18n'
 import { PlatformIcon } from '@/components/PlatformIcon'
-import { pullMenu, pickStorefront, publishDrafts, aiOptimize, updateDraft, uploadPhoto, saveToPlatform, discardDraft } from '@/app/(app)/dashboard/[restaurantId]/menu/actions'
+import { pullMenu, pickStorefront, publishDrafts, aiOptimize, updateDraft, uploadPhoto, queueItem, unqueueItem, discardDraft } from '@/app/(app)/dashboard/[restaurantId]/menu/actions'
 import type { MenuState } from '@/lib/zoowork/menu'
 
 type Platform = 'uber_eats' | 'doordash'
 type Item = MenuState['items'][number]
-type Filter = 'all' | 'photoMissing' | 'photoPoor' | 'descMissing' | 'descThin' | 'drafts'
+type Filter = 'all' | 'photoMissing' | 'photoPoor' | 'descMissing' | 'descThin' | 'queued'
 const LABEL: Record<Platform, string> = { uber_eats: 'Uber Eats', doordash: 'DoorDash' }
 const money = (c: number | null) => (c == null ? '—' : `$${(c / 100).toFixed(2)}`)
 
@@ -47,7 +47,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
 
   const visible = s.items.filter((i) => {
     if (filter === 'all') return true
-    if (filter === 'drafts') return i.status === 'draft'
+    if (filter === 'queued') return i.status === 'queued' || i.status === 'saving'
     if (filter === 'photoMissing') return i.photoMissing && !i.draftImageUrl
     if (filter === 'photoPoor') return i.photoPoor && !i.draftImageUrl
     if (filter === 'descMissing') return i.descMissing && !i.draftDescription
@@ -124,9 +124,9 @@ export function MenuClinic({ restaurantId, connected, initial }: {
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-display text-lg font-semibold">{t('menu.diag.title')}</h2>
             <div className="flex items-center gap-3">
-              {s.counts.drafts > 0 && !busy && (
+              {s.counts.queued > 0 && !busy && (
                 <button type="button" disabled={pending} onClick={() => start(async () => { await publishDrafts(restaurantId, platform); await refresh() })} className="pill pill-active !py-1.5 text-xs">
-                  {t('menu.publishAll', { n: s.counts.drafts, platform: LABEL[platform] })}
+                  {t('menu.sync', { n: s.counts.queued, platform: LABEL[platform] })}
                 </button>
               )}
               <p className="text-xs text-ink-500">{t('menu.diag.hint')}</p>
@@ -139,7 +139,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
               ['photoPoor', s.counts.photoPoor, 'menu.diag.photoPoor', 'text-amber-600'],
               ['descMissing', s.counts.descMissing, 'menu.diag.descMissing', 'text-[color:var(--accent-orange)]'],
               ['descThin', s.counts.descThin, 'menu.diag.descThin', 'text-amber-600'],
-              ['drafts', s.counts.drafts, 'menu.diag.drafts', 'text-brand-600'],
+              ['queued', s.counts.queued, 'menu.diag.queued', 'text-[color:var(--accent-blue,#2f66ff)]'],
             ] as [Filter, number, DictKey, string][]).map(([f, n, key, tone]) => (
               <button key={f} type="button" onClick={() => setFilter(f)} className={`rounded-2xl p-4 text-left transition-colors ${filter === f ? 'bg-ink-900 text-[color:var(--app-bg)]' : 'bg-ink-100/70 hover:bg-ink-100'}`}>
                 <p className={`font-display text-3xl font-semibold tracking-tight ${filter === f ? '' : n > 0 ? tone : 'text-ink-500'}`}>{n}</p>
@@ -181,6 +181,8 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
   useEffect(() => { setText(item.draftDescription ?? '') }, [item.draftDescription])
   const generating = jobs.some((j) => j.kind === 'generate')
   const saving = item.status === 'saving' || jobs.some((j) => j.kind === 'apply')
+  const queued = item.status === 'queued'
+  const frozen = queued || saving // no edits while waiting for / during the sync
   const photo = item.draftImageUrl ?? item.imageUrl
   const shown = item.draftDescription ?? item.description
   const flags = [
@@ -201,6 +203,7 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
           <p className="font-semibold leading-snug">{item.name}</p>
           <div className="mt-1 flex flex-wrap gap-1">
             {flags.map(([k, cls]) => <span key={k} className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>{t(k)}</span>)}
+            {queued && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">{t('menu.status.queued')}</span>}
             {item.status === 'saved' && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">{t('menu.saved')}</span>}
             {item.status === 'failed' && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700" title={item.lastError ?? ''}>{t('menu.failed')}</span>}
             {item.orderCnt != null && <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] text-ink-500">{t('menu.sold', { n: item.orderCnt.toLocaleString(intl) })}</span>}
@@ -211,19 +214,19 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
         <span className="text-sm font-semibold">{money(item.priceCents)}</span>
         <p className={`line-clamp-3 text-sm ${shown ? 'text-ink-700' : 'italic text-ink-300'}`}>{shown || t('menu.noDesc')}</p>
         <div className="flex flex-wrap gap-2 lg:justify-end">
-          <button type="button" disabled={pending || generating || saving} onClick={() => start(async () => { await aiOptimize(item.id); await onChange() })} className="pill pill-active !py-1.5 text-xs">
+          <button type="button" disabled={pending || generating || frozen} onClick={() => start(async () => { await aiOptimize(item.id); await onChange() })} className="pill pill-active !py-1.5 text-xs">
             {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.optimize')}
           </button>
           <button type="button" onClick={() => setOpen((o) => !o)} className="pill !py-1.5 text-xs">{t('menu.edit')}</button>
         </div>
       </div>
       {generating && jobs[0]?.note && <p className="mt-2 text-xs text-ink-500 lg:pl-[88px]">{t('menu.agentBusy', { note: jobs[0].note })}</p>}
-      {(open || item.status === 'draft' || saving || item.status === 'failed') && (
+      {(open || item.status === 'draft' || queued || saving || item.status === 'failed') && (
         <div className="mt-4 grid gap-4 rounded-2xl bg-ink-100/60 p-4 lg:grid-cols-[260px_1fr]">
           <div className="space-y-2">
             <div className="grid grid-cols-3 gap-2">
               {[['keep', item.imageUrl, 'menu.keepPhoto'], ['ai', item.aiImageUrl, 'menu.useAi'], ['own', item.customImageUrl, 'menu.useOwn']].map(([k, url, label]) => url ? (
-                <button key={k} type="button" disabled={saving} onClick={() => start(async () => { await updateDraft(item.id, { imageUrl: k === 'keep' ? null : (url as string) }); await onChange() })}
+                <button key={k} type="button" disabled={frozen} onClick={() => start(async () => { await updateDraft(item.id, { imageUrl: k === 'keep' ? null : (url as string) }); await onChange() })}
                   className={`overflow-hidden rounded-xl ring-2 ${(k === 'keep' ? !item.draftImageUrl : item.draftImageUrl === url) ? 'ring-brand-500' : 'ring-transparent'}`} title={t(label as DictKey)}>
                   <img src={url as string} alt="" className="aspect-square w-full object-cover" />
                   <span className="block bg-white px-1 py-1 text-[10px] text-ink-700">{t(label as DictKey)}</span>
@@ -236,19 +239,29 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
               start(async () => { await uploadPhoto(fd); await onChange() })
               e.target.value = ''
             }} />
-            <button type="button" disabled={pending || saving} onClick={() => fileRef.current?.click()} className="pill w-full !py-1.5 text-xs">{t('menu.upload')}</button>
+            <button type="button" disabled={pending || frozen} onClick={() => fileRef.current?.click()} className="pill w-full !py-1.5 text-xs">{t('menu.upload')}</button>
           </div>
           <div className="space-y-2">
             <label className="text-xs font-medium text-ink-700">{t('menu.draftDesc')}</label>
-            <textarea value={text} disabled={saving} onChange={(e) => setText(e.target.value)} onBlur={() => { if (text !== (item.draftDescription ?? '')) start(async () => { await updateDraft(item.id, { description: text }); await onChange() }) }}
+            <textarea value={text} disabled={frozen} onChange={(e) => setText(e.target.value)} onBlur={() => { if (text !== (item.draftDescription ?? '')) start(async () => { await updateDraft(item.id, { description: text }); await onChange() }) }}
               rows={5} className="input !rounded-2xl text-sm leading-relaxed" placeholder={item.description ?? ''} />
             {item.lastError && item.status === 'failed' && <p className="text-xs text-red-700">{item.lastError}</p>}
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" disabled={pending || saving || (!item.draftDescription && !item.draftImageUrl)} onClick={() => start(async () => { await saveToPlatform(item.id); await onChange() })} className="pill pill-active !py-1.5 text-xs">
-                {saving ? <><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</> : t('menu.save', { platform: LABEL[platform] })}
-              </button>
-              {(item.draftDescription || item.draftImageUrl) && !saving && (
-                <button type="button" disabled={pending} onClick={() => start(async () => { await discardDraft(item.id); setText(''); await onChange() })} className="text-xs text-ink-500 hover:text-ink-900">{t('menu.discard')}</button>
+              {saving ? (
+                <span className="pill !py-1.5 text-xs"><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</span>
+              ) : queued ? (
+                <>
+                  <span className="pill pill-active !py-1.5 text-xs opacity-70">{t('menu.queued')}</span>
+                  <button type="button" disabled={pending} onClick={() => start(async () => { await unqueueItem(item.id); await onChange() })} className="pill !py-1.5 text-xs">{t('menu.unqueue')}</button>
+                  <span className="text-xs text-ink-500">{t('menu.queuedHint')}</span>
+                </>
+              ) : (
+                <>
+                  <button type="button" disabled={pending || (!item.draftDescription && !item.draftImageUrl)} onClick={() => start(async () => { await queueItem(item.id); await onChange() })} className="pill pill-active !py-1.5 text-xs">{t('menu.queue')}</button>
+                  {(item.draftDescription || item.draftImageUrl) && (
+                    <button type="button" disabled={pending} onClick={() => start(async () => { await discardDraft(item.id); setText(''); await onChange() })} className="text-xs text-ink-500 hover:text-ink-900">{t('menu.discard')}</button>
+                  )}
+                </>
               )}
               {saving && jobs.find((j) => j.kind === 'apply')?.note && <span className="text-xs text-ink-500">{jobs.find((j) => j.kind === 'apply')!.note}</span>}
             </div>
