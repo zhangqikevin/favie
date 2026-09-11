@@ -377,6 +377,20 @@ function splitBilingual(got: Record<string, unknown> | undefined): { en: string;
   return { en, zh }
 }
 
+/**
+ * 2–3 of the restaurant's OWN platform photos to hand the image model as style references: same platform,
+ * same category first (then any category), best sellers first, never Favie-generated pictures. Empty when
+ * the menu has no usable photos — the prompt then drops the style-reference paragraph.
+ */
+export async function referencePhotos(item: typeof schema.menuItems.$inferSelect, max = 3): Promise<string[]> {
+  const rows = await db.select({ id: schema.menuItems.id, category: schema.menuItems.category, imageUrl: schema.menuItems.imageUrl, aiImageUrl: schema.menuItems.aiImageUrl, orderCnt: schema.menuItems.orderCnt, status: schema.menuItems.status })
+    .from(schema.menuItems)
+    .where(and(eq(schema.menuItems.restaurantId, item.restaurantId), eq(schema.menuItems.platform, item.platform), isNotNull(schema.menuItems.imageUrl), ne(schema.menuItems.id, item.id)))
+  const real = rows.filter((x) => x.imageUrl && x.imageUrl !== x.aiImageUrl && !/supabase\.co\//.test(x.imageUrl) && /^https:\/\//.test(x.imageUrl))
+  const rank = (x: typeof real[number]) => (x.category === item.category ? 0 : 1) * 1_000_000 - (x.orderCnt ?? 0)
+  return real.sort((a, b) => rank(a) - rank(b)).slice(0, max).map((x) => x.imageUrl!)
+}
+
 export async function runMenuGenerate(jobId: string) {
   const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
   if (!job?.menuItemId) return
@@ -409,12 +423,13 @@ export async function runMenuGenerate(jobId: string) {
     // Photo: the agent's image_generate tool (ZooWork-hosted providers); the legacy direct-OpenAI path only when forced.
     await note(jobId, 'Generating the photo…')
     try {
-      const prompt = await dishPrompt(item.name, { category: item.category, cuisine: r?.cuisine, descriptionEn: en })
+      const references = await referencePhotos(item)
+      const prompt = await dishPrompt(item.name, { category: item.category, cuisine: r?.cuisine, descriptionEn: en, hasReferences: references.length > 0 })
       const img = process.env.MENU_IMAGE_DIRECT_OPENAI === '1' && directOpenAiAvailable()
         ? { ...(await generateDishImage(prompt)), model: 'openai-direct', artifactUrl: null as string | null, r2Key: null as string | null, ms: 0 }
-        : await generateDishImageViaAgent(job.restaurantId, { prompt, model: await menuImageModel(), filename: `${item.id}.jpg`, jobId })
+        : await generateDishImageViaAgent(job.restaurantId, { prompt, model: await menuImageModel(), filename: `${item.id}.jpg`, references, jobId })
       const url = await putImage(job.restaurantId, `${item.id}-ai-${Date.now()}.jpg`, img.bytes, img.contentType)
-      await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, raw: { ...(item.raw as Record<string, unknown> ?? {}), aiImage: { model: img.model, r2Key: img.r2Key, artifactUrl: img.artifactUrl, prompt, ms: img.ms } }, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
+      await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, raw: { ...(item.raw as Record<string, unknown> ?? {}), aiImage: { model: img.model, r2Key: img.r2Key, artifactUrl: img.artifactUrl, prompt, references, ms: img.ms } }, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
       await note(jobId, 'Description and photo ready', { status: 'done' })
     } catch (e) {
       console.warn('[menuGenerate] photo failed:', (e as Error).message)

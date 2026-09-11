@@ -29,7 +29,7 @@ export default async function AdminMenuPrompts() {
       <MenuPromptEditor
         which="image"
         title="Dish photo — image prompt"
-        help="Template for the image model. Placeholders: {name} {category} {cuisine} {description_en} (empty when unknown). Square 1024×1024 output."
+        help="Template for the image model. Placeholders: {name} {category} {cuisine} {description_en} (empty when unknown) and {scene} — the studio scene when the menu has no photos, or the style-reference paragraph when 2–3 of the restaurant's own photos (same category first) are attached as references. Square 1024×1024 output."
         value={image?.value ?? null}
         defaultValue={DEFAULT_IMAGE_PROMPT}
         updatedAt={image?.updatedAt.toISOString() ?? null}

@@ -21,7 +21,7 @@ export type GeneratedImage = { bytes: Uint8Array; contentType: string; model: st
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-export async function generateDishImageViaAgent(restaurantId: string, opts: { prompt: string; model: string; filename: string; jobId?: string; budgetMs?: number }): Promise<GeneratedImage> {
+export async function generateDishImageViaAgent(restaurantId: string, opts: { prompt: string; model: string; filename: string; references?: string[]; jobId?: string; budgetMs?: number }): Promise<GeneratedImage> {
   const t0 = Date.now()
   const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1)
   const [agent] = await db.select().from(schema.restaurantAgents).where(eq(schema.restaurantAgents.restaurantId, restaurantId)).limit(1)
@@ -34,7 +34,7 @@ export async function generateDishImageViaAgent(restaurantId: string, opts: { pr
   // 1. Start the generation. The agent must not wait for it.
   const start = [
     'FAVIE_MENU_IMAGE — step 1 of 2. No browser, no context fetch.',
-    `Call image_generate ONCE with: action "generate", model ${JSON.stringify(opts.model)}, size "1024x1024", quality "high", outputFormat "jpeg", count 1, timeoutMs 300000, filename ${JSON.stringify(file)}, and this exact prompt:`,
+    `Call image_generate ONCE with: action "generate", model ${JSON.stringify(opts.model)}, size "1024x1024", quality "high", outputFormat "jpeg", count 1, timeoutMs 300000, filename ${JSON.stringify(file)},${opts.references?.length ? ` images ${JSON.stringify(opts.references)} (style reference photos — pass them exactly as given),` : ''} and this exact prompt:`,
     opts.prompt,
     '',
     'It runs in the background. Do NOT poll, do NOT yield, do NOT call status: as soon as the tool returns, reply with the single word STARTED (or the tool\'s error text if it failed). Favie collects the result itself.',
