@@ -128,7 +128,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
               {queuedAll.length > 0 && !anyApplyActive && (
                 <button type="button" disabled={pending}
                   onClick={() => { if (!window.confirm(t('menu.sync.confirm', { n: queuedAll.length, min: estMinutes(queuedAll) }))) return; start(async () => { await publishAllQueued(restaurantId); await refresh() }) }}
-                  className="pill pill-active !py-1.5 text-xs">
+                  className="pill !border-transparent !bg-brand-500 !py-1.5 text-xs font-semibold !text-white hover:!bg-brand-600">
                   {t('menu.sync', { n: queuedAll.length })}
                 </button>
               )}
