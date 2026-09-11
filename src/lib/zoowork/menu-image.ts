@@ -79,14 +79,30 @@ export async function generateDishImageViaAgent(restaurantId: string, opts: { pr
       'Reply with the artifact_publish JSON result verbatim as your final message. Nothing else, no other tools.',
     ].join('\n')
     await zc.postEvents(agentId, session.session_id, [{ type: 'user.message', content: publish, idempotency_key: `menu-image-publish-${session.session_id}` }])
-    const second = await turn(lastSeq)
-    let artifactUrl = /"url"\s*:\s*"(https:\/\/[^"]+)"/.exec(second.text)?.[1] ?? null
-    let artifactId = /"artifactId"\s*:\s*"(art_[^"]+)"/.exec(second.text)?.[1] ?? null
-    if (!artifactUrl) {
-      // Fall back to the artifacts API (the tool result is also recorded there).
-      const page = await zc.listArtifacts(agentId, { sessionId: session.session_id, limit: 10 })
-      const row = page.artifacts.find((a) => a.status === 'ready' && a.url) ?? page.artifacts[0]
-      if (row?.artifact_id) { artifactId = row.artifact_id; artifactUrl = row.url ?? (await zc.downloadArtifact(agentId, row.artifact_id)).url ?? null }
+    // The async-completion run and our follow-up run interleave, so a plain stream of "the next run" is
+    // unreliable here; watch the event log for the artifact_publish tool result instead.
+    let artifactUrl: string | null = null
+    let artifactId: string | null = null
+    while (!artifactUrl && Date.now() < deadline) {
+      await sleep(3000)
+      const events = await zc.listAllEvents(agentId, session.session_id)
+      for (const e of events as unknown as { seq: number; eventType: string; payload?: Record<string, unknown> }[]) {
+        if (e.seq <= lastSeq) continue
+        const p = e.payload ?? {}
+        if (e.eventType === 'agent.tool' && p.phase === 'end' && p.toolName === 'artifact_publish') {
+          const preview = String(p.resultPreview ?? '')
+          artifactUrl = /"url"\s*:\s*"(https:\/\/[^"]+)"/.exec(preview)?.[1] ?? artifactUrl
+          artifactId = /"artifactId"\s*:\s*"(art_[^"]+)"/.exec(preview)?.[1] ?? artifactId
+          if (p.isError) throw new Error(`artifact_publish: ${preview.slice(0, 300)}`)
+        }
+        if (e.eventType === 'agent.tool' && p.phase === 'end' && p.toolName === 'media_materialize' && p.isError) throw new Error(`media_materialize: ${String(p.resultPreview ?? '').slice(0, 300)}`)
+      }
+      if (!artifactUrl) {
+        // The artifacts API sees the row as soon as it is finalized, even when the preview was cut short.
+        const page = await zc.listArtifacts(agentId, { sessionId: session.session_id, limit: 10 }).catch(() => null)
+        const row = page?.artifacts.find((a) => a.status === 'ready' && a.file_name === file)
+        if (row?.artifact_id) { artifactId = row.artifact_id; artifactUrl = row.url ?? (await zc.downloadArtifact(agentId, row.artifact_id)).url ?? null }
+      }
     }
     if (!artifactUrl) throw new Error('the agent did not publish the generated image')
 
