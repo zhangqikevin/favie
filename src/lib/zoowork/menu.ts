@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray, ne } from 'drizzle-orm'
 import { toolCall, type SessionEvent } from '@zoowork-ai/sdk'
 import { db, schema } from '@/lib/db/client'
 import { zoowork, logged } from './client'
@@ -129,10 +129,26 @@ async function storefrontUrl(r: typeof schema.restaurants.$inferSelect, platform
   return null
 }
 
+/** One browser per agent: wait until no other pull/save job for this restaurant is running. */
+async function waitForAgentBrowser(restaurantId: string, jobId: string, maxMs = 30 * 60_000) {
+  const started = Date.now()
+  let noted = false
+  for (;;) {
+    const busy = await db.select({ id: schema.menuJobs.id }).from(schema.menuJobs)
+      .where(and(eq(schema.menuJobs.restaurantId, restaurantId), eq(schema.menuJobs.status, 'running'), ne(schema.menuJobs.id, jobId), inArray(schema.menuJobs.kind, ['pull', 'save'])))
+      .limit(1)
+    if (!busy.length) return
+    if (Date.now() - started > maxMs) throw new Error('another Favie browser task on this restaurant did not finish in time')
+    if (!noted) { noted = true; await db.update(schema.menuJobs).set({ note: 'Waiting for another Favie task on this restaurant…', updatedAt: new Date() }).where(eq(schema.menuJobs.id, jobId)) }
+    await new Promise((r) => setTimeout(r, 5000))
+  }
+}
+
 export async function runMenuPull(jobId: string) {
   const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
   if (!job) return
   try {
+    await waitForAgentBrowser(job.restaurantId, jobId)
     const [rr] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, job.restaurantId)).limit(1)
     const url = rr ? await storefrontUrl(rr, job.platform) : null
     const message = [
@@ -278,6 +294,7 @@ export async function runMenuSave(jobId: string) {
   if (!item) return
   if (!item.draftDescription && !item.draftImageUrl) { await fail(jobId, 'nothing to save'); return }
   try {
+    await waitForAgentBrowser(job.restaurantId, jobId)
     await db.update(schema.menuItems).set({ status: 'saving', lastError: null, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
     const message = [
       `FAVIE_MENU_SAVE ${job.platform}`,

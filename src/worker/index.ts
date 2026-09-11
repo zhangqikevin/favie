@@ -64,18 +64,17 @@ await boss.work<{ restaurantId: string; prompt?: string }>(JOBS.manualRun, { bat
   await runManualPrompt(job.data.restaurantId, job.data.prompt ?? DAILY_MESSAGE)
 })
 await boss.work(JOBS.weeklyDigest, { batchSize: 1 }, async () => { await weeklyDigest() })
-// Menu Clinic. Browser jobs (pull/save) run one at a time: an agent has one browser and a locked profile.
-await boss.work<{ jobId: string; restaurantId: string; platform: 'uber_eats' | 'doordash' }>(JOBS.menuPull, { batchSize: 1, pollingIntervalSeconds: 0.5 }, async ([job]) => {
-  console.log('[menuPull]', job.data.restaurantId, job.data.platform)
-  await runMenuPull(job.data.jobId)
+// Menu Clinic. Browser jobs (pull/save) run in parallel across restaurants; runMenuPull/runMenuSave
+// serialize per restaurant themselves (one browser per agent, locked profile).
+await boss.work<{ jobId: string; restaurantId: string; platform: 'uber_eats' | 'doordash' }>(JOBS.menuPull, { batchSize: 4, pollingIntervalSeconds: 0.5 }, async (jobs) => {
+  await Promise.all(jobs.map(async (job) => { console.log('[menuPull]', job.data.restaurantId, job.data.platform); await runMenuPull(job.data.jobId) }))
 })
 await boss.work<{ jobId: string; menuItemId: string }>(JOBS.menuGenerate, { batchSize: 1, pollingIntervalSeconds: 0.5 }, async ([job]) => {
   console.log('[menuGenerate]', job.data.menuItemId)
   await runMenuGenerate(job.data.jobId)
 })
-await boss.work<{ jobId: string; menuItemId: string }>(JOBS.menuSave, { batchSize: 1, pollingIntervalSeconds: 0.5 }, async ([job]) => {
-  console.log('[menuSave]', job.data.menuItemId)
-  await runMenuSave(job.data.jobId)
+await boss.work<{ jobId: string; menuItemId: string }>(JOBS.menuSave, { batchSize: 4, pollingIntervalSeconds: 0.5 }, async (jobs) => {
+  await Promise.all(jobs.map(async (job) => { console.log('[menuSave]', job.data.menuItemId); await runMenuSave(job.data.jobId) }))
 })
 await boss.work<{ restaurantAgentId: string }>(JOBS.decommissionAgent, { batchSize: 1 }, async ([job]) => { await decommissionAgent(job.data.restaurantAgentId) })
 
