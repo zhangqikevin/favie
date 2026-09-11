@@ -20,7 +20,7 @@ The backend's message starts with a keyword. Jump straight to that section:
 | `FAVIE_CONFIRM_LOGIN <platform>` | "FAVIE_CONFIRM_LOGIN" below — save_login, list stores | **No.** Same session as the handoff |
 | `FAVIE_VERIFY <platform>` | Mode `verify` | Yes |
 | `FAVIE_MENU_PULL <platform>` | "Menu Clinic" — read the whole menu, change nothing, reply with a `favie-menu` block | Yes |
-| `FAVIE_MENU_SAVE <platform>` | "Menu Clinic" — write ONE item's description / photo the owner approved | Yes |
+| `FAVIE_MENU_APPLY <platform>` | "Menu Clinic" — executor mode: run the numbered browser steps in the message exactly, write the owner-approved descriptions / photos | Yes |
 | `FAVIE_MENU_DESCRIBE` | "Menu Clinic" — write bilingual dish descriptions; no browser | **No.** Text only |
 | `FAVIE_MENU_PHOTOS <platform>` | "Menu Clinic" — one `web_fetch` of the public storefront, reply with a `favie-menu-photos` block | **No.** web_fetch only |
 | anything else (the daily cron message) | Mode `daily` | Yes |
@@ -36,7 +36,7 @@ The backend's message starts with a keyword. Jump straight to that section:
    recommend) and report each change you *would* have made as `no_action` with a title starting
    `Observe-only:` and the intended change in `after`. Stay inside the monthly marketing cap
    (ads + promotions). If a platform has no cap (`marketing.cap_cents` is null) you may only observe
-   and recommend. `FAVIE_MENU_SAVE` is an explicit request from the owner for one item they approved
+   and recommend. `FAVIE_MENU_APPLY` is an explicit request from the owner for items they approved
    on screen; it is allowed even when `actions_enabled` is false.
 3. Never touch payout, banking, tax, legal, or account-security settings. Never accept new terms,
    agreements, or permission prompts. Never add or remove users. If a page demands any of these to
@@ -193,20 +193,23 @@ open the merchant portal (Step 0 + login restore) and follow its "View store" / 
 ```
 ````
 
-**FAVIE_MENU_SAVE <platform>** — write the owner-approved draft for ONE item. The message carries
-`item` (name, category, external_id), `description` (new text, or null = keep the current one) and
-`image_url` (a public https URL of the new photo, or null = keep the current photo).
-1. Step 0, restore the login profile, open the menu editor, select the store, find the item — by
-   `external_id` when given, else by exact name inside its category. Open its edit form.
-2. Description given → select the description field, clear it, type the new text exactly.
-3. Image given → `exec`: `curl -fsSL -o /workspace/dish.jpg "<image_url>"`, then the browser `upload`
-   action on the item's photo input with `/workspace/dish.jpg`; wait until the platform shows the new
-   photo (crop dialogs: accept the default crop).
-4. Save the item and confirm the saved values on screen. Touch nothing else: not price, name,
-   availability, modifiers, or other items. Close the browser.
-5. End with the summary block (`mode: "verify"`): one `menu_item_updated` action with `before` /
-   `after` (description, has_photo), or one `issue_flagged` with `needs_attention: true` saying exactly
-   why it could not be saved (item not found, photo rejected with the platform's message, no permission).
+**FAVIE_MENU_APPLY <platform>** — write the owner-approved drafts. The message is a numbered script of
+browser tool calls prepared by Favie (URLs, CSS selectors, exact texts) for a fixed merchant-portal page.
+You are the executor, not the planner:
+- Run the steps in order, one tool call per step, with the parameters given. Use `act` with `selector`
+  (CSS) as written — never a `ref` from an earlier snapshot; these pages re-render and refs go stale.
+- Take a `snapshot` only where a step says "snapshot" (checkpoints). Do not scroll around, do not open
+  other items, do not read the menu.
+- Type only the given values into only the given fields. Never touch price, availability, modifiers,
+  hours, name (unless a step says so) or any other item.
+- If a selector is not found, a step fails twice, or an unexpected dialog appears: one snapshot, dismiss
+  the dialog (Escape), record that item as `failed` with what you saw, and continue with the next item.
+  Steps marked CALIBRATE may need you to identify the control from the checkpoint snapshot (e.g. the
+  Save button that only appears after an edit); pick the control whose visible text matches.
+- Photos: `exec` downloads the file as written; then the browser `upload` action on the given input. If
+  `upload` needs an `r2Key` you do not have, record `photo_skipped` for that item and keep going.
+- Close the browser at the end. Reply with the one-line count and exactly one `favie-menu-apply` block
+  as the message specifies. No favie-summary block for this task.
 
 **FAVIE_MENU_PHOTOS <platform>** — no browser, no context fetch, no login. The message gives `storefront_url`.
 Call `web_fetch` exactly once on it (`extractMode: "markdown"`, `maxChars: 200000`). The markdown shape varies by

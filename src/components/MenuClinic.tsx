@@ -4,7 +4,7 @@ import { useT, useLocale } from '@/i18n/client'
 import { INTL_TAG } from '@/i18n/config'
 import type { DictKey } from '@/i18n'
 import { PlatformIcon } from '@/components/PlatformIcon'
-import { pullMenu, aiOptimize, updateDraft, uploadPhoto, saveToPlatform, discardDraft } from '@/app/(app)/dashboard/[restaurantId]/menu/actions'
+import { pullMenu, pickStorefront, publishDrafts, aiOptimize, updateDraft, uploadPhoto, saveToPlatform, discardDraft } from '@/app/(app)/dashboard/[restaurantId]/menu/actions'
 import type { MenuState } from '@/lib/zoowork/menu'
 
 type Platform = 'uber_eats' | 'doordash'
@@ -85,18 +85,52 @@ export function MenuClinic({ restaurantId, connected, initial }: {
         <div className="card flex items-center gap-4 p-5">
           <Spinner />
           <div>
-            <p className="text-sm font-semibold">{t('menu.pulling')}</p>
+            <p className="text-sm font-semibold">{t(s.fastRead ? 'menu.pulling.fast' : 'menu.pulling')}</p>
             <p className="mt-0.5 text-xs text-ink-500">{activePull.note}</p>
           </div>
         </div>
       )}
-      {s.pull?.status === 'failed' && !activePull && <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{t('menu.jobError', { error: s.pull.error ?? '' })}</div>}
+      {/* The web search found several stores with this name: the owner picks, then the read runs. */}
+      {!activePull && connected[platform] && s.storefront.candidates && s.storefront.candidates.length > 0 && (
+        <section className="card p-6">
+          <h2 className="font-display text-base font-semibold">{t('menu.pickStore.title', { platform: LABEL[platform] })}</h2>
+          <p className="mt-1 text-xs text-ink-500">{t('menu.pickStore.hint')}</p>
+          <ul className="mt-4 divide-y divide-ink-100">
+            {s.storefront.candidates.map((c) => (
+              <li key={c.url} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{c.title || c.storeId}</p>
+                  <a href={c.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-ink-500 hover:underline">{c.url}</a>
+                </div>
+                <button type="button" disabled={pending} onClick={() => start(async () => { await pickStorefront(restaurantId, platform, c.url); await refresh() })} className="pill pill-active !py-1.5 text-xs">{t('menu.pickStore.use')}</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {s.pull?.status === 'failed' && !activePull && !(s.storefront.candidates?.length) && <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{t('menu.jobError', { error: s.pull.error ?? '' })}</div>}
 
+      {s.active.some((j) => j.kind === 'apply') && (
+        <div className="card flex items-center gap-4 p-5">
+          <Spinner />
+          <div>
+            <p className="text-sm font-semibold">{t('menu.publishing', { platform: LABEL[platform] })}</p>
+            <p className="mt-0.5 text-xs text-ink-500">{s.active.find((j) => j.kind === 'apply')?.note}</p>
+          </div>
+        </div>
+      )}
       {s.counts.total > 0 && (
         <section className="card p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-display text-lg font-semibold">{t('menu.diag.title')}</h2>
-            <p className="text-xs text-ink-500">{t('menu.diag.hint')}</p>
+            <div className="flex items-center gap-3">
+              {s.counts.drafts > 0 && !busy && (
+                <button type="button" disabled={pending} onClick={() => start(async () => { await publishDrafts(restaurantId, platform); await refresh() })} className="pill pill-active !py-1.5 text-xs">
+                  {t('menu.publishAll', { n: s.counts.drafts, platform: LABEL[platform] })}
+                </button>
+              )}
+              <p className="text-xs text-ink-500">{t('menu.diag.hint')}</p>
+            </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {([
@@ -146,7 +180,7 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
   const fileRef = useRef<HTMLInputElement>(null)
   useEffect(() => { setText(item.draftDescription ?? '') }, [item.draftDescription])
   const generating = jobs.some((j) => j.kind === 'generate')
-  const saving = item.status === 'saving' || jobs.some((j) => j.kind === 'save')
+  const saving = item.status === 'saving' || jobs.some((j) => j.kind === 'apply')
   const photo = item.draftImageUrl ?? item.imageUrl
   const shown = item.draftDescription ?? item.description
   const flags = [
@@ -216,7 +250,7 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
               {(item.draftDescription || item.draftImageUrl) && !saving && (
                 <button type="button" disabled={pending} onClick={() => start(async () => { await discardDraft(item.id); setText(''); await onChange() })} className="text-xs text-ink-500 hover:text-ink-900">{t('menu.discard')}</button>
               )}
-              {saving && jobs.find((j) => j.kind === 'save')?.note && <span className="text-xs text-ink-500">{jobs.find((j) => j.kind === 'save')!.note}</span>}
+              {saving && jobs.find((j) => j.kind === 'apply')?.note && <span className="text-xs text-ink-500">{jobs.find((j) => j.kind === 'apply')!.note}</span>}
             </div>
           </div>
         </div>

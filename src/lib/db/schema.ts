@@ -24,7 +24,7 @@ export const actionCategoryEnum = pgEnum('action_category', [
 ])
 export const metricSourceEnum = pgEnum('metric_source', ['zoodata', 'mock', 'platform_ui'])
 export const menuItemStatusEnum = pgEnum('menu_item_status', ['synced', 'draft', 'saving', 'saved', 'failed'])
-export const menuJobKindEnum = pgEnum('menu_job_kind', ['pull', 'generate', 'save'])
+export const menuJobKindEnum = pgEnum('menu_job_kind', ['pull', 'generate', 'save', 'apply'])
 export const menuJobStatusEnum = pgEnum('menu_job_status', ['queued', 'running', 'done', 'failed'])
 export const subscriptionStatusEnum = pgEnum('subscription_status', [
   'incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused',
@@ -98,7 +98,9 @@ export const platformConnections = pgTable('platform_connections', {
   status: connectionStatusEnum('status').notNull().default('not_started'),
   storeExternalId: text('store_external_id'),
   storeName: text('store_name'),
-  storefrontUrl: text('storefront_url'), // public store page the agent confirmed (Menu Clinic reads it directly)
+  storefrontUrl: text('storefront_url'), // public store page confirmed for this connection (Menu Clinic reads it directly)
+  storefrontCandidates: jsonb('storefront_candidates').$type<{ url: string; title: string; storeId: string }[]>(), // search results awaiting the owner's pick
+  menuEditorUrl: text('menu_editor_url'), // merchant-portal menu editor entry the agent uses for writes (DoorDash carries the menu id)
   storeAddress: text('store_address'),
   roleSeen: text('role_seen'),
   // Stores the agent saw in the account after login; the owner picks one when there are several.

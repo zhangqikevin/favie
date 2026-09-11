@@ -14,7 +14,7 @@ export const JOBS = {
   decommissionAgent: 'decommission-agent',
   menuPull: 'menu-pull',
   menuGenerate: 'menu-generate',
-  menuSave: 'menu-save',
+  menuApply: 'menu-apply',
 } as const
 
 declare global {
@@ -76,8 +76,8 @@ export async function enqueueMenuGenerate(jobId: string, menuItemId: string) {
   const b = await boss()
   await b.send(JOBS.menuGenerate, { jobId, menuItemId }, { singletonKey: `menu-gen:${menuItemId}`, singletonSeconds: 30, retryLimit: 0, expireInSeconds: 15 * 60 })
 }
-/** Menu Clinic: write one approved item to the platform (browser). */
-export async function enqueueMenuSave(jobId: string, menuItemId: string) {
+/** Menu Clinic: write approved drafts to the platform (browser) — one item (menuItemId) or every draft of that platform. */
+export async function enqueueMenuApply(jobId: string, restaurantId: string, platform: 'uber_eats' | 'doordash') {
   const b = await boss()
-  await b.send(JOBS.menuSave, { jobId, menuItemId }, { singletonKey: `menu-save:${menuItemId}`, singletonSeconds: 60, retryLimit: 0, expireInSeconds: 30 * 60 })
+  await b.send(JOBS.menuApply, { jobId, restaurantId, platform }, { singletonKey: `menu-apply:${restaurantId}:${platform}`, singletonSeconds: 30, retryLimit: 0, expireInSeconds: 45 * 60 })
 }

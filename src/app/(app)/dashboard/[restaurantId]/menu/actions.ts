@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { requireUser } from '@/server/auth'
 import { getRestaurantForUser } from '@/server/restaurants'
-import { enqueueMenuGenerate, enqueueMenuPull, enqueueMenuSave } from '@/server/jobs/enqueue'
+import { enqueueMenuGenerate, enqueueMenuPull, enqueueMenuApply } from '@/server/jobs/enqueue'
 import { putImage } from '@/lib/storage'
 import type { Platform } from '@/lib/db/schema'
 
@@ -34,6 +34,17 @@ export async function pullMenu(restaurantId: string, platform: Platform) {
   const [job] = await db.insert(schema.menuJobs).values({ restaurantId: r.id, platform, kind: 'pull', note: 'Queued…' }).returning()
   await enqueueMenuPull(job!.id, r.id, platform)
   return { ok: true as const, jobId: job!.id }
+}
+
+/** Several stores matched the restaurant's name: the owner picks the right public store page, then we read it. */
+export async function pickStorefront(restaurantId: string, platform: Platform, url: string) {
+  const { r } = await own(restaurantId)
+  if (!isPlatform(platform)) throw new Error('platform')
+  const [conn] = await db.select().from(schema.platformConnections).where(and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))).limit(1)
+  const cand = conn?.storefrontCandidates?.find((c) => c.url === url)
+  if (!cand) throw new Error('not a candidate')
+  await db.update(schema.platformConnections).set({ storefrontUrl: cand.url, storefrontCandidates: null, updatedAt: new Date() }).where(eq(schema.platformConnections.id, conn!.id))
+  return pullMenu(restaurantId, platform)
 }
 
 /** "Favie AI 优化": bilingual description + (when configured) a generated photo. */
@@ -74,10 +85,23 @@ export async function uploadPhoto(fd: FormData) {
 export async function saveToPlatform(menuItemId: string) {
   const { r, item } = await ownItem(menuItemId)
   if (!item.draftDescription && !item.draftImageUrl) return { error: 'nothing' as const }
-  const [job] = await db.insert(schema.menuJobs).values({ restaurantId: r.id, platform: item.platform, kind: 'save', menuItemId: item.id, note: 'Queued…' }).returning()
+  const [job] = await db.insert(schema.menuJobs).values({ restaurantId: r.id, platform: item.platform, kind: 'apply', menuItemId: item.id, note: 'Queued…' }).returning()
   await db.update(schema.menuItems).set({ status: 'saving', lastError: null, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
-  await enqueueMenuSave(job!.id, item.id)
+  await enqueueMenuApply(job!.id, r.id, item.platform)
   return { ok: true as const, jobId: job!.id }
+}
+
+/** "Publish all drafts": every approved draft of this platform in ONE agent session (one login, one editor load). */
+export async function publishDrafts(restaurantId: string, platform: Platform) {
+  const { r } = await own(restaurantId)
+  if (!isPlatform(platform)) throw new Error('platform')
+  const drafts = await db.select({ id: schema.menuItems.id }).from(schema.menuItems)
+    .where(and(eq(schema.menuItems.restaurantId, r.id), eq(schema.menuItems.platform, platform), eq(schema.menuItems.status, 'draft')))
+  if (!drafts.length) return { error: 'nothing' as const }
+  const [job] = await db.insert(schema.menuJobs).values({ restaurantId: r.id, platform, kind: 'apply', note: 'Queued…' }).returning()
+  await db.update(schema.menuItems).set({ status: 'saving', lastError: null, updatedAt: new Date() }).where(and(eq(schema.menuItems.restaurantId, r.id), eq(schema.menuItems.platform, platform), eq(schema.menuItems.status, 'draft')))
+  await enqueueMenuApply(job!.id, r.id, platform)
+  return { ok: true as const, jobId: job!.id, count: drafts.length }
 }
 
 /** Drop Favie's draft and keep what the platform has. */

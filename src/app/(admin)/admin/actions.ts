@@ -144,3 +144,25 @@ export async function resetMenuPrompt(fd: FormData) {
   if (key) await deleteSetting(key)
   revalidatePath('/admin/menu-prompts')
 }
+
+// ---- Firecrawl (Menu Clinic storefront reads) ----
+
+/** Verify the key with a tiny search call, then store it encrypted. The worker picks it up within a minute. */
+export async function saveFirecrawlKey(_prev: AdminState, fd: FormData): Promise<AdminState> {
+  const user = await requireAdmin()
+  const key = String(fd.get('key') ?? '').trim()
+  if (!/^fc-[A-Za-z0-9]{16,}$/.test(key)) return { error: 'That does not look like a Firecrawl key (fc-…).' }
+  try {
+    const res = await fetch('https://api.firecrawl.dev/v1/search', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` }, body: JSON.stringify({ query: 'doordash', limit: 1 }), signal: AbortSignal.timeout(20_000) })
+    if (res.status === 401 || res.status === 403) return { error: 'Firecrawl rejected the key.' }
+  } catch (e) { return { error: `Could not reach Firecrawl: ${(e as Error).message.slice(0, 120)}` } }
+  await setSetting(SETTING_KEYS.firecrawlApiKey, key, { secret: true, userId: user.id })
+  revalidatePath('/admin/settings')
+  return { ok: 'Key verified and saved. Menu Clinic reads store pages server-side from now on.' }
+}
+
+export async function clearFirecrawlKey() {
+  await requireAdmin()
+  await deleteSetting(SETTING_KEYS.firecrawlApiKey)
+  revalidatePath('/admin/settings')
+}

@@ -1,13 +1,15 @@
 'use client'
 import { useActionState } from 'react'
-import { saveZooworkKey, clearZooworkKey, saveDefaultModel, applyModelToAgents, type AdminState } from './actions'
+import { saveZooworkKey, clearZooworkKey, saveDefaultModel, applyModelToAgents, saveFirecrawlKey, clearFirecrawlKey, type AdminState } from './actions'
 
-export function PlatformSettings({ keyInfo, models, defaultModel, agentCount }: {
+export function PlatformSettings({ keyInfo, models, defaultModel, agentCount, firecrawl }: {
   keyInfo: { source: 'database' | 'environment' | 'none'; last4: string | null; updatedAt: string | null }
   models: { model: string; label?: string }[]
   defaultModel: string | null
   agentCount: number
+  firecrawl: { source: 'database' | 'environment' | 'none'; last4: string | null; updatedAt: string | null }
 }) {
+  const [fcState, fcAction, fcPending] = useActionState<AdminState, FormData>(saveFirecrawlKey, undefined)
   const [keyState, keyAction, keyPending] = useActionState<AdminState, FormData>(saveZooworkKey, undefined)
   const [modelState, modelAction, modelPending] = useActionState<AdminState, FormData>(saveDefaultModel, undefined)
   const [applyState, applyAction, applyPending] = useActionState<AdminState, FormData>(applyModelToAgents, undefined)
@@ -58,6 +60,27 @@ export function PlatformSettings({ keyInfo, models, defaultModel, agentCount }: 
           <p className="mt-1.5 text-xs text-ink-500">Switches every provisioned agent to the default model. Persona, skills and schedules are untouched; the agent's config version increments.</p>
           {applyState?.ok && <p className="mt-2 text-sm text-emerald-700">{applyState.ok}</p>}
           {applyState?.error && <p className="mt-2 text-sm text-red-700">{applyState.error}</p>}
+        </form>
+      </section>
+
+      <section className="card p-5">
+        <h2 className="font-display text-sm font-bold">Firecrawl key (Menu Clinic reads)</h2>
+        <p className="mt-1 text-xs text-ink-500">
+          Menu Clinic reads a restaurant's public Uber Eats / DoorDash store page through Firecrawl: 10–40 s per menu, with photo URLs and item ids, no agent browser. Without a key it falls back to the agent's browser (about 10 minutes per menu, no photos).
+        </p>
+        <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+          <div className="flex gap-1.5"><dt className="text-ink-500">In use:</dt><dd className="font-mono">{firecrawl.last4 ? `fc-…${firecrawl.last4}` : '—'}</dd></div>
+          <div className="flex gap-1.5"><dt className="text-ink-500">Source:</dt><dd>{firecrawl.source === 'database' ? 'saved here' : firecrawl.source === 'environment' ? 'FIRECRAWL_API_KEY env' : 'none (agent browser fallback)'}</dd></div>
+          {firecrawl.updatedAt && <div className="flex gap-1.5"><dt className="text-ink-500">Saved:</dt><dd>{new Date(firecrawl.updatedAt).toLocaleString('en-US')}</dd></div>}
+        </dl>
+        <form action={fcAction} className="mt-4 space-y-2">
+          <input name="key" type="password" autoComplete="off" placeholder="fc-…  (verified against Firecrawl before saving)" className="input font-mono text-sm" />
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="submit" disabled={fcPending} className="btn-primary !py-2 text-sm">{fcPending ? 'Verifying…' : 'Verify & save'}</button>
+            {firecrawl.source === 'database' && <button formAction={clearFirecrawlKey} formNoValidate className="text-xs text-ink-500 hover:text-ink-900 hover:underline">Remove and fall back to env</button>}
+          </div>
+          {fcState?.ok && <p className="text-sm text-emerald-700">{fcState.ok}</p>}
+          {fcState?.error && <p className="text-sm text-red-700">{fcState.error}</p>}
         </form>
       </section>
     </div>

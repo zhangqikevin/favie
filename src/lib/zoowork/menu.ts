@@ -1,6 +1,7 @@
-import { and, eq, inArray, ne } from 'drizzle-orm'
-import { firecrawlEnabled, parseStorefrontMarkdown, scrapeStorefront } from '@/lib/menu/firecrawl'
+import { and, eq, inArray, isNotNull, ne } from 'drizzle-orm'
+import { canonicalStorefrontUrl, firecrawlKey, readStorefront, searchStorefront } from '@/lib/menu/firecrawl'
 import { menuDescribePrompt } from '@/lib/menu/prompts'
+import { buildApplyScript } from '@/lib/menu/recipes'
 import { toolCall, type SessionEvent } from '@zoowork-ai/sdk'
 import { db, schema } from '@/lib/db/client'
 import { zoowork, logged } from './client'
@@ -132,34 +133,47 @@ function normalizeMenu(raw: unknown): { items: PulledItem[]; truncated: boolean;
   return { items: out, truncated: o.truncated === true, storefrontUrl: su }
 }
 
-export type PulledItem = { external_id?: string | null; category?: string | null; name: string; description?: string | null; price_cents?: number | null; image_url?: string | null; has_photo?: boolean | null; availability?: string | null; unit?: string | null; position?: number | null }
+export type PulledItem = { external_id?: string | null; category?: string | null; name: string; description?: string | null; price_cents?: number | null; image_url?: string | null; has_photo?: boolean | null; availability?: string | null; unit?: string | null; position?: number | null; rating?: { pct: number; count: number } }
 
 
 /** Public storefront URL from the Zoodata store binding, when the restaurant has a key. */
-/** Uber Eats canonical storefront: /store/<slug>/<base64url of the store uuid>. The slug is cosmetic. */
-function ueStorefrontUrl(name: string, storeUuid: string) {
-  const hex = storeUuid.replace(/-/g, '')
-  const short = /^[0-9a-f]{32}$/i.test(hex) ? Buffer.from(hex, 'hex').toString('base64url') : storeUuid
-  const slug = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'store'
-  return `https://www.ubereats.com/store/${slug}/${short}`
-}
-
+/**
+ * Public store page for a connection: confirmed URL → Uber Eats store uuid from the connection →
+ * Zoodata binding (real key only). Null means the caller should search (or fall back to the agent).
+ */
 async function storefrontUrl(r: typeof schema.restaurants.$inferSelect, platform: Platform): Promise<string | null> {
   const [conn] = await db.select({ storeId: schema.platformConnections.storeExternalId, url: schema.platformConnections.storefrontUrl }).from(schema.platformConnections)
     .where(and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))).limit(1)
-  if (conn?.url) return conn.url // confirmed by an earlier pull
+  if (conn?.url) return conn.url
   // Uber Eats store ids are uuids, so the saved one is safe to use. DoorDash's saved id may be the business id, not the store.
-  if (platform === 'uber_eats' && conn?.storeId && /^[0-9a-f-]{36}$/i.test(conn.storeId)) return ueStorefrontUrl(r.name, conn.storeId)
+  if (platform === 'uber_eats' && conn?.storeId && /^[0-9a-f-]{36}$/i.test(conn.storeId)) return canonicalStorefrontUrl('uber_eats', conn.storeId, r.name)
   try {
     const zd = zoodataFor(r)
-    if (zd.source !== 'zoodata') return null // sample data must never point the agent at another store
+    if (zd.source !== 'zoodata') return null // sample data must never point at another store
     const list = await zd.client.listRestaurants()
     const want = toZoodataPlatform(platform)
-    for (const z of list) for (const b of z.platformBindings) if (b.platform === want && b.platformStoreId) {
-      return platform === 'doordash' ? `https://www.doordash.com/store/${b.platformStoreId}/` : ueStorefrontUrl(r.name, b.platformStoreId)
-    }
+    for (const z of list) for (const b of z.platformBindings) if (b.platform === want && b.platformStoreId) return canonicalStorefrontUrl(platform, b.platformStoreId, r.name)
   } catch {}
   return null
+}
+
+/**
+ * No URL on file: web-search the store page. Exactly one candidate (or one matching a store id we know)
+ * is confirmed automatically; several are stored for the owner to pick in Menu Clinic.
+ */
+async function discoverStorefront(r: typeof schema.restaurants.$inferSelect, platform: Platform, key: string): Promise<{ url: string } | { candidates: number }> {
+  const cands = await searchStorefront(key, platform, r.name, r.city)
+  const [conn] = await db.select().from(schema.platformConnections)
+    .where(and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))).limit(1)
+  const known = conn?.storeExternalId?.toLowerCase()
+  const pick = cands.length === 1 ? cands[0] : cands.find((c) => known && c.storeId.toLowerCase() === known)
+  const where = and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))
+  if (pick) {
+    await db.update(schema.platformConnections).set({ storefrontUrl: pick.url, storefrontCandidates: null, updatedAt: new Date() }).where(where)
+    return { url: pick.url }
+  }
+  await db.update(schema.platformConnections).set({ storefrontCandidates: cands, updatedAt: new Date() }).where(where)
+  return { candidates: cands.length }
 }
 
 /** One browser per agent: wait until no other pull/save job for this restaurant is running. */
@@ -218,9 +232,35 @@ export async function runMenuPull(jobId: string) {
   const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
   if (!job) return
   try {
-    await waitForAgentBrowser(job.restaurantId, jobId)
     const [rr] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, job.restaurantId)).limit(1)
-    const url = rr ? await storefrontUrl(rr, job.platform) : null
+    if (!rr) throw new Error('restaurant not found')
+    const key = await firecrawlKey()
+    let url = await storefrontUrl(rr, job.platform)
+    if (!url && key) {
+      await note(jobId, 'Finding the store page…', { status: 'running' })
+      const found = await discoverStorefront(rr, job.platform, key)
+      if ('url' in found) url = found.url
+      else if (found.candidates > 0) { await fail(jobId, 'Several stores match this name — pick yours in Menu Clinic, then read again.'); return }
+    }
+    // Fast path: server-side read of the public store page (seconds, with photo URLs and item ids).
+    if (url && key) {
+      try {
+        await note(jobId, 'Reading the store page…', { status: 'running' })
+        const t0 = Date.now()
+        const menu = await readStorefront(key, job.platform, url)
+        menu.ms = Date.now() - t0
+        if (menu.items.length >= 3) {
+          await db.update(schema.platformConnections).set({ storefrontUrl: url, storefrontCandidates: null, updatedAt: new Date() })
+            .where(and(eq(schema.platformConnections.restaurantId, job.restaurantId), eq(schema.platformConnections.platform, job.platform)))
+          const block = JSON.stringify({ favie_menu_version: 1, platform: job.platform, store_name: menu.storeName, storefront_url: url, truncated: false, items: menu.items })
+          await ingestMenu(jobId, '```favie-menu\n' + block + '\n```', { source: 'firecrawl', ms: menu.ms })
+          return
+        }
+        console.warn('[menuPull] firecrawl read too small, using the agent', menu.items.length, url)
+      } catch (e) { console.warn('[menuPull] firecrawl failed, using the agent:', (e as Error).message) }
+    }
+    // Slow path: the agent's browser (skill protocol), then a separate no-browser turn for photo URLs.
+    await waitForAgentBrowser(job.restaurantId, jobId)
     const message = [
       `FAVIE_MENU_PULL ${job.platform}`,
       url ? `storefront_url: ${url}` : 'storefront_url: unknown — open the merchant portal and follow its "View store" / "Preview menu" link.',
@@ -229,23 +269,8 @@ export async function runMenuPull(jobId: string) {
       'Reply with ONE ```favie-menu``` block: `storefront_url` plus a flat `items` array, each item with its own `category`,',
       '`description` (null if none), `has_photo`, `price_cents`, `availability`.',
     ].join('\n')
-    // Fast path: a server-side Firecrawl scrape (seconds, includes photo URLs). Falls back to the agent's browser.
-    if (url && firecrawlEnabled()) {
-      try {
-        await note(jobId, 'Reading the storefront…')
-        const scraped = await scrapeStorefront(url)
-        const parsed = scraped ? parseStorefrontMarkdown(scraped.markdown) : null
-        if (parsed && parsed.items.length >= 5) {
-          const block = JSON.stringify({ favie_menu_version: 1, platform: job.platform, store_name: parsed.storeName, storefront_url: url, truncated: false, items: parsed.items })
-          await ingestMenu(jobId, '```favie-menu\n' + block + '\n```')
-          return
-        }
-        console.warn('[menuPull] firecrawl returned too few items, using the agent', parsed?.items.length ?? 0)
-      } catch (e) { console.warn('[menuPull] firecrawl failed, using the agent:', (e as Error).message) }
-    }
     const { text } = await runAgentTurn(job.restaurantId, message, jobId, { budgetMs: 35 * 60_000 })
     await ingestMenu(jobId, text)
-    // Photos: the browser snapshot never exposes image addresses; fetch them separately and merge by name.
     const [fresh] = await db.select({ status: schema.menuJobs.status, note: schema.menuJobs.note }).from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
     const [conn] = await db.select({ url: schema.platformConnections.storefrontUrl }).from(schema.platformConnections)
       .where(and(eq(schema.platformConnections.restaurantId, job.restaurantId), eq(schema.platformConnections.platform, job.platform))).limit(1)
@@ -261,8 +286,7 @@ export async function runMenuPull(jobId: string) {
   }
 }
 
-/** Turn the agent's reply into menu_items rows (also used to re-ingest a stored reply without a new browser run). */
-export async function ingestMenu(jobId: string, text: string) {
+export async function ingestMenu(jobId: string, text: string, meta: { source?: 'firecrawl' | 'agent'; ms?: number } = {}) {
   const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
   if (!job) return
   try {
@@ -287,7 +311,7 @@ export async function ingestMenu(jobId: string, text: string) {
     for (const it of parsed.items) {
       if (!it?.name) continue
       i++
-      const key = it.external_id ? `id:${it.external_id}` : `name:${norm(it.category)}/${norm(it.name)}`
+      const key = `name:${norm(it.category)}/${norm(it.name)}` // stable across read methods; external_id is kept as data
       if (seen.has(key)) continue
       seen.add(key)
       const photo = it.image_url ? await photoFlags(it.image_url) : { photoMissing: it.has_photo === false, photoPoor: false }
@@ -321,7 +345,9 @@ export async function ingestMenu(jobId: string, text: string) {
     // Items that vanished from the platform menu are removed unless Favie has a pending draft on them.
     const stale = await db.select().from(schema.menuItems).where(and(eq(schema.menuItems.restaurantId, job.restaurantId), eq(schema.menuItems.platform, job.platform)))
     for (const row of stale) if (!seen.has(row.itemKey) && row.status !== 'draft' && row.status !== 'saving') await db.delete(schema.menuItems).where(eq(schema.menuItems.id, row.id))
-    await note(jobId, parsed.truncated ? `Read ${seen.size} items (menu longer than the agent could finish)` : `Read ${seen.size} items`, { status: 'done' })
+    const withPhoto = await db.$count(schema.menuItems, and(eq(schema.menuItems.restaurantId, job.restaurantId), eq(schema.menuItems.platform, job.platform), isNotNull(schema.menuItems.imageUrl)))
+    const tail = meta.source === 'firecrawl' ? ` · photos for ${withPhoto} of ${seen.size} · ${Math.round((meta.ms ?? 0) / 1000)}s` : ''
+    await note(jobId, parsed.truncated ? `Read ${seen.size} items (menu longer than the agent could finish)` : `Read ${seen.size} items${tail}`, { status: 'done' })
   } catch (e) {
     await fail(jobId, (e as Error).message)
   }
@@ -392,47 +418,88 @@ export async function runMenuGenerate(jobId: string) {
 // ---------------------------------------------------------------------------------------------
 // Save to the platform
 
-export async function runMenuSave(jobId: string) {
+/**
+ * Write the owner-approved drafts to the platform: one agent session per (restaurant, platform) batch,
+ * executing a precomputed recipe (see lib/menu/recipes.ts). `job.menuItemId` set = a single item;
+ * null = every item in `draft` status for that platform. Results come back per item and are then
+ * cross-checked against a fresh Firecrawl read of the storefront when a key is configured.
+ */
+export async function runMenuApply(jobId: string) {
   const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
-  if (!job?.menuItemId) return
-  const [item] = await db.select().from(schema.menuItems).where(eq(schema.menuItems.id, job.menuItemId)).limit(1)
-  if (!item) return
-  if (!item.draftDescription && !item.draftImageUrl) { await fail(jobId, 'nothing to save'); return }
+  if (!job) return
+  const scope = and(eq(schema.menuItems.restaurantId, job.restaurantId), eq(schema.menuItems.platform, job.platform), job.menuItemId ? eq(schema.menuItems.id, job.menuItemId) : eq(schema.menuItems.status, 'draft'))
+  const items = (await db.select().from(schema.menuItems).where(scope)).filter((i) => i.draftDescription || i.draftImageUrl)
+  if (!items.length) { await fail(jobId, 'nothing to save'); return }
+  const ids = items.map((i) => i.id)
   try {
+    const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, job.restaurantId)).limit(1)
+    const [conn] = await db.select().from(schema.platformConnections).where(and(eq(schema.platformConnections.restaurantId, job.restaurantId), eq(schema.platformConnections.platform, job.platform))).limit(1)
+    if (!r || conn?.status !== 'connected') throw new Error(`${PLATFORM_LABEL[job.platform]} is not connected`)
+    const label = r.browserLoginLabel ?? conn.loginLabel ?? `favie-${r.id.slice(0, 8)}`
+    const script = buildApplyScript(
+      { platform: job.platform, loginLabel: label, storefrontUrl: conn.storefrontUrl, storeExternalId: conn.storeExternalId, menuEditorUrl: conn.menuEditorUrl },
+      items.map((i) => ({ id: i.id, name: i.name, category: i.category, externalId: i.externalId, description: i.draftDescription, imageUrl: i.draftImageUrl })),
+    )
+    if (!script.text) throw new Error(script.unsupported.join('; ') || 'cannot build the write script')
     await waitForAgentBrowser(job.restaurantId, jobId)
-    await db.update(schema.menuItems).set({ status: 'saving', lastError: null, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
-    const message = [
-      `FAVIE_MENU_SAVE ${job.platform}`,
-      `item: ${JSON.stringify({ name: item.name, category: item.category, external_id: item.externalId })}`,
-      `description: ${item.draftDescription ? JSON.stringify(item.draftDescription) : 'null'}`,
-      `image_url: ${item.draftImageUrl ? JSON.stringify(item.draftImageUrl) : 'null'}`,
-      'Write exactly these values to this one item, change nothing else, then end with the favie-summary block.',
-    ].join('\n')
-    const { text } = await runAgentTurn(job.restaurantId, message, jobId, { collect: true, budgetMs: 15 * 60_000 })
-    const ok = /"category":\s*"menu_item_updated"/.test(text)
-    if (!ok) {
-      const why = (text.match(/"reason":\s*"([^"]{0,300})/)?.[1]) ?? 'the agent did not confirm the save'
-      throw new Error(why)
+    await db.update(schema.menuItems).set({ status: 'saving', lastError: null, updatedAt: new Date() }).where(inArray(schema.menuItems.id, ids))
+    await note(jobId, `Writing ${items.length} item${items.length === 1 ? '' : 's'} to ${PLATFORM_LABEL[job.platform]}…`, { status: 'running' })
+    const { text } = await runAgentTurn(job.restaurantId, script.text, jobId, { budgetMs: Math.min(40, 6 + items.length * 2) * 60_000 })
+    const block = (fenced(text, 'favie-menu-apply') ?? fenced(text, 'json')) as { items?: { name?: string; status?: string; reason?: string }[] } | null
+    const reported = new Map<string, { status: string; reason?: string }>()
+    for (const it of block?.items ?? []) if (typeof it.name === 'string') for (const k of looseKeys(it.name)) reported.set(k, { status: String(it.status ?? 'failed'), reason: it.reason })
+    let saved = 0
+    for (const item of items) {
+      let rep: { status: string; reason?: string } | undefined
+      for (const k of looseKeys(item.name)) { rep = reported.get(k); if (rep) break }
+      const ok = rep?.status === 'saved' || rep?.status === 'photo_skipped'
+      if (ok) {
+        saved++
+        await db.update(schema.menuItems).set({
+          status: 'saved', lastSavedAt: new Date(), lastError: rep?.status === 'photo_skipped' ? 'photo not uploaded' : null,
+          description: item.draftDescription ?? item.description, imageUrl: rep?.status === 'photo_skipped' ? item.imageUrl : (item.draftImageUrl ?? item.imageUrl),
+          photoMissing: item.draftImageUrl && rep?.status !== 'photo_skipped' ? false : item.photoMissing, photoPoor: item.draftImageUrl && rep?.status !== 'photo_skipped' ? false : item.photoPoor,
+          ...(item.draftDescription ? descriptionFlags(item.draftDescription) : {}),
+          draftDescription: null, draftImageUrl: rep?.status === 'photo_skipped' ? item.draftImageUrl : null, updatedAt: new Date(),
+        }).where(eq(schema.menuItems.id, item.id))
+      } else {
+        await db.update(schema.menuItems).set({ status: 'failed', lastError: (rep?.reason ?? 'the agent did not confirm the save').slice(0, 500), updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
+      }
     }
-    await db.update(schema.menuItems).set({
-      status: 'saved', lastSavedAt: new Date(), lastError: null,
-      description: item.draftDescription ?? item.description, imageUrl: item.draftImageUrl ?? item.imageUrl,
-      photoMissing: item.draftImageUrl ? false : item.photoMissing, photoPoor: item.draftImageUrl ? false : item.photoPoor,
-      ...(item.draftDescription ? descriptionFlags(item.draftDescription) : {}),
-      updatedAt: new Date(),
-    }).where(eq(schema.menuItems.id, item.id))
-    await note(jobId, 'Saved to the platform', { status: 'done' })
+    // Cross-check against the public store page (descriptions only; the page lags a few minutes at times).
+    let verified = ''
+    const key = await firecrawlKey()
+    if (key && conn.storefrontUrl && saved) {
+      try {
+        const menu = await readStorefront(key, job.platform, conn.storefrontUrl)
+        const live = new Map<string, string | null>()
+        for (const m of menu.items) for (const k of looseKeys(m.name)) if (!live.has(k)) live.set(k, m.description ?? null)
+        let match = 0, checked = 0
+        for (const item of items) {
+          if (!item.draftDescription) continue
+          let d: string | null | undefined
+          for (const k of looseKeys(item.name)) { if (live.has(k)) { d = live.get(k); break } }
+          if (d === undefined) continue
+          checked++
+          if (d && norm(d) === norm(item.draftDescription)) match++
+        }
+        if (checked) verified = ` · storefront check ${match}/${checked}`
+      } catch (e) { console.warn('[menuApply] verify failed:', (e as Error).message) }
+    }
+    await note(jobId, `Saved ${saved} of ${items.length}${verified}${script.calibrate ? ' · calibration steps included' : ''}`, { status: saved ? 'done' : 'failed', error: saved ? null : 'no item was confirmed saved' })
   } catch (e) {
-    await db.update(schema.menuItems).set({ status: 'failed', lastError: (e as Error).message.slice(0, 500), updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
+    await db.update(schema.menuItems).set({ status: 'failed', lastError: (e as Error).message.slice(0, 500), updatedAt: new Date() }).where(inArray(schema.menuItems.id, ids))
     await fail(jobId, (e as Error).message)
   }
 }
 
 /** Shared by the API route and the pages: items grouped by category plus the diagnostics counters. */
 export async function menuState(restaurantId: string, platform: Platform) {
-  const [items, jobs] = await Promise.all([
+  const [items, jobs, [conn]] = await Promise.all([
     db.select().from(schema.menuItems).where(and(eq(schema.menuItems.restaurantId, restaurantId), eq(schema.menuItems.platform, platform))).orderBy(schema.menuItems.position),
     db.select().from(schema.menuJobs).where(and(eq(schema.menuJobs.restaurantId, restaurantId), eq(schema.menuJobs.platform, platform))).orderBy(schema.menuJobs.createdAt),
+    db.select({ storefrontUrl: schema.platformConnections.storefrontUrl, storefrontCandidates: schema.platformConnections.storefrontCandidates }).from(schema.platformConnections)
+      .where(and(eq(schema.platformConnections.restaurantId, restaurantId), eq(schema.platformConnections.platform, platform))).limit(1),
   ])
   const recent = jobs.slice(-40)
   const pull = [...recent].reverse().find((j) => j.kind === 'pull') ?? null
@@ -445,6 +512,10 @@ export async function menuState(restaurantId: string, platform: Platform) {
     descThin: items.filter((i) => i.descThin && !i.draftDescription).length,
     drafts: items.filter((i) => i.status === 'draft').length,
   }
-  return { items: items as MenuItem[], pull: pull as MenuJob | null, active: active as MenuJob[], counts, imageGeneration: imageGenerationAvailable() }
+  return {
+    items: items as MenuItem[], pull: pull as MenuJob | null, active: active as MenuJob[], counts, imageGeneration: imageGenerationAvailable(),
+    storefront: { url: conn?.storefrontUrl ?? null, candidates: conn?.storefrontUrl ? null : (conn?.storefrontCandidates ?? null) },
+    fastRead: !!(await firecrawlKey()),
+  }
 }
 export type MenuState = Awaited<ReturnType<typeof menuState>>
