@@ -445,7 +445,11 @@ export async function runMenuApply(jobId: string) {
     await db.update(schema.menuItems).set({ status: 'saving', lastError: null, updatedAt: new Date() }).where(inArray(schema.menuItems.id, ids))
     await note(jobId, `Writing ${items.length} item${items.length === 1 ? '' : 's'} to ${PLATFORM_LABEL[job.platform]}…`, { status: 'running' })
     const { text } = await runAgentTurn(job.restaurantId, script.text, jobId, { budgetMs: Math.min(40, 6 + items.length * 2) * 60_000 })
-    const block = (fenced(text, 'favie-menu-apply') ?? fenced(text, 'json')) as { items?: { name?: string; status?: string; reason?: string }[] } | null
+    const block = (fenced(text, 'favie-menu-apply') ?? fenced(text, 'json')) as { menu_editor_url?: unknown; items?: { name?: string; status?: string; reason?: string }[] } | null
+    // DoorDash: remember the menu editor URL (with menu id) the agent resolved, so the next batch navigates straight to it.
+    if (job.platform === 'doordash' && !conn.menuEditorUrl && typeof block?.menu_editor_url === 'string' && /doordash\.com\/merchant\/menu-editor\/\d+/.test(block.menu_editor_url)) {
+      await db.update(schema.platformConnections).set({ menuEditorUrl: block.menu_editor_url.split('#')[0], updatedAt: new Date() }).where(eq(schema.platformConnections.id, conn.id))
+    }
     const reported = new Map<string, { status: string; reason?: string }>()
     for (const it of block?.items ?? []) if (typeof it.name === 'string') for (const k of looseKeys(it.name)) reported.set(k, { status: String(it.status ?? 'failed'), reason: it.reason })
     let saved = 0
