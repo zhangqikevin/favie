@@ -29,7 +29,9 @@ const SEL = {
     sheet: '[data-testid="LAYER-MANAGER-SHEET"]',
     description: '[data-testid="LAYER-MANAGER-SHEET"] textarea',
     photoInput: '[data-testid="LAYER-MANAGER-SHEET"] input[type="file"]',
-    save: '[data-testid="LAYER-MANAGER-SHEET"] button[type="submit"]', // CALIBRATE: the save control appears only after an edit
+    // NOTE: never target button[type="submit"] inside the sheet — those are the food-tag "删除" (delete) buttons.
+    // The save control ("Save changes" / "保存更改") appears in the sheet footer only after an edit; it is clicked by ref.
+    saveText: ['Save changes', '保存更改', '保存', 'Save'],
     close: '[data-testid="LAYER-MANAGER-SHEET"] button[aria-label="Close"], [data-testid="LAYER-MANAGER-SHEET"] button:first-of-type',
   },
 } as const
@@ -79,8 +81,9 @@ export function buildApplyScript(ctx: ApplyContext, items: ApplyItem[]): { text:
       if (it.imageUrl) {
         step(`exec: curl -fsSL -o /workspace/photo-${i + 1}.jpg ${q(it.imageUrl)}; then browser action "upload" on selector ${q(SEL.dd.photoInput)} with that file (if upload needs an r2Key you cannot obtain, record the item as "photo_skipped" and continue with the description)`)
       }
-      step(`act kind "click" on the sheet's Save button: selector ${q(SEL.dd.save)}; if not found, click the button whose text is "保存" or "Save" inside ${SEL.dd.sheet}. act kind "wait" 2000. CALIBRATE`)
-      step(`snapshot mode "efficient" — checkpoint: the sheet shows no error banner${it.description ? ' and the description field contains the new text' : ''}. Then act kind "click" selector ${q(SEL.dd.close)} (or press Escape).`)
+      step(`snapshot mode "efficient" — find the sheet footer button named ${SEL.dd.saveText.map(q).join(' / ')} and act kind "click" it by ref. NEVER click any "删除" / "Delete" / "Remove" button and never use button[type="submit"].`)
+      step(`act kind "wait" 3000; snapshot mode "efficient". If a dialog "Are you sure?" / "确定吗？" offers "Keep changes" / "保留更改" (the POS-integration warning), click "Keep changes" by ref and wait 3000. If the save button still shows "Loading", wait 3000 more and snapshot again (up to 3 times). Saving is complete only when the Loading state is gone and no error banner is shown.`)
+      step(`Verify: act kind "click" selector ${q(SEL.dd.close)}; act kind "wait" 1500; if an "Are you sure?" dialog appears now, the change was NOT saved — click "Keep changes", repeat the save step once, then close again. Then re-open the item: act kind "fill" fields [{ "selector": ${q(SEL.dd.search)}, "value": ${q(it.name)} }]; act kind "wait" 1500; act kind "click" selector ${q(SEL.dd.firstRowEdit)}; act kind "wait" 2000; snapshot mode "efficient" — the description textbox must now contain the new text; report "saved" only if it does, else "failed" with reason "description did not persist". Then act kind "click" selector ${q(SEL.dd.close)}.`)
       calibrate = true
     })
   } else {
