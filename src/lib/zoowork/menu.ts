@@ -183,6 +183,22 @@ export async function ingestMenu(jobId: string, text: string) {
 // ---------------------------------------------------------------------------------------------
 // Generate (AI description + photo)
 
+/** Models drift: accept description_en/description_zh, en/zh, or one combined string (split on the first CJK run). */
+function splitBilingual(got: Record<string, unknown> | undefined): { en: string; zh: string } {
+  if (!got) return { en: '', zh: '' }
+  const str = (k: string) => (typeof got[k] === 'string' ? (got[k] as string).trim() : '')
+  let en = str('description_en') || str('en') || str('english'), zh = str('description_zh') || str('zh') || str('chinese')
+  if (!en || !zh) {
+    const combined = str('description') || str('text')
+    if (combined) {
+      const m = combined.match(/[㐀-鿿]/)
+      if (m && m.index != null && m.index > 0) { en ||= combined.slice(0, m.index).trim(); zh ||= combined.slice(m.index).trim() }
+      else en ||= combined
+    }
+  }
+  return { en, zh }
+}
+
 export async function runMenuGenerate(jobId: string) {
   const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
   if (!job?.menuItemId) return
@@ -191,12 +207,22 @@ export async function runMenuGenerate(jobId: string) {
   try {
     const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, job.restaurantId)).limit(1)
     await note(jobId, 'Writing the description…', { status: 'running' })
-    const message = `FAVIE_MENU_DESCRIBE\nRestaurant: ${r?.name ?? ''}${r?.cuisine ? ` (${r.cuisine})` : ''}.\nItems:\n- name: ${item.name}\n  category: ${item.category ?? ''}\n  current_description: ${item.description ?? '(none)'}\nReply with the favie-menu-text block only.`
+    const message = [
+      'FAVIE_MENU_DESCRIBE',
+      `Restaurant: ${r?.name ?? ''}${r?.cuisine ? ` (${r.cuisine})` : ''}.`,
+      'Items:',
+      `- name: ${item.name}`,
+      `  category: ${item.category ?? ''}`,
+      `  current_description: ${item.description ?? '(none)'}`,
+      'Reply with ONE ```favie-menu-text``` block and nothing else, exactly this shape — two SEPARATE fields, English in',
+      '`description_en` and Chinese in `description_zh` (never combined into one string):',
+      '{ "items": [ { "name": "<same name>", "description_en": "3-4 sentences in English", "description_zh": "3-4 句中文" } ] }',
+    ].join('\n')
     const { text } = await runAgentTurn(job.restaurantId, message, jobId, { budgetMs: 6 * 60_000 })
-    const parsed = fenced(text, 'favie-menu-text') as { items?: { name: string; description_en?: string; description_zh?: string }[] } | null
+    const parsed = (fenced(text, 'favie-menu-text') ?? fenced(text, 'json')) as { items?: Record<string, unknown>[] } | null
     const got = parsed?.items?.[0]
-    if (!got?.description_en) throw new Error('the agent did not return a description')
-    const en = got.description_en.trim(), zh = (got.description_zh ?? '').trim()
+    const { en, zh } = splitBilingual(got)
+    if (!en) throw new Error('the agent did not return a description')
     await db.update(schema.menuItems).set({ aiDescriptionEn: en, aiDescriptionZh: zh || null, draftDescription: zh ? `${en}\n${zh}` : en, status: 'draft', updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
     if (imageGenerationAvailable()) {
       await note(jobId, 'Generating the photo…')
