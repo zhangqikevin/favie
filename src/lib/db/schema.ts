@@ -98,6 +98,7 @@ export const platformConnections = pgTable('platform_connections', {
   status: connectionStatusEnum('status').notNull().default('not_started'),
   storeExternalId: text('store_external_id'),
   storeName: text('store_name'),
+  storefrontUrl: text('storefront_url'), // public store page the agent confirmed (Menu Clinic reads it directly)
   storeAddress: text('store_address'),
   roleSeen: text('role_seen'),
   // Stores the agent saw in the account after login; the owner picks one when there are several.

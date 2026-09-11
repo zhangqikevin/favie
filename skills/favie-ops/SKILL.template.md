@@ -176,6 +176,7 @@ open the merchant portal (Step 0 + login restore) and follow its "View store" / 
   "favie_menu_version": 1,
   "platform": "doordash" | "uber_eats",
   "store_name": "...",
+  "storefront_url": "the public store URL you actually read, without query string (null if you read the portal instead)",
   "truncated": false,
   "items": [
     { "external_id": null, "category": "...", "name": "...", "description": "..." | null,

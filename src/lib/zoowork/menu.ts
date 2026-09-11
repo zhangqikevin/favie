@@ -93,7 +93,7 @@ function fenced(text: string, lang: string): unknown | null {
  * Accept the block whether the agent followed the flat schema or nested items under categories, and map
  * the field names models tend to drift to (status/in_stock, price/price_dollars, image/photo_url…).
  */
-function normalizeMenu(raw: unknown): { items: PulledItem[]; truncated: boolean } | null {
+function normalizeMenu(raw: unknown): { items: PulledItem[]; truncated: boolean; storefrontUrl: string | null } | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
   const out: PulledItem[] = []
@@ -121,7 +121,8 @@ function normalizeMenu(raw: unknown): { items: PulledItem[]; truncated: boolean 
     }
   }
   if (!out.length) return null
-  return { items: out, truncated: o.truncated === true }
+  const su = typeof o.storefront_url === 'string' && /^https:\/\/(www\.)?(doordash|ubereats)\.com\/store\//i.test(o.storefront_url) ? o.storefront_url.split('?')[0] : null
+  return { items: out, truncated: o.truncated === true, storefrontUrl: su }
 }
 
 type PulledItem = { external_id?: string | null; category?: string | null; name: string; description?: string | null; price_cents?: number | null; image_url?: string | null; has_photo?: boolean | null; availability?: string | null; unit?: string | null; position?: number | null }
@@ -137,9 +138,11 @@ function ueStorefrontUrl(name: string, storeUuid: string) {
 }
 
 async function storefrontUrl(r: typeof schema.restaurants.$inferSelect, platform: Platform): Promise<string | null> {
-  const [conn] = await db.select({ storeId: schema.platformConnections.storeExternalId }).from(schema.platformConnections)
+  const [conn] = await db.select({ storeId: schema.platformConnections.storeExternalId, url: schema.platformConnections.storefrontUrl }).from(schema.platformConnections)
     .where(and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))).limit(1)
-  if (conn?.storeId) return platform === 'doordash' ? `https://www.doordash.com/store/${conn.storeId}/` : ueStorefrontUrl(r.name, conn.storeId)
+  if (conn?.url) return conn.url // confirmed by an earlier pull
+  // Uber Eats store ids are uuids, so the saved one is safe to use. DoorDash's saved id may be the business id, not the store.
+  if (platform === 'uber_eats' && conn?.storeId && /^[0-9a-f-]{36}$/i.test(conn.storeId)) return ueStorefrontUrl(r.name, conn.storeId)
   try {
     const zd = zoodataFor(r)
     if (zd.source !== 'zoodata') return null // sample data must never point the agent at another store
@@ -196,6 +199,8 @@ export async function ingestMenu(jobId: string, text: string) {
     const parsed = normalizeMenu(fenced(text, 'favie-menu') ?? fenced(text, 'json'))
     if (!parsed) throw new Error('the agent did not return a favie-menu block')
     await note(jobId, `Read ${parsed.items.length} items; checking photos and descriptions…`, { status: 'running' })
+    if (parsed.storefrontUrl) await db.update(schema.platformConnections).set({ storefrontUrl: parsed.storefrontUrl, updatedAt: new Date() })
+      .where(and(eq(schema.platformConnections.restaurantId, job.restaurantId), eq(schema.platformConnections.platform, job.platform)))
     // Zoodata sales counts, when the restaurant has a key (matched by platform item id, then by name).
     const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, job.restaurantId)).limit(1)
     let sales: Awaited<ReturnType<ReturnType<typeof zoodataFor>['client']['getMenuItems']>> = []
