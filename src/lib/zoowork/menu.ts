@@ -118,12 +118,20 @@ type PulledItem = { external_id?: string | null; category?: string | null; name:
 
 
 /** Public storefront URL from the Zoodata store binding, when the restaurant has a key. */
+/** Uber Eats canonical storefront: /store/<slug>/<base64url of the store uuid>. The slug is cosmetic. */
+function ueStorefrontUrl(name: string, storeUuid: string) {
+  const hex = storeUuid.replace(/-/g, '')
+  const short = /^[0-9a-f]{32}$/i.test(hex) ? Buffer.from(hex, 'hex').toString('base64url') : storeUuid
+  const slug = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'store'
+  return `https://www.ubereats.com/store/${slug}/${short}`
+}
+
 async function storefrontUrl(r: typeof schema.restaurants.$inferSelect, platform: Platform): Promise<string | null> {
   try {
     const list = await zoodataFor(r).client.listRestaurants()
     const want = toZoodataPlatform(platform)
     for (const z of list) for (const b of z.platformBindings) if (b.platform === want && b.platformStoreId) {
-      return platform === 'doordash' ? `https://www.doordash.com/store/${b.platformStoreId}/` : `https://www.ubereats.com/store/menu/${b.platformStoreId}`
+      return platform === 'doordash' ? `https://www.doordash.com/store/${b.platformStoreId}/` : ueStorefrontUrl(r.name, b.platformStoreId)
     }
   } catch {}
   return null
