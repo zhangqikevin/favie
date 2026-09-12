@@ -203,7 +203,7 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
     start(async () => { await updateDraft(item.id, { description: pendingDraft }); await onChange() })
   }
   // Immediate feedback: the button locks the instant it is clicked (server round trips can take seconds).
-  const [acting, setActing] = useState<'queue' | 'unqueue' | null>(null)
+  const [acting, setActing] = useState<'queue' | 'unqueue' | 'discard' | null>(null)
   // "Add to save queue" straight after typing: persist the text first, then queue — the blur handler may not have run yet.
   const queueNow = () => {
     if (acting) return
@@ -215,6 +215,13 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
         await onChange()
       } finally { setActing(null) }
     })
+  }
+  // Discard must win over the textarea's blur commit (which would re-save the draft text a moment later),
+  // so the button swallows the mousedown (no blur) and the handler never persists the current text.
+  const discardNow = () => {
+    if (acting) return
+    setActing('discard')
+    start(async () => { try { await discardDraft(item.id); setText(item.description ?? ''); await onChange() } finally { setActing(null) } })
   }
   const unqueueNow = () => {
     if (acting) return
@@ -258,7 +265,9 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
         {acting === 'queue' ? <><Spinner small /> {t('menu.working')}</> : t('menu.queue')}
       </button>
       {(item.draftDescription || item.draftImageUrl) && (
-        <button type="button" disabled={pending} onClick={() => start(async () => { await discardDraft(item.id); setText(''); await onChange() })} className="text-xs text-ink-500 hover:text-ink-900">{t('menu.discard')}</button>
+        <button type="button" disabled={pending || !!acting} onMouseDown={(e) => e.preventDefault()} onClick={discardNow} className="text-xs text-ink-500 hover:text-ink-900 disabled:opacity-60">
+          {acting === 'discard' ? <><Spinner small /> {t('menu.working')}</> : t('menu.discard')}
+        </button>
       )}
     </>
   )
