@@ -200,6 +200,8 @@ export async function startHandoff(restaurantId: string, platform: Platform) {
  * page, checks it is inside the merchant portal, saves the login profile, identifies the store, and
  * closes the browser. The report goes through the normal collector → connected / broken.
  */
+export const VERIFY_REPLY_FORMAT = 'Reply text only (never the `message` tool), ending with exactly this fenced block, filled in: ```favie-summary\n{"favie_summary_version":1,"mode":"verify","run_date":"YYYY-MM-DD","aborted_early":false,"platforms":[{"platform":"<uber_eats|doordash>","login":"ok","store_visible":true,"store_name":"<exact name>","store_external_id":null,"stores":[{"name":"<exact name>","external_id":null,"address":null}],"actions":[],"observations":[],"errors":[]}]}\n```'
+
 export async function confirmLogin(restaurantId: string, platform: Platform) {
   const agent = await readyAgent(restaurantId)
   const [restaurant] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1)
@@ -214,6 +216,7 @@ export async function confirmLogin(restaurantId: string, platform: Platform) {
     '2. Otherwise call action "session" op "save_login" immediately.',
     '3. List the stores this account can see using ONLY the store/location switcher or business selector list (one snapshot of that list is enough). Record each store\'s exact name and its id if the list or URL shows one. Do NOT open each store, do NOT look up addresses (leave address null). Budget: at most 8 tool calls for this step.',
     '4. Close the browser session and end with the favie-summary block (mode "verify") with those stores in "stores".',
+    `5. ${VERIFY_REPLY_FORMAT}`,
   ].join('\n')
   // Everything already in this session belongs to the handoff turn; only read what comes after it.
   const prior = await zc.listAllEvents(agent.zooworkAgentId, sessionId)

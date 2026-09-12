@@ -25,7 +25,7 @@ export async function applyConnectionReport(restaurantId: string, p: PlatformRep
     if (stores.length === 1) {
       await db.update(schema.platformConnections).set({
         status: 'connected', storeName: stores[0]!.name, storeExternalId: stores[0]!.external_id, storeAddress: stores[0]!.address, storeCandidates: stores,
-        roleSeen: p.role_seen ?? null, verifiedAt: now, lastVerifiedAt: now, lastVerifyRunId: runId, lastError: null, brokenSince: null, updatedAt: now,
+        roleSeen: p.role_seen ?? null, verifiedAt: now, lastVerifiedAt: now, lastVerifyRunId: runId, lastError: null, brokenSince: null, verifyAttempts: 0, updatedAt: now,
       }).where(eq(schema.platformConnections.id, conn.id))
       await adoptRestaurantName(restaurantId, stores[0]!)
       await enqueueReconcileSchedule(restaurantId).catch(() => {})
@@ -53,7 +53,7 @@ export async function applyConnectionReport(restaurantId: string, p: PlatformRep
     await db.update(schema.platformConnections).set({
       status: 'connected', storeName: p.store_name ?? conn.storeName, storeExternalId: p.store_external_id ?? conn.storeExternalId,
       roleSeen: p.role_seen ?? conn.roleSeen, verifiedAt: conn.verifiedAt ?? now, lastVerifiedAt: now, lastVerifyRunId: runId,
-      lastError: null, brokenSince: null, updatedAt: now,
+      lastError: null, brokenSince: null, verifyAttempts: 0, updatedAt: now,
     }).where(eq(schema.platformConnections.id, conn.id))
     if (conn.status !== 'connected') await enqueueReconcileSchedule(restaurantId).catch(() => {})
     return

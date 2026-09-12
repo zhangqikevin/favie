@@ -3,6 +3,7 @@ import { db, schema } from '@/lib/db/client'
 import { zoowork, logged } from './client'
 import { streamTurn } from './streamTurn'
 import { collectRun, localDate } from './collect'
+import { VERIFY_REPLY_FORMAT } from './handoff'
 import type { Platform } from '@/lib/db/schema'
 
 const PLATFORM_WORD: Record<Platform, string> = { uber_eats: 'uber_eats', doordash: 'doordash' }
@@ -30,6 +31,7 @@ export async function verifyConnection(restaurantId: string, platform: Platform)
   const message = [
     `FAVIE_VERIFY ${PLATFORM_WORD[platform]}. Use the favie-ops skill in mode "verify".`,
     'Fetch the context URL from AGENTS.md, restore this platform\'s saved login profile, locate the store, change nothing, close the browser session, and end with the favie-summary block (mode "verify"). Never type credentials.',
+    VERIFY_REPLY_FORMAT,
   ].filter(Boolean).join('\n')
 
   const session = await logged('createSession.verify', agent.id, { platform, attempt }, () =>

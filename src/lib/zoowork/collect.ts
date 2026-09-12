@@ -7,6 +7,7 @@ import { zoowork, logged } from './client'
 import { DAILY_SCHEDULE_ID } from './schedule'
 import { parseFavieSummary, type FavieSummary } from './summary-schema'
 import { applyConnectionReport } from '@/server/connections/transitions'
+import { enqueueVerifyConnection } from '@/server/jobs/enqueue'
 
 const TERMINAL = new Set(['succeeded', 'failed', 'aborted', 'completed', 'error', 'cancelled', 'canceled'])
 
@@ -129,10 +130,32 @@ export async function collectRun(run: typeof schema.agentRuns.$inferSelect, time
   if ('error' in parsed) {
     await db.update(schema.agentRuns).set({ ...base, status: 'parse_failed', summaryParseError: parsed.error }).where(eq(schema.agentRuns.id, run.id))
     await insertAction(run, runDate, 'none', 'run_unparsed', t('sys.run_unparsed.t'), t('sys.run_unparsed.r', { error: parsed.error }), true, { sysKey: 'run_unparsed', sysVars: { error: parsed.error } })
+    if (run.kind === 'verify') await recoverUnparsedVerify(run.restaurantId)
     return
   }
   await db.update(schema.agentRuns).set({ ...base, status: 'collected', summaryJson: parsed.summary as object, summaryParseError: null, runDate }).where(eq(schema.agentRuns.id, run.id))
   await materializeSummary(run, parsed.summary)
+}
+
+/**
+ * A verify / confirm-login turn whose report could not be parsed (observed 2026-09-12: a weak routed
+ * model wrote the summary as markdown through the `message` tool) must not leave the connection on
+ * "verifying" forever. The login itself is usually saved by then, so re-check once with the saved
+ * profile (no owner action needed); after that, mark it broken so the owner sees a retry button.
+ */
+async function recoverUnparsedVerify(restaurantId: string) {
+  const conns = await db.select().from(schema.platformConnections)
+    .where(and(eq(schema.platformConnections.restaurantId, restaurantId), eq(schema.platformConnections.status, 'verifying')))
+  for (const c of conns) {
+    if ((c.verifyAttempts ?? 0) < 2) {
+      await db.update(schema.platformConnections).set({ verifyAttempts: (c.verifyAttempts ?? 0) + 1, progressNote: null, updatedAt: new Date() }).where(eq(schema.platformConnections.id, c.id))
+      await enqueueVerifyConnection(restaurantId, c.platform).catch((e) => console.error('[collect] re-verify enqueue failed', e))
+    } else {
+      await db.update(schema.platformConnections)
+        .set({ status: 'broken', verifyAttempts: 0, lastError: 'Favie could not read the result of the check. Please connect again.', brokenSince: new Date(), progressNote: null, updatedAt: new Date() })
+        .where(eq(schema.platformConnections.id, c.id))
+    }
+  }
 }
 
 async function insertAction(run: typeof schema.agentRuns.$inferSelect, actionDate: string, platform: 'uber_eats' | 'doordash' | 'none',
