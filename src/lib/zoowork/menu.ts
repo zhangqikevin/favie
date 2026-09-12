@@ -424,12 +424,16 @@ export async function runMenuGenerate(jobId: string) {
     await note(jobId, 'Generating the photo…')
     try {
       const references = await referencePhotos(item)
-      const prompt = await dishPrompt(item.name, { category: item.category, cuisine: r?.cuisine, descriptionEn: en, hasReferences: references.length > 0 })
-      const img = process.env.MENU_IMAGE_DIRECT_OPENAI === '1' && directOpenAiAvailable()
-        ? { ...(await generateDishImage(prompt)), model: 'openai-direct', artifactUrl: null as string | null, r2Key: null as string | null, ms: 0 }
-        : await generateDishImageViaAgent(job.restaurantId, { prompt, model: await menuImageModel(), filename: `${item.id}.jpg`, references, jobId })
+      const renderPrompt = (styleAttributes?: string) => dishPrompt(item.name, { category: item.category, cuisine: r?.cuisine, descriptionEn: en, hasReferences: references.length > 0, styleAttributes })
+      let img: { bytes: Uint8Array; contentType: string; model: string; artifactUrl: string | null; r2Key: string | null; ms: number; prompt: string; attempts?: number; check?: unknown; styleText?: string }
+      if (process.env.MENU_IMAGE_DIRECT_OPENAI === '1' && directOpenAiAvailable()) {
+        const prompt = await renderPrompt()
+        img = { ...(await generateDishImage(prompt)), model: 'openai-direct', artifactUrl: null, r2Key: null, ms: 0, prompt }
+      } else {
+        img = await generateDishImageViaAgent(job.restaurantId, { renderPrompt, model: await menuImageModel(), filename: `${item.id}.jpg`, references, jobId })
+      }
       const url = await putImage(job.restaurantId, `${item.id}-ai-${Date.now()}.jpg`, img.bytes, img.contentType)
-      await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, raw: { ...(item.raw as Record<string, unknown> ?? {}), aiImage: { model: img.model, r2Key: img.r2Key, artifactUrl: img.artifactUrl, prompt, references, ms: img.ms, check: 'check' in img ? img.check ?? null : null, attempts: 'attempts' in img ? img.attempts : 1 } }, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
+      await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, raw: { ...(item.raw as Record<string, unknown> ?? {}), aiImage: { model: img.model, r2Key: img.r2Key, artifactUrl: img.artifactUrl, prompt: img.prompt, references, styleText: img.styleText ?? null, ms: img.ms, check: img.check ?? null, attempts: img.attempts ?? 1 } }, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
       await note(jobId, 'Description and photo ready', { status: 'done' })
     } catch (e) {
       console.warn('[menuGenerate] photo failed:', (e as Error).message)

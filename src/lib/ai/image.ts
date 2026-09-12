@@ -14,7 +14,7 @@ export function directOpenAiAvailable() {
   return !!process.env.OPENAI_API_KEY
 }
 
-export async function dishPrompt(name: string, opts: { category?: string | null; cuisine?: string | null; descriptionEn?: string | null; hasReferences?: boolean }) {
+export async function dishPrompt(name: string, opts: { category?: string | null; cuisine?: string | null; descriptionEn?: string | null; hasReferences?: boolean; styleAttributes?: string }) {
   return renderImagePrompt(await menuImagePromptTemplate(), { name, ...opts })
 }
 

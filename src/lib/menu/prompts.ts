@@ -25,10 +25,14 @@ No people, no hands, no text, no logos, no watermark, nothing outside the frame.
 /** {scene} when the restaurant has no usable photos of its own: a neutral, consistent studio look. */
 export const DEFAULT_SCENE_PROMPT = `Plated in a simple white ceramic bowl or plate on a clean light-grey linen table, minimal background. Camera at a 45-degree angle with an 85mm lens look, shallow depth of field, soft natural window light from the left. No chopsticks or cutlery, no extra props.`
 
-/** {scene} when 2–3 of the restaurant's own photos are attached: copy THEIR look, not the studio default. */
-export const DEFAULT_STYLE_REFERENCE_PROMPT = `Style reference: the attached photos are existing listings from THIS restaurant's menu, and the new photo must look like it was shot in the same session, on the same table, with the same camera setup.
-HARD CONSTRAINT — framing: the reference photos are close-ups where the table surface fills the entire square frame edge to edge. Reproduce exactly that: the camera is close and looking down at the same angle, the background is ONLY the same table surface across the whole frame, and no table edge, chair, wall, window, floor or room is visible anywhere. Do not place the dish "on a table in a room".
-Also copy from the references: the surface material and colour, the type, colour and shape of the bowl, plate or container and how full it is, the placement (or absence) of chopsticks, spoons and side dishes, and the lighting mood and colour temperature. Only the dish itself changes to the one described above; do not copy their food.`
+/**
+ * {scene} when 2–3 of the restaurant's own photos are attached. Nothing about the look is hard-coded here:
+ * {style_attributes} is filled with what the vision model OBSERVED in those photos (background and how much
+ * of the frame it covers, container, utensils, camera angle and distance, lighting, colour temperature, tone).
+ */
+export const DEFAULT_STYLE_REFERENCE_PROMPT = `Style reference: the attached photos are existing listings from THIS restaurant's menu; the new photo must look like it was shot in the same session, on the same set, with the same camera and lighting. Reproduce these observed attributes of the references exactly:
+{style_attributes}
+Where this text and the reference photos disagree, follow the photos. Only the dish itself changes to the one described above; do not copy their food.`
 
 /** Default image model for the agent's image_generate tool ("provider/model"; provider alone picks its default). */
 export const DEFAULT_IMAGE_MODEL = 'openai/gpt-image-1.5'
@@ -47,9 +51,10 @@ export async function menuImagePromptTemplate(): Promise<string> {
 }
 
 /** Fill the image template; drops empty "(…)" hints and collapses blank placeholders. */
-export function renderImagePrompt(template: string, vars: { name: string; category?: string | null; cuisine?: string | null; descriptionEn?: string | null; hasReferences?: boolean }) {
-  const scene = vars.hasReferences ? DEFAULT_STYLE_REFERENCE_PROMPT : DEFAULT_SCENE_PROMPT
-  const v: Record<string, string> = { name: vars.name, category: vars.category ?? '', cuisine: vars.cuisine ?? '', description_en: vars.descriptionEn ?? '', scene, style_reference: vars.hasReferences ? DEFAULT_STYLE_REFERENCE_PROMPT : '' }
+export function renderImagePrompt(template: string, vars: { name: string; category?: string | null; cuisine?: string | null; descriptionEn?: string | null; hasReferences?: boolean; styleAttributes?: string }) {
+  const styleRef = DEFAULT_STYLE_REFERENCE_PROMPT.replace('{style_attributes}', vars.styleAttributes?.trim() || '(see the attached photos)')
+  const scene = vars.hasReferences ? styleRef : DEFAULT_SCENE_PROMPT
+  const v: Record<string, string> = { name: vars.name, category: vars.category ?? '', cuisine: vars.cuisine ?? '', description_en: vars.descriptionEn ?? '', scene, style_reference: vars.hasReferences ? styleRef : '' }
   // Older custom templates without {scene}: append the right paragraph so references still take effect.
   const withScene = template.includes('{scene}') || template.includes('{style_reference}') ? template : `${template}\n${scene}`
   return withScene
