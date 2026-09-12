@@ -165,7 +165,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
               <span className="text-xs text-ink-500">{rows.length}</span>
             </div>
             <ul className="grid gap-4 border-t border-ink-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
-              {rows.map((i) => <Row key={i.id} item={i} platform={p} jobs={state[p].active.filter((j) => j.menuItemId === i.id)} onChange={refresh} expandByDefault />)}
+              {rows.map((i) => <Row key={i.id} item={i} platform={p} jobs={state[p].active.filter((j) => j.menuItemId === i.id)} onChange={refresh} />)}
             </ul>
           </section>
         )
@@ -185,10 +185,10 @@ export function MenuClinic({ restaurantId, connected, initial }: {
   )
 }
 
-function Row({ item, platform, jobs, onChange, expandByDefault = false }: { item: Item; platform: Platform; jobs: MenuState['active']; onChange: () => Promise<void>; expandByDefault?: boolean }) {
+function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platform; jobs: MenuState['active']; onChange: () => Promise<void> }) {
   const t = useT()
   const intl = INTL_TAG[useLocale()]
-  const [open, setOpen] = useState(expandByDefault)
+  const [open, setOpen] = useState(false)
   // The editor starts from the draft when there is one, else from what the platform currently shows.
   const base = item.draftDescription ?? item.description ?? ''
   const [text, setText] = useState(base)
@@ -234,7 +234,28 @@ function Row({ item, platform, jobs, onChange, expandByDefault = false }: { item
     item.descThin && !item.draftDescription && ['menu.diag.descThin', 'bg-amber-50 text-amber-700'],
   ].filter(Boolean) as [DictKey, string][]
 
-  const expanded = open || saving || item.status === 'failed'
+  const actions = saving ? (
+    <span className="pill !py-1.5 text-xs"><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</span>
+  ) : queued ? (
+    <>
+      <button type="button" disabled={pending || !!acting} onClick={unqueueNow} className="pill !py-1.5 text-xs disabled:opacity-60">
+        {acting === 'unqueue' ? <><Spinner small /> {t('menu.working')}</> : t('menu.unqueue')}
+      </button>
+      <span className="text-xs text-ink-500">{t('menu.queuedHint')}</span>
+    </>
+  ) : (
+    <>
+      <button type="button" disabled={pending || generating} onClick={() => start(async () => { await aiOptimize(item.id); await onChange() })} className="pill !py-1.5 text-xs">
+        {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.optimize')}
+      </button>
+      <button type="button" disabled={pending || generating || !hasChanges || !!acting} onMouseDown={(e) => e.preventDefault()} onClick={queueNow} className="pill pill-active !py-1.5 text-xs disabled:opacity-60">
+        {acting === 'queue' ? <><Spinner small /> {t('menu.working')}</> : t('menu.queue')}
+      </button>
+      {(item.draftDescription || item.draftImageUrl) && (
+        <button type="button" disabled={pending} onClick={() => start(async () => { await discardDraft(item.id); setText(''); await onChange() })} className="text-xs text-ink-500 hover:text-ink-900">{t('menu.discard')}</button>
+      )}
+    </>
+  )
   const badges = (
     <div className="mt-1 flex flex-wrap gap-1">
       {flags.map(([k, cls]) => <span key={k} className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>{t(k)}</span>)}
@@ -246,86 +267,76 @@ function Row({ item, platform, jobs, onChange, expandByDefault = false }: { item
       {item.orderCnt != null && item.orderCnt > 1 && <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] text-ink-500">{t('menu.sold', { n: item.orderCnt.toLocaleString(intl) })}</span>}
     </div>
   )
-  const thumb = (cls: string) => (
+  const placeholder = (big: boolean) => !item.photoMissing
+    ? <span title={t('menu.photoOnPlatform')} className="flex h-full w-full flex-col items-center justify-center gap-1 text-ink-500"><svg viewBox="0 0 24 24" className={big ? 'h-8 w-8' : 'h-6 w-6'} fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 16 5-5 4 4 3-3 6 6" /><path d="m14 8 1.5 1.5L18 7" /></svg><span className="px-2 text-center text-[10px] leading-tight">{t('menu.photoOnPlatform')}</span></span>
+    : <span className="flex h-full w-full items-center justify-center text-ink-300"><svg viewBox="0 0 24 24" className={big ? 'h-10 w-10' : 'h-8 w-8'} fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 16 5-5 4 4 3-3 6 6" /><circle cx="16" cy="9" r="1.5" /></svg></span>
+  const thumb = (cls: string, big = false) => (
     <div className={`relative overflow-hidden rounded-xl bg-ink-100 ${cls}`}>
-      {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : !item.photoMissing ? <span title={t('menu.photoOnPlatform')} className="flex h-full w-full flex-col items-center justify-center gap-1 text-ink-500"><svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 16 5-5 4 4 3-3 6 6" /><path d="m14 8 1.5 1.5L18 7" /></svg><span className="px-2 text-center text-[10px] leading-tight">{t('menu.photoOnPlatform')}</span></span> : <span className="flex h-full w-full items-center justify-center text-ink-300"><svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 16 5-5 4 4 3-3 6 6" /><circle cx="16" cy="9" r="1.5" /></svg></span>}
+      {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : placeholder(big)}
       {item.draftImageUrl && <span className="absolute left-2 top-2 rounded-full bg-brand-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">{t('menu.status.draft')}</span>}
     </div>
   )
 
   return (
-    <li className={`flex flex-col rounded-2xl border border-ink-100 bg-white p-4 ${expanded ? 'sm:col-span-2 lg:col-span-3' : ''}`}>
-      {expanded ? (
-        <div className="flex items-start gap-4">
-          {thumb('h-20 w-20 shrink-0')}
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold leading-snug">{item.name}</p>
-            {badges}
-          </div>
-          <button type="button" onClick={() => setOpen(false)} className="pill !py-1.5 text-xs">{t('menu.collapse')}</button>
-        </div>
-      ) : (
-        <>
-          {thumb('aspect-[4/3] w-full')}
-          <p className="mt-3 font-semibold leading-snug">{item.name}</p>
-          {badges}
-          <p className={`mt-2 line-clamp-2 flex-1 text-sm ${shown ? 'text-ink-700' : 'italic text-ink-300'}`}>{shown || t('menu.noDesc')}</p>
-          <div className="mt-3 flex justify-end">
-            <button type="button" onClick={() => setOpen(true)} className="pill !py-1.5 text-xs">
-              {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.edit')}
-            </button>
-          </div>
-        </>
-      )}
-      {expanded && (
-        <div className="mt-4 grid gap-4 rounded-2xl bg-ink-100/60 p-4 lg:grid-cols-[260px_1fr]">
-          <div className="space-y-2">
-            <div className="grid grid-cols-3 gap-2">
-              {[['keep', item.imageUrl, 'menu.keepPhoto'], ['ai', item.aiImageUrl, 'menu.useAi'], ['own', item.customImageUrl, 'menu.useOwn']].map(([k, url, label]) => url ? (
-                <button key={k} type="button" disabled={frozen} onClick={() => start(async () => { await updateDraft(item.id, { imageUrl: k === 'keep' ? null : (url as string) }); await onChange() })}
-                  className={`overflow-hidden rounded-xl ring-2 ${(k === 'keep' ? !item.draftImageUrl : item.draftImageUrl === url) ? 'ring-brand-500' : 'ring-transparent'}`} title={t(label as DictKey)}>
-                  <img src={url as string} alt="" className="aspect-square w-full object-cover" />
-                  <span className="block bg-white px-1 py-1 text-[10px] text-ink-700">{t(label as DictKey)}</span>
-                </button>
-              ) : null)}
+    <li className="flex flex-col rounded-2xl border border-ink-100 bg-white p-4">
+      {thumb('aspect-[4/3] w-full')}
+      <p className="mt-3 font-semibold leading-snug">{item.name}</p>
+      {badges}
+      <p className={`mt-2 line-clamp-2 flex-1 text-sm ${shown ? 'text-ink-700' : 'italic text-ink-300'}`}>{shown || t('menu.noDesc')}</p>
+      {item.lastError && item.status === 'failed' && <p className="mt-1 line-clamp-2 text-xs text-red-700">{item.lastError}</p>}
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+        {saving ? <span className="pill !py-1.5 text-xs"><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</span> : queued ? (
+          <button type="button" disabled={pending || !!acting} onClick={unqueueNow} className="pill !py-1.5 text-xs disabled:opacity-60">
+            {acting === 'unqueue' ? <><Spinner small /> {t('menu.working')}</> : t('menu.unqueue')}
+          </button>
+        ) : null}
+        <button type="button" onClick={() => setOpen(true)} className={`pill !py-1.5 text-xs ${queued || saving ? '' : 'pill-active'}`}>
+          {generating ? <><Spinner small /> {t('menu.optimizing')}</> : queued || saving ? t('menu.view') : t('menu.edit')}
+        </button>
+      </div>
+
+      {/* Editor: a right-side drawer, so the grid stays put. */}
+      {open && (
+        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={item.name}>
+          <button type="button" aria-label={t('menu.close')} onClick={() => setOpen(false)} className="absolute inset-0 bg-ink-900/30" />
+          <div className="relative flex h-full w-full max-w-[560px] flex-col overflow-y-auto bg-white shadow-2xl">
+            <div className="flex items-start gap-4 border-b border-ink-100 px-6 py-5">
+              <div className="min-w-0 flex-1">
+                <p className="font-display text-lg font-semibold leading-snug">{item.name}</p>
+                <p className="text-xs text-ink-500">{item.category ?? ''}{item.category ? ' · ' : ''}{LABEL[platform]}</p>
+                {badges}
+              </div>
+              <button type="button" onClick={() => setOpen(false)} className="pill !py-1.5 text-xs">{t('menu.close')}</button>
             </div>
-            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => {
-              const f = e.target.files?.[0]; if (!f) return
-              const fd = new FormData(); fd.set('menuItemId', item.id); fd.set('file', f)
-              start(async () => { await uploadPhoto(fd); await onChange() })
-              e.target.value = ''
-            }} />
-            <button type="button" disabled={pending || frozen} onClick={() => fileRef.current?.click()} className="pill w-full !py-1.5 text-xs">{t('menu.upload')}</button>
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-ink-700">{t('menu.draftDesc')}</label>
-            <textarea value={text} disabled={frozen} onChange={(e) => setText(e.target.value)} onBlur={commitText}
-              rows={5} className="input !rounded-2xl text-sm leading-relaxed" placeholder={t('menu.noDesc')} />
-            {item.lastError && item.status === 'failed' && <p className="text-xs text-red-700">{item.lastError}</p>}
-            <div className="flex flex-wrap items-center gap-2">
-              {saving ? (
-                <span className="pill !py-1.5 text-xs"><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</span>
-              ) : queued ? (
-                <>
-                  <button type="button" disabled={pending || !!acting} onClick={unqueueNow} className="pill !py-1.5 text-xs disabled:opacity-60">
-                    {acting === 'unqueue' ? <><Spinner small /> {t('menu.working')}</> : t('menu.unqueue')}
-                  </button>
-                  <span className="text-xs text-ink-500">{t('menu.queuedHint')}</span>
-                </>
-              ) : (
-                <>
-                  <button type="button" disabled={pending || generating} onClick={() => start(async () => { await aiOptimize(item.id); await onChange() })} className="pill !py-1.5 text-xs">
-                    {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.optimize')}
-                  </button>
-                  <button type="button" disabled={pending || generating || !hasChanges || !!acting} onMouseDown={(e) => e.preventDefault()} onClick={queueNow} className="pill pill-active !py-1.5 text-xs disabled:opacity-60">
-                    {acting === 'queue' ? <><Spinner small /> {t('menu.working')}</> : t('menu.queue')}
-                  </button>
-                  {(item.draftDescription || item.draftImageUrl) && (
-                    <button type="button" disabled={pending} onClick={() => start(async () => { await discardDraft(item.id); setText(''); await onChange() })} className="text-xs text-ink-500 hover:text-ink-900">{t('menu.discard')}</button>
-                  )}
-                </>
-              )}
+            <div className="flex-1 space-y-6 px-6 py-5">
+              <section>
+                <p className="text-xs font-medium text-ink-700">{t('menu.photo')}</p>
+                <div className="mt-2">{thumb('aspect-[4/3] w-full', true)}</div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {[['keep', item.imageUrl, 'menu.keepPhoto'], ['ai', item.aiImageUrl, 'menu.useAi'], ['own', item.customImageUrl, 'menu.useOwn']].map(([k, url, label]) => url ? (
+                    <button key={k} type="button" disabled={frozen} onClick={() => start(async () => { await updateDraft(item.id, { imageUrl: k === 'keep' ? null : (url as string) }); await onChange() })}
+                      className={`overflow-hidden rounded-xl ring-2 disabled:opacity-60 ${(k === 'keep' ? !item.draftImageUrl : item.draftImageUrl === url) ? 'ring-brand-500' : 'ring-transparent'}`} title={t(label as DictKey)}>
+                      <img src={url as string} alt="" className="aspect-square w-full object-cover" />
+                      <span className="block bg-white px-1 py-1 text-[10px] text-ink-700">{t(label as DictKey)}</span>
+                    </button>
+                  ) : null)}
+                </div>
+                <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => {
+                  const f = e.target.files?.[0]; if (!f) return
+                  const fd = new FormData(); fd.set('menuItemId', item.id); fd.set('file', f)
+                  start(async () => { await uploadPhoto(fd); await onChange() })
+                  e.target.value = ''
+                }} />
+                <button type="button" disabled={pending || frozen} onClick={() => fileRef.current?.click()} className="pill mt-2 !py-1.5 text-xs disabled:opacity-60">{t('menu.upload')}</button>
+              </section>
+              <section>
+                <label className="text-xs font-medium text-ink-700">{t('menu.draftDesc')}</label>
+                <textarea value={text} disabled={frozen} onChange={(e) => setText(e.target.value)} onBlur={commitText}
+                  rows={7} className="input mt-2 !rounded-2xl text-sm leading-relaxed disabled:opacity-60" placeholder={t('menu.noDesc')} />
+                {item.lastError && item.status === 'failed' && <p className="mt-2 text-xs text-red-700">{item.lastError}</p>}
+              </section>
             </div>
+            <div className="flex flex-wrap items-center gap-2 border-t border-ink-100 px-6 py-4">{actions}</div>
           </div>
         </div>
       )}
