@@ -25,7 +25,7 @@ export type StyleCheck = { pass: boolean; background: boolean; frame_coverage: b
 export type ImageJobResult = GeneratedImage & { attempts: number; styleAttributes?: StyleAttributes; styleText?: string; check?: StyleCheck; prompt: string }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-type Ev = { seq: number; eventType: string; payload?: Record<string, unknown> }
+type Ev = { seq: number; eventType: string; runId?: string; payload?: Record<string, unknown> }
 
 class ImageSession {
   constructor(readonly zc: ReturnType<typeof zoowork>, readonly agentId: string, readonly sessionId: string, readonly deadline: number) {}
@@ -49,11 +49,14 @@ class ImageSession {
         if (!mine) continue
         msgSeq = mine.seq
       }
-      const after = events.filter((e) => e.seq > msgSeq)
-      const finished = after.some((e) => e.eventType === 'run.finished')
-      if (!finished) continue
+      // The run our message started is the first run id that appears after it and was not running before.
+      const before = new Set(events.filter((e) => e.seq <= msgSeq && e.runId).map((e) => e.runId))
+      const mine = events.find((e) => e.seq > msgSeq && e.runId && !before.has(e.runId))?.runId
+      if (!mine) continue
+      const run = events.filter((e) => e.runId === mine)
+      if (!run.some((e) => e.eventType === 'run.finished')) continue
       const texts: string[] = []
-      for (const e of after) if (e.eventType === 'agent.assistant') for (const c of ((e.payload?.message as { content?: { type: string; text?: string }[] } | undefined)?.content ?? [])) if (c.type === 'text' && c.text) texts.push(c.text)
+      for (const e of run) if (e.eventType === 'agent.assistant') for (const c of ((e.payload?.message as { content?: { type: string; text?: string }[] } | undefined)?.content ?? [])) if (c.type === 'text' && c.text) texts.push(c.text)
       return texts.join('\n')
     }
     throw new Error(`agent did not answer in time (${key})`)
@@ -64,8 +67,7 @@ class ImageSession {
 const json = <T,>(text: string, key = 'background'): T | null => {
   const candidates = [...text.matchAll(/\{[^{}]*\}/g)].map((m) => m[0]).filter((c) => c.includes(`"${key}"`))
   for (const c of candidates.reverse()) { try { return JSON.parse(c) as T } catch { /* try the previous one */ } }
-  const m = /\{[\s\S]*\}/.exec(text); if (!m) return null
-  try { return JSON.parse(m[0]) as T } catch { return null }
+  return null
 }
 
 /** Step 0: what do the restaurant's own photos look like? Concrete, copyable attributes. */
@@ -99,7 +101,8 @@ async function checkStyle(s: ImageSession, artifactUrl: string, references: stri
   ].join('\n')
   const seqBefore = await s.lastSeq()
   const text = await s.ask(ask, 'menu-image-check')
-  let j = json<Partial<StyleCheck> & { error?: string }>(text)
+  type CheckJson = Partial<StyleCheck> & { error?: string }
+  let j: CheckJson | null = json<CheckJson>(text) ?? json<CheckJson>(text, 'error')
   if (!j || (j.background === undefined && !j.error)) {
     // Fall back to the vision tool's own output in the event log.
     for (const e of await s.events()) {
