@@ -222,6 +222,12 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
     start(async () => { try { await unqueueItem(item.id); await onChange() } finally { setActing(null) } })
   }
   const generating = jobs.some((j) => j.kind === 'generate')
+  const NOTE_KEYS: Record<string, DictKey> = {
+    'Writing the description…': 'menu.progress.describe', 'Studying your existing photos…': 'menu.progress.analyze', 'Generating the photo…': 'menu.progress.photo',
+    'Checking the photo against your menu style…': 'menu.progress.check', 'Adjusting and generating again…': 'menu.progress.retry',
+  }
+  const genNote = jobs.find((j) => j.kind === 'generate')?.note ?? ''
+  const progress = generating ? t(NOTE_KEYS[genNote] ?? 'menu.progress.generic') : ''
   const saving = item.status === 'saving' || jobs.some((j) => j.kind === 'apply')
   const queued = item.status === 'queued'
   const frozen = queued || saving // no edits while waiting for / during the sync
@@ -294,6 +300,7 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
           {generating ? <><Spinner small /> {t('menu.optimizing')}</> : queued || saving ? t('menu.view') : t('menu.edit')}
         </button>
       </div>
+      {generating && <p className="mt-2 text-right text-[11px] text-ink-500">{progress}</p>}
 
       {/* Editor: a right-side drawer, so the grid stays put. */}
       {open && (
@@ -336,7 +343,10 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
                 {item.lastError && item.status === 'failed' && <p className="mt-2 text-xs text-red-700">{item.lastError}</p>}
               </section>
             </div>
-            <div className="flex flex-wrap items-center gap-2 border-t border-ink-100 px-6 py-4">{actions}</div>
+            <div className="border-t border-ink-100 px-6 py-4">
+              {generating && <p className="mb-2 text-xs text-ink-500">{progress}</p>}
+              <div className="flex flex-wrap items-center gap-2">{actions}</div>
+            </div>
           </div>
         </div>
       )}

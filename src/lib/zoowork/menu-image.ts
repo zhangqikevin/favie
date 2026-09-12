@@ -183,6 +183,8 @@ async function generateOnce(s: ImageSession, opts: { prompt: string; model: stri
 export async function generateDishImageViaAgent(restaurantId: string, opts: {
   renderPrompt: (styleAttributes?: string) => Promise<string> | string
   model: string; filename: string; references?: string[]; jobId?: string; budgetMs?: number
+  /** Step-level progress for the owner-facing job note. */
+  onProgress?: (step: 'analyze' | 'generate' | 'check' | 'retry') => void | Promise<void>
 }): Promise<ImageJobResult> {
   const t0 = Date.now()
   const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1)
@@ -207,14 +209,18 @@ export async function generateDishImageViaAgent(restaurantId: string, opts: {
     const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 60_000)
     try { await streamTurn(zc, agent.zooworkAgentId, session.session_id, { signal: ctl.signal }) } finally { clearTimeout(t) }
 
+    if (refs.length) await opts.onProgress?.('analyze')
     const analysis = refs.length ? await analyzeReferences(s, refs).catch((e) => { console.warn('[menuImage] reference analysis failed:', (e as Error).message); return null }) : null
     const prompt = await opts.renderPrompt(analysis?.text)
+    await opts.onProgress?.('generate')
     let img = await generateOnce(s, { prompt, model: opts.model, file, references: refs })
     let attempts = 1
     let check: StyleCheck | undefined
     if (refs.length) {
+      await opts.onProgress?.('check')
       check = await checkStyle(s, img.artifactUrl, refs, analysis?.text ?? '(see the attached photos)').catch((e) => { console.warn('[menuImage] style check failed:', (e as Error).message); return undefined })
       if (check && !check.pass && check.issues.trim()) { // a concrete complaint to fix; an unavailable check never triggers a retry
+        await opts.onProgress?.('retry')
         const fixPrompt = `${prompt}\nPREVIOUS ATTEMPT WAS REJECTED by a side-by-side comparison with the references because: ${check.issues || 'it did not match them'}. Fix exactly that while keeping everything else.`
         img = await generateOnce(s, { prompt: fixPrompt, model: opts.model, file: file.replace(/(\.[a-z]+)?$/i, '-2$1'), references: refs })
         attempts = 2

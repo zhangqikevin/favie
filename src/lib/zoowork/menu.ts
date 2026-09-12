@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, ne } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm'
 import { canonicalStorefrontUrl, firecrawlKey, readStorefront, searchStorefront } from '@/lib/menu/firecrawl'
 import { menuDescribePrompt, menuImageModel } from '@/lib/menu/prompts'
 import { generateDishImageViaAgent } from './menu-image'
@@ -430,7 +430,8 @@ export async function runMenuGenerate(jobId: string) {
         const prompt = await renderPrompt()
         img = { ...(await generateDishImage(prompt)), model: 'openai-direct', artifactUrl: null, r2Key: null, ms: 0, prompt }
       } else {
-        img = await generateDishImageViaAgent(job.restaurantId, { renderPrompt, model: await menuImageModel(), filename: `${item.id}.jpg`, references, jobId })
+        const stepNote: Record<string, string> = { analyze: 'Studying your existing photos…', generate: 'Generating the photo…', check: 'Checking the photo against your menu style…', retry: 'Adjusting and generating again…' }
+        img = await generateDishImageViaAgent(job.restaurantId, { renderPrompt, model: await menuImageModel(), filename: `${item.id}.jpg`, references, jobId, onProgress: (step) => note(jobId, stepNote[step] ?? 'Generating the photo…') })
       }
       const url = await putImage(job.restaurantId, `${item.id}-ai-${Date.now()}.jpg`, img.bytes, img.contentType)
       await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, raw: { ...(item.raw as Record<string, unknown> ?? {}), aiImage: { model: img.model, r2Key: img.r2Key, artifactUrl: img.artifactUrl, prompt: img.prompt, references, styleText: img.styleText ?? null, ms: img.ms, check: img.check ?? null, attempts: img.attempts ?? 1 } }, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
@@ -529,6 +530,9 @@ export async function runMenuApply(jobId: string) {
 
 /** Shared by the API route and the pages: items grouped by category plus the diagnostics counters. */
 export async function menuState(restaurantId: string, platform: Platform) {
+  // A worker that died mid-job would leave "running" rows forever; the UI would spin forever with them.
+  await db.update(schema.menuJobs).set({ status: 'failed', error: 'timed out', updatedAt: new Date() })
+    .where(and(eq(schema.menuJobs.restaurantId, restaurantId), inArray(schema.menuJobs.status, ['queued', 'running']), sql`${schema.menuJobs.createdAt} < now() - interval '25 minutes'`)).catch(() => {})
   const [items, jobs, [conn]] = await Promise.all([
     db.select().from(schema.menuItems).where(and(eq(schema.menuItems.restaurantId, restaurantId), eq(schema.menuItems.platform, platform))).orderBy(schema.menuItems.position),
     db.select().from(schema.menuJobs).where(and(eq(schema.menuJobs.restaurantId, restaurantId), eq(schema.menuJobs.platform, platform))).orderBy(schema.menuJobs.createdAt),
