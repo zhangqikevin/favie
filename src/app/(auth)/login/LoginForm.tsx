@@ -1,5 +1,6 @@
 'use client'
 import { useActionState } from 'react'
+import Link from 'next/link'
 import { logIn, type AuthState } from '../actions'
 import { useT } from '@/i18n/client'
 import type { DictKey } from '@/i18n'
@@ -16,7 +17,10 @@ export function LoginForm({ next, email }: { next?: string; email?: string }) {
         <input id="email" name="email" type="email" required defaultValue={email ?? ''} className="input" autoComplete="email" />
       </div>
       <div>
-        <label className="label" htmlFor="password">{t('login.password')}</label>
+        <div className="flex items-baseline justify-between">
+          <label className="label" htmlFor="password">{t('login.password')}</label>
+          <Link href={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`} className="text-xs font-medium text-brand-600 hover:underline">{t('login.forgot')}</Link>
+        </div>
         <input id="password" name="password" type="password" required className="input" autoComplete="current-password" />
       </div>
       {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}

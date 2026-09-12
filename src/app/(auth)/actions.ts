@@ -63,3 +63,28 @@ export async function logOut() {
   await supabase.auth.signOut()
   redirect('/')
 }
+
+/** "Forgot password?": Supabase mails the recovery template; the link lands on /auth/confirm → /reset-password. */
+export async function requestPasswordReset(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const email = String(formData.get('email') ?? '').trim()
+  if (!z.string().email().safeParse(email).success) return { error: 'login.invalidEmail' }
+  const supabase = await createSupabaseServer()
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${appUrl()}/auth/confirm?next=/reset-password` })
+  if (error) console.warn('[auth] resetPasswordForEmail failed:', error.status, error.message)
+  // Always the same answer (no account enumeration).
+  redirect(`/forgot-password?sent=1&email=${encodeURIComponent(email)}`)
+}
+
+/** /reset-password after the recovery link: the session exists, set the new password. */
+export async function updatePassword(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const password = String(formData.get('password') ?? '')
+  const confirm = String(formData.get('confirm') ?? '')
+  if (password.length < 8) return { error: 'reset.tooShort' }
+  if (password !== confirm) return { error: 'reset.mismatch' }
+  const supabase = await createSupabaseServer()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'reset.expired' }
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) return { error: error.message }
+  redirect('/dashboard?password=updated')
+}
