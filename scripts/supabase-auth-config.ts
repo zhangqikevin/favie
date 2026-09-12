@@ -6,12 +6,15 @@
  *   SUPABASE_ACCESS_TOKEN=sbp_… SMTP_HOST=smtp.resend.com SMTP_PORT=465 SMTP_USER=resend \
  *     SMTP_PASS=re_… SMTP_SENDER=hello@favie.us npx tsx scripts/supabase-auth-config.ts  # + custom SMTP
  *   npx tsx scripts/supabase-auth-config.ts --render                                 # write HTML previews only
+ *   SEND_EMAIL_HOOK_URL=https://dev.favie.us/api/auth/send-email SEND_EMAIL_HOOK_SECRET=v1,whsec_… \
+ *     npx tsx scripts/supabase-auth-config.ts                                        # + route all auth mail through our hook
  *
  * Idempotent: it PATCHes the auth config; run it again after editing src/lib/email/auth-templates.ts.
  */
 import 'dotenv/config'
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { AUTH_TEMPLATES } from '../src/lib/email/auth-templates'
+import { goTemplates } from '../src/lib/email/auth-templates'
+const AUTH_TEMPLATES = goTemplates()
 
 const ref = /https:\/\/([a-z0-9]+)\.supabase\.co/.exec(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '')?.[1]
 const siteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://favie.us').replace(/\/$/, '')
@@ -56,10 +59,17 @@ if (process.env.SMTP_HOST) {
   })
 }
 
+if (process.env.SEND_EMAIL_HOOK_URL) {
+  Object.assign(body, { hook_send_email_enabled: true, hook_send_email_uri: process.env.SEND_EMAIL_HOOK_URL, hook_send_email_secrets: process.env.SEND_EMAIL_HOOK_SECRET })
+} else if (process.env.SEND_EMAIL_HOOK_URL === '') {
+  Object.assign(body, { hook_send_email_enabled: false })
+}
+if (process.env.EMAIL_RATE_LIMIT_PER_HOUR) body.rate_limit_email_sent = Number(process.env.EMAIL_RATE_LIMIT_PER_HOUR)
+
 const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/config/auth`, {
   method: 'PATCH', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body),
 })
 const text = await res.text()
 if (!res.ok) throw new Error(`Management API ${res.status}: ${text.slice(0, 500)}`)
 const j = JSON.parse(text) as Record<string, unknown>
-console.log('updated auth config:', { site_url: j.site_url, smtp_host: j.smtp_host ?? '(default Supabase channel)', smtp_sender_name: j.smtp_sender_name, subjects: [j.mailer_subjects_confirmation, j.mailer_subjects_recovery] })
+console.log('updated auth config:', { site_url: j.site_url, smtp_host: j.smtp_host ?? '(default Supabase channel)', smtp_sender_name: j.smtp_sender_name, hook: j.hook_send_email_enabled ? j.hook_send_email_uri : 'off', rate_limit_email_sent: j.rate_limit_email_sent })
