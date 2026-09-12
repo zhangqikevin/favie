@@ -31,16 +31,42 @@ class ImageSession {
   constructor(readonly zc: ReturnType<typeof zoowork>, readonly agentId: string, readonly sessionId: string, readonly deadline: number) {}
   async events(): Promise<Ev[]> { return (await this.zc.listAllEvents(this.agentId, this.sessionId)) as unknown as Ev[] }
   async lastSeq() { return (await this.events()).reduce((m, e) => Math.max(m, e.seq), -1) }
-  /** Post a message and stream the run it starts; returns the assistant text. */
+  /**
+   * Post a message and return the assistant text of the run it starts. Async-completion runs from earlier
+   * steps can finish after we post, so "stream until the next run.finished" would hand back the wrong run;
+   * instead: find OUR message in the log, then collect text until a run.finished that comes after it.
+   */
   async ask(content: string, key: string, budgetMs = 120_000) {
     const afterSeq = await this.lastSeq()
     await this.zc.postEvents(this.agentId, this.sessionId, [{ type: 'user.message', content, idempotency_key: `${key}-${this.sessionId}-${Date.now()}` }])
-    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), Math.min(budgetMs, Math.max(15_000, this.deadline - Date.now())))
-    try { return (await streamTurn(this.zc, this.agentId, this.sessionId, { signal: ctl.signal, afterSeq })).text } finally { clearTimeout(t) }
+    const until = Math.min(Date.now() + budgetMs, this.deadline)
+    let msgSeq = -1
+    while (Date.now() < until) {
+      await sleep(2500)
+      const events = await this.events()
+      if (msgSeq < 0) {
+        const mine = events.find((e) => e.seq > afterSeq && e.eventType === 'user.message' && JSON.stringify(e.payload ?? {}).includes(content.slice(0, 40)))
+        if (!mine) continue
+        msgSeq = mine.seq
+      }
+      const after = events.filter((e) => e.seq > msgSeq)
+      const finished = after.some((e) => e.eventType === 'run.finished')
+      if (!finished) continue
+      const texts: string[] = []
+      for (const e of after) if (e.eventType === 'agent.assistant') for (const c of ((e.payload?.message as { content?: { type: string; text?: string }[] } | undefined)?.content ?? [])) if (c.type === 'text' && c.text) texts.push(c.text)
+      return texts.join('\n')
+    }
+    throw new Error(`agent did not answer in time (${key})`)
   }
 }
 
-const json = <T,>(text: string): T | null => { const m = /\{[\s\S]*\}/.exec(text); if (!m) return null; try { return JSON.parse(m[0]) as T } catch { return null } }
+/** Last flat JSON object in the text that mentions `key` (the agent often echoes other JSON first). */
+const json = <T,>(text: string, key = 'background'): T | null => {
+  const candidates = [...text.matchAll(/\{[^{}]*\}/g)].map((m) => m[0]).filter((c) => c.includes(`"${key}"`))
+  for (const c of candidates.reverse()) { try { return JSON.parse(c) as T } catch { /* try the previous one */ } }
+  const m = /\{[\s\S]*\}/.exec(text); if (!m) return null
+  try { return JSON.parse(m[0]) as T } catch { return null }
+}
 
 /** Step 0: what do the restaurant's own photos look like? Concrete, copyable attributes. */
 async function analyzeReferences(s: ImageSession, references: string[]): Promise<{ attrs: StyleAttributes; text: string } | null> {
@@ -71,8 +97,16 @@ async function checkStyle(s: ImageSession, artifactUrl: string, references: stri
     'If the image tool errors (e.g. "returned no text"), call it ONCE more with only the generated photo and the first two references. If it errors again, reply exactly {"error": "<the tool error>"} — never invent true/false values.',
     'Reply with the JSON object only, as your final message (not via the message tool).',
   ].join('\n')
+  const seqBefore = await s.lastSeq()
   const text = await s.ask(ask, 'menu-image-check')
-  const j = json<Partial<StyleCheck> & { error?: string }>(text)
+  let j = json<Partial<StyleCheck> & { error?: string }>(text)
+  if (!j || (j.background === undefined && !j.error)) {
+    // Fall back to the vision tool's own output in the event log.
+    for (const e of await s.events()) {
+      const p = e.payload ?? {}
+      if (e.seq > seqBefore && e.eventType === 'agent.tool' && p.phase === 'end' && p.toolName === 'image' && !p.isError) j = json<Partial<StyleCheck> & { error?: string }>(String(p.resultPreview ?? '')) ?? j
+    }
+  }
   if (!j) throw new Error('no JSON in style check')
   if (j.error || /could not be completed|did not return|no text/i.test(String(j.issues ?? ''))) throw new Error(`style check unavailable: ${j.error ?? j.issues}`)
   const c: StyleCheck = { background: !!j.background, frame_coverage: !!j.frame_coverage, container: !!j.container, utensils: j.utensils !== false, camera: !!j.camera, lighting: j.lighting !== false, clean: j.clean !== false, issues: String(j.issues ?? ''), pass: false }
