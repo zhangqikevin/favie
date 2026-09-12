@@ -185,6 +185,8 @@ const zhTW: Dictionary = {
   'ob.connect.again': '重新連接',
   'ob.connect.opening': '正在準備安全瀏覽器…',
   'ob.connect.opening.hint': '(通常不到一分鐘)',
+  'ob.connect.queued': '等待 Favie 伺服器處理…',
+  'ob.connect.stalled': '等待時間比平時長。請重試，通常不到一分鐘就能開啟。',
   'ob.connect.verifying': '正在儲存登入狀態並讀取你的門市…',
   'ob.connect.verifying.hint': '(1–2 分鐘)',
   'ob.connect.pick': '在這個帳戶裡找到 {n} 間門市,Favie 應該管理哪一間?',

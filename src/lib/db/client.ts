@@ -13,7 +13,7 @@ function makePool() {
   const isWorker = process.env.FAVIE_PROCESS === 'worker'
   const url = (!isWorker && process.env.DATABASE_URL_WEB) || process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL is not set')
-  return new Pool({ connectionString: url, max: isWorker ? 4 : 3, idleTimeoutMillis: 20_000 })
+  return new Pool({ connectionString: url, max: isWorker ? 4 : 3, idleTimeoutMillis: 20_000, keepAlive: true, connectionTimeoutMillis: 10_000 })
 }
 
 // One pool per process (Next.js dev hot-reload would otherwise leak pools).

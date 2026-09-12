@@ -188,6 +188,8 @@ const en = {
   'ob.connect.again': 'Connect again',
   'ob.connect.opening': 'Preparing your secure browser…',
   'ob.connect.opening.hint': '(usually under a minute)',
+  'ob.connect.queued': 'Waiting for the Favie server to pick this up…',
+  'ob.connect.stalled': 'This is taking longer than usual. Try again — it normally takes under a minute.',
   'ob.connect.verifying': 'Saving your session and reading your stores…',
   'ob.connect.verifying.hint': '(1–2 minutes)',
   'ob.connect.pick': 'We found {n} stores in this account. Which one should Favie manage?',

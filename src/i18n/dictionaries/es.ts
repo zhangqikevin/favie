@@ -185,6 +185,8 @@ const es: Dictionary = {
   'ob.connect.again': 'Conectar de nuevo',
   'ob.connect.opening': 'Preparando tu navegador seguro…',
   'ob.connect.opening.hint': '(normalmente menos de un minuto)',
+  'ob.connect.queued': 'Esperando a que el servidor de Favie lo procese…',
+  'ob.connect.stalled': 'Está tardando más de lo habitual. Inténtalo de nuevo; normalmente tarda menos de un minuto.',
   'ob.connect.verifying': 'Guardando tu sesión y leyendo tus tiendas…',
   'ob.connect.verifying.hint': '(1–2 minutos)',
   'ob.connect.pick': 'Encontramos {n} tiendas en esta cuenta. ¿Cuál debe gestionar Favie?',

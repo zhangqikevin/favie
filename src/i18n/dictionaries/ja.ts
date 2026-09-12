@@ -185,6 +185,8 @@ const ja: Dictionary = {
   'ob.connect.again': '再度連携',
   'ob.connect.opening': '安全なブラウザを準備中…',
   'ob.connect.opening.hint': '(通常1分以内)',
+  'ob.connect.queued': 'Favie サーバーの処理を待っています…',
+  'ob.connect.stalled': '通常より時間がかかっています。もう一度お試しください（通常は1分以内）。',
   'ob.connect.verifying': 'セッションを保存し、店舗を読み取っています…',
   'ob.connect.verifying.hint': '(1〜2分)',
   'ob.connect.pick': 'このアカウントで {n} 店舗が見つかりました。Favie に管理させる店舗はどれですか?',

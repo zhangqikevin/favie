@@ -121,8 +121,14 @@ export function ConnectPanel({ restaurantId, initial, agentStatus, onboardingDon
                     )}
                     <p className="mt-2 text-xs text-ink-500">{t('ob.connect.expires')}</p>
                   </>
+                ) : c.handoffStartedAt && Date.now() - new Date(c.handoffStartedAt).getTime() > 3 * 60_000 ? (
+                  // No live browser after 3 minutes means the background job never ran (worker down) or failed silently.
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-sm text-ink-700">{t('ob.connect.stalled')}</p>
+                    <button type="button" disabled={pending || agent !== 'ready'} onClick={() => connect(c.platform)} className="btn-primary !px-5 !py-2.5 text-sm">{t('ob.connect.again')}</button>
+                  </div>
                 ) : (
-                  <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner /> {c.progressNote ?? t('ob.connect.opening')} <span className="text-xs text-ink-400">{t('ob.connect.opening.hint')}</span></p>
+                  <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner /> {c.progressNote === 'Queued…' ? t('ob.connect.queued') : c.progressNote ?? t('ob.connect.opening')} <span className="text-xs text-ink-400">{t('ob.connect.opening.hint')}</span></p>
                 )}
               </div>
             )}

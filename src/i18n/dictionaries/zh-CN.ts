@@ -185,6 +185,8 @@ const zhCN: Dictionary = {
   'ob.connect.again': '重新连接',
   'ob.connect.opening': '正在准备安全浏览器…',
   'ob.connect.opening.hint': '(通常不到一分钟)',
+  'ob.connect.queued': '等待 Favie 服务器处理…',
+  'ob.connect.stalled': '等待时间比平时长。请重试，通常不到一分钟就能打开。',
   'ob.connect.verifying': '正在保存登录状态并读取你的门店…',
   'ob.connect.verifying.hint': '(1–2 分钟)',
   'ob.connect.pick': '在这个账户里找到了 {n} 家门店,Favie 应该管理哪一家?',

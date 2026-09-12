@@ -21,8 +21,25 @@ import { refreshSettings } from '@/server/settings'
 
 const url = process.env.DATABASE_URL
 if (!url) throw new Error('DATABASE_URL is not set')
-const boss = new PgBoss({ connectionString: url, schema: 'pgboss', max: 4 })
-boss.on('error', (e) => console.error('[pg-boss]', e))
+// keepAlive keeps the Supabase pooler from silently dropping idle sockets (the Mac sleeps, the network
+// changes). connectionTimeoutMillis is pg-boss's default 10s; the watchdog below handles the case where
+// every connect attempt keeps timing out — pg-pool never recovers from that on its own (observed 2026-09-12:
+// 12 hours of "timeout exceeded when trying to connect" on every queue while the process looked alive).
+const boss = new PgBoss({ connectionString: url, schema: 'pgboss', max: 4, keepAlive: true } as ConstructorParameters<typeof PgBoss>[0])
+const DEAD_POOL = /timeout exceeded when trying to connect|Connection terminated|ECONNRESET|EADDRNOTAVAIL|ETIMEDOUT/
+let deadPoolErrors: number[] = []
+boss.on('error', (e) => {
+  console.error('[pg-boss]', e)
+  const msg = e instanceof Error ? e.message : String(e)
+  if (!DEAD_POOL.test(msg)) return
+  const now = Date.now()
+  deadPoolErrors = deadPoolErrors.filter((t) => now - t < 120_000)
+  deadPoolErrors.push(now)
+  if (deadPoolErrors.length >= 8) {
+    console.error(`[worker] database pool unusable (${deadPoolErrors.length} connection errors in 2 min) — exiting so the supervisor restarts the process`)
+    process.exit(75) // EX_TEMPFAIL; scripts/worker-forever.sh restarts us
+  }
+})
 await boss.start()
 await prepareZoowork()
 setInterval(() => { refreshSettings().catch(() => {}) }, 60_000).unref()
