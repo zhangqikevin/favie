@@ -423,6 +423,7 @@ const zhCN: Dictionary = {
   'menu.optimizing': '优化中…',
   'menu.upload': '上传图片',
   'menu.edit': '编辑',
+  'menu.collapse': "收起",
   'menu.draftDesc': '草稿描述(先英文,后中文)',
   'menu.keepPhoto': '保留现有图片',
   'menu.useAi': '使用 AI 图片',

@@ -427,6 +427,7 @@ const en = {
   'menu.optimizing': 'Optimizing…',
   'menu.upload': 'Upload photo',
   'menu.edit': 'Edit',
+  'menu.collapse': "Collapse",
   'menu.draftDesc': 'Draft description (English first, then Chinese)',
   'menu.keepPhoto': 'Keep current photo',
   'menu.useAi': 'Use AI photo',

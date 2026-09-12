@@ -11,7 +11,6 @@ type Platform = 'uber_eats' | 'doordash'
 type Item = MenuState['items'][number]
 type Filter = 'all' | 'photoMissing' | 'photoPoor' | 'descMissing' | 'descThin' | 'queued'
 const LABEL: Record<Platform, string> = { uber_eats: 'Uber Eats', doordash: 'DoorDash' }
-const money = (c: number | null) => (c == null ? '—' : `$${(c / 100).toFixed(2)}`)
 
 /** Two platform tabs → diagnosis card → menu grouped by category, with per-item AI optimize / upload / edit / save. */
 export function MenuClinic({ restaurantId, connected, initial }: {
@@ -165,8 +164,8 @@ export function MenuClinic({ restaurantId, connected, initial }: {
               <h3 className="flex items-center gap-2 font-display text-base font-semibold"><PlatformIcon platform={p} className="h-5 w-5 rounded-md" />{LABEL[p]}</h3>
               <span className="text-xs text-ink-500">{rows.length}</span>
             </div>
-            <ul className="divide-y divide-ink-100 border-t border-ink-100">
-              {rows.map((i) => <Row key={i.id} item={i} platform={p} jobs={state[p].active.filter((j) => j.menuItemId === i.id)} onChange={refresh} />)}
+            <ul className="grid gap-4 border-t border-ink-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
+              {rows.map((i) => <Row key={i.id} item={i} platform={p} jobs={state[p].active.filter((j) => j.menuItemId === i.id)} onChange={refresh} expandByDefault />)}
             </ul>
           </section>
         )
@@ -177,10 +176,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
             <h3 className="font-display text-base font-semibold">{cat}</h3>
             <span className="text-xs text-ink-500">{items.length}</span>
           </div>
-          <div className="hidden grid-cols-[72px_1.3fr_90px_80px_80px_2fr_auto] gap-4 border-t border-ink-100 px-6 py-2 text-[11px] uppercase tracking-wider text-ink-500 lg:grid">
-            <span /><span>{t('menu.col.item')}</span><span>{t('menu.col.availability')}</span><span>{t('menu.col.unit')}</span><span>{t('menu.col.price')}</span><span>{t('menu.col.description')}</span><span />
-          </div>
-          <ul className="divide-y divide-ink-100 border-t border-ink-100">
+          <ul className="grid gap-4 border-t border-ink-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((i) => <Row key={i.id} item={i} platform={platform} jobs={s.active.filter((j) => j.menuItemId === i.id)} onChange={refresh} />)}
           </ul>
         </section>
@@ -189,10 +185,10 @@ export function MenuClinic({ restaurantId, connected, initial }: {
   )
 }
 
-function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platform; jobs: MenuState['active']; onChange: () => Promise<void> }) {
+function Row({ item, platform, jobs, onChange, expandByDefault = false }: { item: Item; platform: Platform; jobs: MenuState['active']; onChange: () => Promise<void>; expandByDefault?: boolean }) {
   const t = useT()
   const intl = INTL_TAG[useLocale()]
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(expandByDefault)
   // The editor starts from the draft when there is one, else from what the platform currently shows.
   const base = item.draftDescription ?? item.description ?? ''
   const [text, setText] = useState(base)
@@ -238,34 +234,50 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
     item.descThin && !item.draftDescription && ['menu.diag.descThin', 'bg-amber-50 text-amber-700'],
   ].filter(Boolean) as [DictKey, string][]
 
+  const expanded = open || saving || item.status === 'failed'
+  const badges = (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {flags.map(([k, cls]) => <span key={k} className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>{t(k)}</span>)}
+      {item.status === 'draft' && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">{t('menu.status.draft')}</span>}
+      {queued && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">{t('menu.status.queued')}</span>}
+      {item.status === 'saved' && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">{t('menu.saved')}</span>}
+      {item.status === 'failed' && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700" title={item.lastError ?? ''}>{t('menu.failed')}</span>}
+      {item.availability === 'sold_out' && <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] text-ink-500">{t('menu.avail.sold_out')}</span>}
+      {item.orderCnt != null && item.orderCnt > 1 && <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] text-ink-500">{t('menu.sold', { n: item.orderCnt.toLocaleString(intl) })}</span>}
+    </div>
+  )
+  const thumb = (cls: string) => (
+    <div className={`relative overflow-hidden rounded-xl bg-ink-100 ${cls}`}>
+      {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : !item.photoMissing ? <span title={t('menu.photoOnPlatform')} className="flex h-full w-full flex-col items-center justify-center gap-1 text-ink-500"><svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 16 5-5 4 4 3-3 6 6" /><path d="m14 8 1.5 1.5L18 7" /></svg><span className="px-2 text-center text-[10px] leading-tight">{t('menu.photoOnPlatform')}</span></span> : <span className="flex h-full w-full items-center justify-center text-ink-300"><svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 16 5-5 4 4 3-3 6 6" /><circle cx="16" cy="9" r="1.5" /></svg></span>}
+      {item.draftImageUrl && <span className="absolute left-2 top-2 rounded-full bg-brand-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">{t('menu.status.draft')}</span>}
+    </div>
+  )
+
   return (
-    <li className="px-6 py-4">
-      <div className="grid gap-4 lg:grid-cols-[72px_1.3fr_90px_80px_80px_2fr_auto] lg:items-center">
-        <div className="relative h-[72px] w-[72px] overflow-hidden rounded-xl bg-ink-100">
-          {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : !item.photoMissing ? <span title={t('menu.photoOnPlatform')} className="flex h-full w-full flex-col items-center justify-center gap-1 text-ink-500"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 16 5-5 4 4 3-3 6 6" /><path d="m14 8 1.5 1.5L18 7" /></svg><span className="px-1 text-center text-[9px] leading-tight">{t('menu.photoOnPlatform')}</span></span> : <span className="flex h-full w-full items-center justify-center text-ink-300"><svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 16 5-5 4 4 3-3 6 6" /><circle cx="16" cy="9" r="1.5" /></svg></span>}
-          {item.draftImageUrl && <span className="absolute left-1 top-1 rounded-full bg-brand-500 px-1.5 text-[10px] font-semibold text-white">{t('menu.status.draft')}</span>}
-        </div>
-        <div className="min-w-0">
-          <p className="font-semibold leading-snug">{item.name}</p>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {flags.map(([k, cls]) => <span key={k} className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>{t(k)}</span>)}
-            {queued && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">{t('menu.status.queued')}</span>}
-            {item.status === 'saved' && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">{t('menu.saved')}</span>}
-            {item.status === 'failed' && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700" title={item.lastError ?? ''}>{t('menu.failed')}</span>}
-            {item.orderCnt != null && <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] text-ink-500">{t('menu.sold', { n: item.orderCnt.toLocaleString(intl) })}</span>}
+    <li className={`flex flex-col rounded-2xl border border-ink-100 bg-white p-4 ${expanded ? 'sm:col-span-2 lg:col-span-3' : ''}`}>
+      {expanded ? (
+        <div className="flex items-start gap-4">
+          {thumb('h-20 w-20 shrink-0')}
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold leading-snug">{item.name}</p>
+            {badges}
           </div>
+          <button type="button" onClick={() => setOpen(false)} className="pill !py-1.5 text-xs">{t('menu.collapse')}</button>
         </div>
-        <span className="text-xs text-ink-700">{t(`menu.avail.${item.availability ?? 'unknown'}` as DictKey)}</span>
-        <span className="text-xs text-ink-700">{item.unit ?? '—'}</span>
-        <span className="text-sm font-semibold">{money(item.priceCents)}</span>
-        <p className={`line-clamp-3 text-sm ${shown ? 'text-ink-700' : 'italic text-ink-300'}`}>{shown || t('menu.noDesc')}</p>
-        <div className="flex flex-wrap gap-2 lg:justify-end">
-          <button type="button" onClick={() => setOpen((o) => !o)} className="pill !py-1.5 text-xs">
-            {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.edit')}
-          </button>
-        </div>
-      </div>
-      {(open || item.status === 'draft' || queued || saving || item.status === 'failed') && (
+      ) : (
+        <>
+          {thumb('aspect-[4/3] w-full')}
+          <p className="mt-3 font-semibold leading-snug">{item.name}</p>
+          {badges}
+          <p className={`mt-2 line-clamp-2 flex-1 text-sm ${shown ? 'text-ink-700' : 'italic text-ink-300'}`}>{shown || t('menu.noDesc')}</p>
+          <div className="mt-3 flex justify-end">
+            <button type="button" onClick={() => setOpen(true)} className="pill !py-1.5 text-xs">
+              {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.edit')}
+            </button>
+          </div>
+        </>
+      )}
+      {expanded && (
         <div className="mt-4 grid gap-4 rounded-2xl bg-ink-100/60 p-4 lg:grid-cols-[260px_1fr]">
           <div className="space-y-2">
             <div className="grid grid-cols-3 gap-2">

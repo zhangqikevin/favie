@@ -423,6 +423,7 @@ const ja: Dictionary = {
   'menu.optimizing': '最適化中…',
   'menu.upload': '写真をアップロード',
   'menu.edit': '編集',
+  'menu.collapse': "閉じる",
   'menu.draftDesc': '下書きの説明(英語→中国語)',
   'menu.keepPhoto': '現在の写真を維持',
   'menu.useAi': 'AI 写真を使う',

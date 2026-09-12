@@ -423,6 +423,7 @@ const es: Dictionary = {
   'menu.optimizing': 'Optimizando…',
   'menu.upload': 'Subir foto',
   'menu.edit': 'Editar',
+  'menu.collapse': "Cerrar",
   'menu.draftDesc': 'Descripción borrador (inglés primero, luego chino)',
   'menu.keepPhoto': 'Mantener la foto actual',
   'menu.useAi': 'Usar foto de IA',

@@ -423,6 +423,7 @@ const zhTW: Dictionary = {
   'menu.optimizing': '優化中…',
   'menu.upload': '上傳圖片',
   'menu.edit': '編輯',
+  'menu.collapse': "收起",
   'menu.draftDesc': '草稿描述(先英文,後中文)',
   'menu.keepPhoto': '保留現有圖片',
   'menu.useAi': '使用 AI 圖片',
