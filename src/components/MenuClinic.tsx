@@ -4,6 +4,7 @@ import { useT, useLocale } from '@/i18n/client'
 import { INTL_TAG } from '@/i18n/config'
 import type { DictKey } from '@/i18n'
 import { PlatformIcon } from '@/components/PlatformIcon'
+import { Food, type FoodItem } from '@/components/marketing/Food'
 import { pullMenu, pickStorefront, publishAllQueued, aiDescribe, aiPhoto, updateDraft, uploadPhoto, queueItem, unqueueItem, discardDraft, requestMenuOptimization, cancelMenuOptimization } from '@/app/(app)/dashboard/[restaurantId]/menu/actions'
 import type { MenuState } from '@/lib/zoowork/menu'
 
@@ -392,42 +393,40 @@ function Sparkle({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true"><path d="M12 2l1.8 5.7L19.5 9.5l-5.7 1.8L12 17l-1.8-5.7L4.5 9.5l5.7-1.8L12 2z" /><path d="M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9L19 14z" opacity=".7" /></svg>
 }
 
-/** "Favie AI is optimizing your menu": animated working state with the only control the owner keeps — cancel. */
+/** "Favie AI is optimizing your menu": a light card — dishes from the landing-page sprite roll past on a conveyor; the only control the owner keeps is cancel. */
+const CONVEYOR: FoodItem[] = ['ramen', 'dumplings', 'sushi', 'fried_rice', 'boba', 'pad_thai', 'tempura', 'curry', 'poke', 'wings']
 function OptimizingBanner({ since, pending, onCancel }: { since: string | Date; pending: boolean; onCancel: () => void }) {
   const t = useT()
   const intl = INTL_TAG[useLocale()]
   const steps = t('menu.opt.steps').split(' · ')
   const [step, setStep] = useState(0)
   useEffect(() => { const id = setInterval(() => setStep((i) => (i + 1) % steps.length), 2400); return () => clearInterval(id) }, [steps.length])
+  const stage = '#F5F7FA' // the sprite's white cells multiply to this color and disappear
+  const row = (key: string) => <div key={key} className="flex items-end gap-4 pr-4" aria-hidden="true">{CONVEYOR.map((f) => <Food key={f} item={f} size={56} />)}</div>
   return (
-    <section className="ai-banner relative overflow-hidden rounded-3xl p-6 text-white sm:p-8" aria-live="polite">
-      <span className="ai-blob absolute -left-10 -top-16 h-56 w-56 rounded-full" style={{ background: 'var(--accent-1)' }} />
-      <span className="ai-blob absolute -bottom-20 right-1/3 h-64 w-64 rounded-full" style={{ background: 'var(--accent-2)', animationDelay: '-3s' }} />
-      <span className="ai-blob absolute -right-10 -top-10 h-48 w-48 rounded-full" style={{ background: 'var(--accent-3)', animationDelay: '-6s' }} />
-      <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
-        <div className="relative h-24 w-24 shrink-0 self-center">
-          <span className="ai-ring absolute inset-0 rounded-full" />
-          <span className="ai-ring absolute inset-2 rounded-full opacity-60" style={{ animationDirection: 'reverse', animationDuration: '3.6s' }} />
-          <span className="ai-core absolute inset-6 rounded-full" />
-          <span className="ai-orbit absolute inset-0"><span className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_12px_2px_rgba(255,255,255,.8)]" /></span>
-          <span className="ai-orbit absolute inset-3" style={{ animationDuration: '7s', animationDirection: 'reverse' }}><span className="absolute bottom-0 left-1/2 h-1.5 w-1.5 -translate-x-1/2 translate-y-1/2 rounded-full bg-white/80" /></span>
-          <Sparkle className="absolute inset-0 m-auto h-7 w-7 text-white drop-shadow" />
+    <section className="card p-6 sm:p-8" aria-live="polite">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+        <div className="relative h-28 w-64 shrink-0 self-center overflow-hidden rounded-3xl" style={{ background: stage }}>
+          <div className="ai-track absolute bottom-4 left-0 flex w-max items-end" style={{ background: stage }}>{row('a')}{row('b')}</div>
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-10" style={{ background: `linear-gradient(90deg, ${stage}, transparent)` }} />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-10" style={{ background: `linear-gradient(270deg, ${stage}, transparent)` }} />
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-display text-xl font-semibold leading-tight sm:text-2xl">{t('menu.opt.title')}</p>
-          <p className="mt-2 max-w-2xl text-sm text-white/80">{t('menu.opt.body')}</p>
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <p className="mt-2 text-sm text-ink-500">{t('menu.opt.body')}</p>
+          {/* steps + progress span the same width as the text above */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-500">
             {steps.map((label, i) => (
-              <span key={label} className={`flex items-center gap-1.5 transition-opacity duration-500 ${i === step ? 'opacity-100' : 'opacity-40'}`}>
-                <span className={`h-1.5 w-1.5 rounded-full bg-white ${i === step ? 'animate-pulse' : ''}`} />{label}
+              <span key={label} className={`flex items-center gap-1.5 transition-opacity duration-500 ${i === step ? 'font-medium text-ink-900' : 'opacity-50'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${i === step ? 'animate-pulse bg-brand-500' : 'bg-ink-300'}`} />{label}
               </span>
             ))}
           </div>
-          <div className="ai-shimmer mt-4 h-1 w-full max-w-md overflow-hidden rounded-full bg-white/15" />
+          <div className="ai-bar mt-4 h-1 w-full overflow-hidden rounded-full bg-ink-100" />
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
-          <button type="button" disabled={pending} onClick={onCancel} className="rounded-full border border-white/30 px-4 py-2 text-xs font-medium text-white/90 transition-colors hover:bg-white/10 disabled:opacity-60">{t('menu.opt.cancel')}</button>
-          <span className="text-[11px] text-white/60">{t('menu.opt.since', { when: new Date(since).toLocaleString(intl, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) })}</span>
+          <button type="button" disabled={pending} onClick={onCancel} className="pill !py-2 text-xs disabled:opacity-60">{t('menu.opt.cancel')}</button>
+          <span className="text-[11px] text-ink-400">{t('menu.opt.since', { when: new Date(since).toLocaleString(intl, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) })}</span>
         </div>
       </div>
     </section>

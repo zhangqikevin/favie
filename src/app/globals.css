@@ -161,22 +161,8 @@ body {
 @media (prefers-reduced-motion: reduce) { .food-marquee-track { animation: none; } }
 
 /* ---- Menu Clinic: "Favie AI is optimizing your menu" working state ---- */
-.ai-banner { background: radial-gradient(120% 140% at 0% 0%, #1b2140 0%, #0b0f19 60%); }
-.ai-blob { filter: blur(48px); opacity: .55; animation: favie-blob 11s ease-in-out infinite; }
-.ai-ring {
-  background: conic-gradient(from 0deg, var(--accent-1), var(--accent-2), var(--accent-3), rgba(255,255,255,0) 72%, var(--accent-1));
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
-  animation: favie-spin 2.4s linear infinite;
-}
-.ai-core { background: radial-gradient(circle at 35% 35%, #fff 0%, var(--accent-3) 30%, var(--accent-2) 70%, var(--accent-1) 100%); box-shadow: 0 0 30px 4px rgba(59,108,255,.55); animation: favie-breathe 2.2s ease-in-out infinite; }
-.ai-orbit { animation: favie-spin 5s linear infinite; }
-.ai-shimmer { position: relative; }
-.ai-shimmer::after { content: ''; position: absolute; inset: 0; width: 40%; border-radius: 9999px; background: linear-gradient(90deg, transparent, #fff, transparent); animation: favie-shimmer 1.8s ease-in-out infinite; }
-@keyframes favie-spin { to { transform: rotate(360deg); } }
-@keyframes favie-breathe { 0%, 100% { transform: scale(.92); opacity: .85; } 50% { transform: scale(1.06); opacity: 1; } }
-@keyframes favie-shimmer { from { transform: translateX(-110%); } to { transform: translateX(260%); } }
-@keyframes favie-blob { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(28px, -22px) scale(1.12); } 66% { transform: translate(-18px, 16px) scale(.94); } }
-@media (prefers-reduced-motion: reduce) {
-  .ai-ring, .ai-core, .ai-orbit, .ai-blob, .ai-shimmer::after { animation: none; }
-}
+.ai-track { animation: food-marquee 22s linear infinite; }
+.ai-bar { position: relative; }
+.ai-bar::after { content: ''; position: absolute; inset: 0; width: 35%; border-radius: 9999px; background: linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-3)); animation: favie-shimmer 1.8s ease-in-out infinite; }
+@keyframes favie-shimmer { from { transform: translateX(-110%); } to { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .ai-track, .ai-bar::after { animation: none; } }
