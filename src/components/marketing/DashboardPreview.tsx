@@ -1,4 +1,5 @@
-// A static, CSS-only mock of the product dashboard used on the landing page.
+// A static, CSS-only mock of the product dashboard used on the landing page (copy follows the visitor's language).
+import { getT } from '@/i18n/server'
 const days = Array.from({ length: 35 }, (_, i) => i - 2) // Sep 2026 starts on a Tuesday
 const marks: Record<number, ('ue' | 'dd')[]> = {
   1: ['dd'], 2: ['ue', 'dd'], 3: ['ue'], 4: ['dd'], 7: ['ue', 'dd'], 8: ['dd'], 9: ['ue'], 10: ['ue', 'dd'],
@@ -6,7 +7,8 @@ const marks: Record<number, ('ue' | 'dd')[]> = {
 }
 const bars = [42, 55, 48, 61, 70, 66, 74, 69, 78, 85, 80, 92, 88, 96]
 
-export function DashboardPreview() {
+export async function DashboardPreview() {
+  const { t } = await getT()
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between border-b border-ink-100 px-5 py-3">
@@ -15,19 +17,19 @@ export function DashboardPreview() {
           Golden Wok · Irvine
         </div>
         <div className="flex gap-2 text-xs">
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">Uber Eats connected</span>
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">DoorDash connected</span>
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">Uber Eats · {t('dash.conn.connected')}</span>
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">DoorDash · {t('dash.conn.connected')}</span>
         </div>
       </div>
       <div className="grid gap-5 p-5 md:grid-cols-5">
         {/* Calendar */}
         <div className="md:col-span-3">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-semibold">September 2026</p>
-            <p className="text-xs text-ink-500">Agent activity</p>
+            <p className="text-sm font-semibold">{t('dp.month')}</p>
+            <p className="text-xs text-ink-500">{t('dp.activity')}</p>
           </div>
           <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] text-ink-500">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i} className="py-1">{d}</div>)}
+            {t('dp.weekdays').split(',').map((d, i) => <div key={i} className="py-1">{d}</div>)}
             {days.map((d, i) => (
               <div
                 key={i}
@@ -51,26 +53,25 @@ export function DashboardPreview() {
         <div className="flex flex-col gap-3 md:col-span-2">
           <div className="rounded-xl border border-ink-100 p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-medium text-ink-500">
-              <span className="h-2 w-2 rounded-full bg-doordash" /> DoorDash · Sep 22
+              <span className="h-2 w-2 rounded-full bg-doordash" /> DoorDash · {t('dp.date')}
             </div>
-            <p className="text-sm font-semibold">Lowered daily ad budget $40 → $31</p>
+            <p className="text-sm font-semibold">{t('dp.a1.t')}</p>
             <p className="mt-1 text-xs leading-relaxed text-ink-500">
-              <span className="font-medium text-ink-700">Why:</span> $612 of the $900 monthly cap already spent with 9 days left.
-              Keeps you under cap while covering the Fri–Sun dinner peak.
+              <span className="font-medium text-ink-700">{t('dp.why')}</span> {t('dp.a1.r')}
             </p>
           </div>
           <div className="rounded-xl border border-ink-100 p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-medium text-ink-500">
-              <span className="h-2 w-2 rounded-full bg-uber" /> Uber Eats · Sep 22
+              <span className="h-2 w-2 rounded-full bg-uber" /> Uber Eats · {t('dp.date')}
             </div>
-            <p className="text-sm font-semibold">Flagged 3 items marked unavailable</p>
+            <p className="text-sm font-semibold">{t('dp.a2.t')}</p>
             <p className="mt-1 text-xs leading-relaxed text-ink-500">
-              <span className="font-medium text-ink-700">Why:</span> Mango Chicken Bowl is your #2 seller and has been off the menu since Saturday.
+              <span className="font-medium text-ink-700">{t('dp.why')}</span> {t('dp.a2.r')}
             </p>
           </div>
           <div className="rounded-xl bg-ink-900 p-4 text-white">
             <div className="mb-2 flex items-baseline justify-between">
-              <p className="text-xs font-medium text-white/70">Orders · last 14 days</p>
+              <p className="text-xs font-medium text-white/70">{t('dp.orders')}</p>
               <p className="text-xs font-semibold text-emerald-400">+18%</p>
             </div>
             <div className="flex h-14 items-end gap-1">
