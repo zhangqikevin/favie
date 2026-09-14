@@ -18,6 +18,19 @@ export const FavieStore = z.object({
   address: z.string().nullable().optional(),
 })
 
+export const FavieDispute = z.object({
+  order_id: z.string().min(1),
+  order_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  kind: z.enum(['missing_item', 'wrong_item', 'late', 'refund', 'error_charge', 'other']).default('other'),
+  amount_cents: z.number().int().nullable().optional(),
+  recovered_cents: z.number().int().nullable().optional(),
+  status: z.enum(['open', 'filed', 'won', 'lost', 'expired', 'skipped']),
+  reason: z.string().nullable().optional(),   // the argument made, or why no appeal
+  evidence: z.string().nullable().optional(),
+  deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+})
+export type FavieDispute = z.infer<typeof FavieDispute>
+
 export const FaviePlatformReport = z.object({
   platform: z.enum(['uber_eats', 'doordash']),
   stores: z.array(FavieStore).default([]), // every store visible in the account (verify / confirm-login)
@@ -32,6 +45,7 @@ export const FaviePlatformReport = z.object({
   new_customer_share: z.number().min(0).max(1).nullable().optional(), // share of recent orders from new customers, when the portal shows it
   campaigns_seen: z.number().int().nullable().optional(),
   actions: z.array(FavieAction).default([]),
+  disputes: z.array(FavieDispute).default([]), // every error charge / refund claim seen today and what happened to it
   observations: z.array(z.string()).default([]),
   errors: z.array(z.string()).default([]),
 })

@@ -200,6 +200,7 @@ export async function materializeSummary(run: typeof schema.agentRuns.$inferSele
     if (p.login === 'ok' && p.store_visible !== false && p.actions.length === 0) {
       await insertAction(run, date, p.platform, 'no_action', t('sys.no_action.t'), t('sys.no_action.r'), false, { sysKey: 'no_action', sysVars: {} })
     }
+    await materializeDisputes(run, date, p)
     // Connection health + MTD ad spend (platform_ui source) fall out of the same report.
     await applyConnectionReport(run.restaurantId, p, run.id)
     if (p.ad_spend_mtd_cents != null || p.promo_spend_mtd_cents != null) {
@@ -211,6 +212,42 @@ export async function materializeSummary(run: typeof schema.agentRuns.$inferSele
       await db.insert(schema.dailyMetrics).values(values)
         .onConflictDoUpdate({ target: [schema.dailyMetrics.restaurantId, schema.dailyMetrics.platform, schema.dailyMetrics.date], set: values })
         .catch(() => {}) // a Zoodata row for the same day wins; the unique index covers (restaurant, platform, date) regardless of source
+    }
+  }
+}
+
+/**
+ * Disputes the agent reported: upsert one row per order and turn state changes into calendar actions
+ * (`dispute_filed` when it appealed, `dispute_resolved` when the platform answered). `amount_cents` on
+ * the resolved action is the money recovered, which the dashboard sums per month.
+ */
+async function materializeDisputes(run: typeof schema.agentRuns.$inferSelect, date: string, p: FavieSummary['platforms'][number]) {
+  if (!p.disputes.length) return
+  const t = await ownerT(run.restaurantId)
+  const existing = await db.select().from(schema.disputes)
+    .where(and(eq(schema.disputes.restaurantId, run.restaurantId), eq(schema.disputes.platform, p.platform), inArray(schema.disputes.orderExternalId, p.disputes.map((d) => d.order_id))))
+  const money = (c: number | null | undefined) => c == null ? '' : `$${(c / 100).toFixed(2)}`
+  for (const d of p.disputes) {
+    const prev = existing.find((e) => e.orderExternalId === d.order_id)
+    const now = new Date()
+    const values = {
+      restaurantId: run.restaurantId, platform: p.platform, orderExternalId: d.order_id, orderDate: d.order_date ?? prev?.orderDate ?? null,
+      kind: d.kind, amountCents: d.amount_cents ?? prev?.amountCents ?? null, recoveredCents: d.recovered_cents ?? prev?.recoveredCents ?? null,
+      status: d.status, reason: d.reason ?? prev?.reason ?? null, evidence: d.evidence ?? prev?.evidence ?? null, deadline: d.deadline ?? prev?.deadline ?? null,
+      filedAt: d.status === 'filed' && prev?.status !== 'filed' ? now : prev?.filedAt ?? null,
+      resolvedAt: (d.status === 'won' || d.status === 'lost') && prev?.status !== d.status ? now : prev?.resolvedAt ?? null,
+      runId: run.id, raw: d as object, updatedAt: now,
+    }
+    await db.insert(schema.disputes).values(values)
+      .onConflictDoUpdate({ target: [schema.disputes.restaurantId, schema.disputes.platform, schema.disputes.orderExternalId], set: values })
+    // Calendar entries only on state changes, never on re-reports of the same state.
+    if (d.status === 'filed' && prev?.status !== 'filed') {
+      await insertAction(run, date, p.platform, 'dispute_filed', t('sys.dispute_filed.t', { order: d.order_id, amount: money(d.amount_cents) }), d.reason ?? t('sys.dispute_filed.r'), false,
+        { amountCents: d.amount_cents ?? null, after: { order_id: d.order_id, kind: d.kind, deadline: d.deadline ?? null } })
+    } else if ((d.status === 'won' || d.status === 'lost') && prev?.status !== d.status) {
+      const won = d.status === 'won'
+      await insertAction(run, date, p.platform, 'dispute_resolved', t(won ? 'sys.dispute_won.t' : 'sys.dispute_lost.t', { order: d.order_id, amount: money(won ? (d.recovered_cents ?? d.amount_cents) : d.amount_cents) }),
+        d.reason ?? t(won ? 'sys.dispute_won.r' : 'sys.dispute_lost.r'), false, { amountCents: won ? (d.recovered_cents ?? d.amount_cents ?? null) : 0, after: { order_id: d.order_id, status: d.status } })
     }
   }
 }

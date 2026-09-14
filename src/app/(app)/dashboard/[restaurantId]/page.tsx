@@ -36,8 +36,9 @@ export default async function ActivityPage({ params, searchParams }: { params: P
         <PlatformLinkage restaurantId={r.id} conns={conns.map((c) => ({ platform: c.platform, status: c.status, storeName: c.storeName }))} />
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label={t('dash.stat.actions')} value={String(actions.filter((a) => !['no_action', 'run_unparsed', 'interrupted'].includes(a.category)).length)} />
+        <Stat label={t('dash.stat.recovered')} value={`$${(actions.filter((a) => a.category === 'dispute_resolved').reduce((s, a) => s + (a.amountCents ?? 0), 0) / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`} sub={t('dash.stat.filed', { n: actions.filter((a) => a.category === 'dispute_filed').length })} tone="ok" />
         <Stat label={t('dash.stat.runs')} value={String(runs.length)} sub={t('dash.stat.completed', { n: runs.filter((x) => x.status === 'collected').length })} />
         <Stat label={t('dash.stat.attention')} value={String(attention)} tone={attention ? 'warn' : 'ok'} />
       </div>

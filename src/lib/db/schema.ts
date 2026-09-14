@@ -21,6 +21,8 @@ export const actionCategoryEnum = pgEnum('action_category', [
   'issue_flagged', 'no_action', 'login_failed', 'store_not_visible', 'run_unparsed', 'interrupted',
   'recommendation', // something only the owner can do (photos, bundles, menu names); never needs_attention
   'menu_item_updated', // Menu Clinic: description / photo written to the platform
+  'dispute_filed',     // an error charge / refund / missing-item claim appealed on the platform
+  'dispute_resolved',  // the platform answered an appeal (won or lost); amount_cents = money recovered
 ])
 export const metricSourceEnum = pgEnum('metric_source', ['zoodata', 'mock', 'platform_ui'])
 export const menuItemStatusEnum = pgEnum('menu_item_status', ['synced', 'draft', 'queued', 'saving', 'saved', 'failed'])
@@ -354,6 +356,28 @@ export const menuJobs = pgTable('menu_jobs', {
   scope: text('scope'),
   ...timestamps,
 }, (t) => [index('menu_jobs_restaurant_idx').on(t.restaurantId, t.createdAt)])
+
+// Disputes: every refund, error charge, missing-item or late-delivery claim the agent saw, and what it
+// did about it. One row per (restaurant, platform, order). status: open | filed | won | lost | expired | skipped.
+export const disputes = pgTable('disputes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
+  platform: platformEnum('platform').notNull(),
+  orderExternalId: text('order_external_id').notNull(),
+  orderDate: date('order_date'),
+  kind: text('kind').notNull().default('other'), // missing_item | wrong_item | late | refund | error_charge | other
+  amountCents: integer('amount_cents'),           // the charge / refund at stake
+  recoveredCents: integer('recovered_cents'),     // what the platform gave back (won)
+  status: text('status').notNull().default('open'),
+  reason: text('reason'),       // the agent's argument (or why it did not appeal)
+  evidence: text('evidence'),   // what was submitted
+  deadline: date('deadline'),   // last day the platform accepts the appeal
+  filedAt: timestamp('filed_at', { withTimezone: true }),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  runId: uuid('run_id'),
+  raw: jsonb('raw'),
+  ...timestamps,
+}, (t) => [uniqueIndex('disputes_order_uq').on(t.restaurantId, t.platform, t.orderExternalId), index('disputes_restaurant_idx').on(t.restaurantId, t.createdAt)])
 
 // Ops: a live browser on the restaurant's saved login (same handoff mechanism as onboarding, but for
 // Favie's team, without touching the owner's connection state). status: queued | ready | failed | released.

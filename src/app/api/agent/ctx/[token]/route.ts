@@ -70,6 +70,20 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
   // Promotion cost is only known from the portal: take the latest month-to-date snapshot the agent reported this month.
   const latestPortal = (platform: Platform) => rows.find((x) => x.platform === platform && x.source === 'platform_ui' && x.date >= cal.monthStart)
 
+  // Disputes: what is already appealed (so the agent checks outcomes instead of re-filing) and this month's tally.
+  const disputeRows = await db.select().from(schema.disputes)
+    .where(and(eq(schema.disputes.restaurantId, r.id), sql`${schema.disputes.updatedAt} > now() - interval '45 days'`))
+  const disputesFor = (platform: Platform) => {
+    const rows = disputeRows.filter((d) => d.platform === platform)
+    const month = (d: typeof rows[number], at: Date | null) => !!at && at.toISOString().slice(0, 10) >= cal.monthStart
+    return {
+      awaiting_outcome: rows.filter((d) => d.status === 'filed').map((d) => ({ order_id: d.orderExternalId, order_date: d.orderDate, kind: d.kind, amount_cents: d.amountCents, filed_at: d.filedAt?.toISOString().slice(0, 10) ?? null })),
+      already_seen: rows.filter((d) => d.status !== 'filed').map((d) => ({ order_id: d.orderExternalId, status: d.status })),
+      filed_mtd: rows.filter((d) => month(d, d.filedAt)).length,
+      recovered_mtd_cents: rows.filter((d) => d.status === 'won' && month(d, d.resolvedAt)).reduce((s, d) => s + (d.recoveredCents ?? d.amountCents ?? 0), 0),
+    }
+  }
+
   await db.insert(schema.zooworkOpsLog).values({ restaurantAgentId: agent.id, op: 'ctx_fetch', request: { ua: req.headers.get('user-agent') } }).catch(() => {})
 
   return NextResponse.json({
@@ -104,6 +118,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
           mtd_promo_cents: mtdPromoCents,
           mtd_total_cents: mtdAdsCents == null && mtdPromoCents == null ? null : (mtdAdsCents ?? 0) + (mtdPromoCents ?? 0),
         },
+        disputes: disputesFor(c.platform),
         performance: {
           last7: rollup(rows, c.platform, cal.shift(7), yesterday),
           last28: rollup(rows, c.platform, cal.shift(28), yesterday),

@@ -306,6 +306,19 @@ Your final message must END with exactly one fenced block and nothing after it:
           "needs_attention": false
         }
       ],
+      "disputes": [
+        {
+          "order_id": "A1B2C3",
+          "order_date": "2026-09-07",
+          "kind": "missing_item",
+          "amount_cents": 1450,
+          "recovered_cents": null,
+          "status": "filed",
+          "reason": "Receipt lists 2× Pork Dumplings; order marked ready 18:42 and picked up 18:46 complete. Customer claims one order missing.",
+          "evidence": "Order receipt and handoff timestamps from the order page",
+          "deadline": "2026-09-21"
+        }
+      ],
       "observations": ["Promotion 'Free delivery over $25' ends Sep 10"],
       "errors": []
     }
@@ -317,5 +330,9 @@ Your final message must END with exactly one fenced block and nothing after it:
 
 Allowed `category` values: `ad_budget_changed`, `ad_campaign_paused`, `ad_campaign_resumed`,
 `promo_changed`, `item_availability_flagged`, `store_status_checked`, `store_offline_flagged`,
-`review_flagged`, `issue_flagged`, `no_action`, `login_failed`, `store_not_visible`.
+`review_flagged`, `issue_flagged`, `no_action`, `login_failed`, `store_not_visible`, `recommendation`.
 `reason` is required on every action. Money is integer cents. Use `null`, never guesses.
+`disputes` (may be empty): one entry per refund / error charge you looked at — `order_id`, `order_date`,
+`kind` (`missing_item` | `wrong_item` | `late` | `refund` | `error_charge` | `other`), `amount_cents`,
+`recovered_cents`, `status` (`open` | `filed` | `won` | `lost` | `expired` | `skipped`), `reason`,
+`evidence`, `deadline`. Do not add `dispute_*` actions yourself — Favie derives them from this list.
