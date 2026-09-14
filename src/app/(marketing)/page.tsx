@@ -10,12 +10,14 @@ const HERO_IMG = '/hero.jpg'
 
 export default async function LandingPage() {
   const { t } = await getT()
-  const benefits = [1, 2, 3] as const
   const faqs = [1, 2, 3, 4, 5, 6] as const
   const icons = [
-    <path key="a" d="M4 17l5-5 4 4 7-8M15 8h5v5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
-    <g key="b"><circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M12 8v8m-2.5-2.2c.4.9 1.4 1.2 2.5 1.2 1.4 0 2.5-.6 2.5-1.6 0-2.4-5-1.4-5-3.8 0-1 1.1-1.6 2.5-1.6 1.1 0 2.1.3 2.5 1.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" /></g>,
-    <g key="c"><rect x="3" y="5" width="18" height="16" rx="2.5" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M3 10h18M8 3v4M16 3v4M8 15h3M13 15h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></g>,
+    // menu card with photo + lines
+    <g key="a" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5" /><path d="M7 9.5h4M7 13h4M7 16.5h3" /><rect x="13.5" y="8.5" width="4.5" height="4.5" rx="1" /></g>,
+    // trend up (ads & promos)
+    <path key="b" d="M4 17l5-5 4 4 7-8M15 8h5v5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
+    // shield with check (disputes)
+    <g key="c" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 9.5C8 19.2 5 15.5 5 11V6l7-3z" /><path d="m9 12 2 2 4-4" /></g>,
   ]
 
   return (
@@ -49,31 +51,57 @@ export default async function LandingPage() {
           </div>
           <p className="mt-4 text-sm text-white/60">{t('hero.fineprint')}</p>
 
-          <dl className="mt-16 grid w-full max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
-            {([1, 2, 3, 4] as const).map((i) => (
-              <div key={i} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-4 backdrop-blur">
-                <dt className="font-display text-2xl font-bold sm:text-3xl">{t(`hero.stat${i}.v`)}</dt>
-                <dd className="mt-1 text-xs text-white/70">{t(`hero.stat${i}.l`)}</dd>
-              </div>
-            ))}
-          </dl>
+          {/* Three product tiles, one per job — example figures, labeled as such. */}
+          <div className="mt-16 w-full max-w-4xl">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {([1, 2, 3] as const).map((i) => (
+                <div key={i} className="rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-left backdrop-blur">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60">{t(`hero.tile${i}.t`)}</p>
+                  <p className="font-display mt-1 text-2xl font-bold tabular-nums sm:text-3xl">{t(`hero.tile${i}.v`)}</p>
+                  <p className="mt-1 text-xs leading-snug text-white/70">{t(`hero.tile${i}.l`)}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-right text-[11px] text-white/40">{t('hero.tile.example')}</p>
+          </div>
         </div>
       </section>
 
-      {/* BENEFITS */}
+      {/* WHERE THE MONEY LEAKS */}
       <section id="results" className="py-24">
         <div className="container-x">
-          <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">{t('benefits.kicker')}</p>
-          <h2 className="font-display mt-3 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">{t('benefits.title')}</h2>
+          <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">{t('leaks.kicker')}</p>
+          <h2 className="font-display mt-3 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">{t('leaks.title')}</h2>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {([1, 2, 3] as const).map((i) => (
+              <div key={i} className="flex gap-4 rounded-2xl border border-ink-100 bg-white p-5">
+                <span className="font-display flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-50 text-sm font-bold text-orange-600">{i}</span>
+                <div>
+                  <h3 className="font-semibold">{t(`leaks.${i}.t`)}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-ink-500">{t(`leaks.${i}.b`)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* THE THREE JOBS */}
+          <p className="mt-20 text-sm font-semibold uppercase tracking-wider text-brand-600">{t('pillars.kicker')}</p>
+          <h2 className="font-display mt-3 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">{t('pillars.title')}</h2>
           <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {benefits.map((i) => (
-              <div key={i} className="card relative p-7">
+            {([1, 2, 3] as const).map((i) => (
+              <div key={i} className="card relative flex flex-col p-7">
                 <Food item={(['ramen', 'dumplings', 'fried_rice'] as const)[i - 1]} size={132} className="absolute -right-3 -top-9 rotate-6" />
                 <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                   <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">{icons[i - 1]}</svg>
                 </div>
-                <h3 className="font-display text-xl font-bold">{t(`benefits.${i}.t`)}</h3>
-                <p className="mt-2 leading-relaxed text-ink-500">{t(`benefits.${i}.b`)}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">{t(`pillars.${i}.k`)}</p>
+                <h3 className="font-display mt-1 text-xl font-bold">{t(`pillars.${i}.t`)}</h3>
+                <ul className="mt-4 space-y-2 text-sm leading-relaxed text-ink-700">
+                  {([1, 2, 3, 4] as const).map((j) => (
+                    <li key={j} className="flex gap-2.5"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />{t(`pillars.${i}.b${j}`)}</li>
+                  ))}
+                </ul>
+                <p className="mt-5 border-t border-dashed border-ink-100 pt-4 text-sm text-ink-500">{t(`pillars.${i}.see`)}</p>
               </div>
             ))}
           </div>
@@ -117,13 +145,20 @@ export default async function LandingPage() {
             <p className="text-sm font-semibold uppercase tracking-wider text-brand-400">{t('pricing.kicker')}</p>
             <h2 className="font-display mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{t('pricing.title')}</h2>
             <p className="mt-4 text-lg text-white/70">{t('pricing.body')}</p>
-            <ul className="mt-8 space-y-3 text-white/85">
-              {([1, 2, 3, 4, 5] as const).map((i) => (
-                <li key={i} className="flex items-start gap-3">
-                  <svg className="mt-1 h-4 w-4 shrink-0 text-brand-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                    <path d="M4 10.5l4 4 8-9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  {t(`pricing.f${i}`)}
+            <ul className="mt-8 space-y-2.5 text-white/85">
+              {([['g1', 1, 2], ['g2', 3, 4], ['g3', 5], ['g4', 6, 7]] as const).map(([g, ...items]) => (
+                <li key={g}>
+                  <p className="mt-4 text-[11px] font-semibold uppercase tracking-wider text-white/50 first:mt-0">{t(`pricing.${g}`)}</p>
+                  <ul className="mt-1.5 space-y-2">
+                    {items.map((i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <svg className="mt-1 h-4 w-4 shrink-0 text-brand-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="M4 10.5l4 4 8-9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        {t(`pricing.f${i}`)}
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ul>
@@ -168,7 +203,10 @@ export default async function LandingPage() {
         <div className="container-x text-center">
           <FoodMarquee />
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{t('cta.title')}</h2>
-          <Link href="/signup" className="btn-primary mt-8 !px-8 !py-4 !text-base">{t('hero.cta')}</Link>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link href="/signup" className="btn-primary !px-8 !py-4 !text-base">{t('hero.cta')}</Link>
+            <a href="#how" className="btn-secondary !px-8 !py-4 !text-base">{t('hero.secondary')}</a>
+          </div>
         </div>
       </section>
       <footer className="border-t border-ink-100 py-10 text-sm text-ink-500">
