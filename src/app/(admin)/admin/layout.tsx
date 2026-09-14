@@ -6,7 +6,7 @@ import { AdminNav } from './AdminNav'
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAdmin()
   return (
-    <div className="flex min-h-screen bg-ink-100/60">
+    <div className="app-shell flex min-h-screen">
       <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-ink-100 bg-ink-100/80 px-4 py-5">
         <Link href="/admin" className="flex items-center gap-2.5 px-2">
           <Logo className="h-9 w-9" />
