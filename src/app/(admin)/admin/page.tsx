@@ -53,8 +53,16 @@ export default async function AdminCustomers() {
                       <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500" /> owner requested {new Date(menuOpt.since).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} PT</span>
                     )}
                     <div className="flex flex-wrap gap-2">
-                      <Link href={`/admin/${r.id}/portal`} className="pill !py-1 text-xs" title="Live browser on the owner's saved login, opened on the menu editor">Portal browser</Link>
-                      <Link href={`/admin/${r.id}/menu`} className="pill !py-1 text-xs" title="Their Menu Clinic, acting on their behalf (AI text/photos, sync)">Menu Clinic</Link>
+                      <a href={`/admin/${r.id}/portal`} title="Live browser on the owner's saved login, opened on the menu editor"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-ink-900 px-3 py-1 text-xs font-medium text-white hover:bg-ink-700">
+                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M3 9h18M7 6.5h.01M10 6.5h.01" /></svg>
+                        Portal browser
+                      </a>
+                      <a href={`/admin/${r.id}/menu`} title="Their Menu Clinic, acting on their behalf (AI text/photos, sync)"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 ring-1 ring-brand-100 hover:bg-brand-100">
+                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l1.8 5.7L19.5 9.5l-5.7 1.8L12 17l-1.8-5.7L4.5 9.5l5.7-1.8L12 2z" /><path d="M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9L19 14z" opacity=".7" /></svg>
+                        Menu Clinic
+                      </a>
                     </div>
                     {menuOpt && (
                       <form action={completeMenuOptimization} className="flex flex-wrap items-center gap-2">
