@@ -1,0 +1,20 @@
+# Replit workspace config. Web (Next.js) + pg-boss worker start together; see docs/REPLIT.md.
+modules = ["nodejs-22"]
+run = "npm run start:all"
+entrypoint = "src/app/(marketing)/page.tsx"
+
+[env]
+PORT = "3000"
+FAVIE_DEV = "1"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "vm"
+build = ["sh", "-c", "npm ci && npm run build"]
+run = ["sh", "-c", "npm run start:all"]
+
+[nix]
+channel = "stable-24_05"
