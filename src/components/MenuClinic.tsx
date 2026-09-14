@@ -401,12 +401,12 @@ function OptimizingBanner({ since, pending, onCancel }: { since: string | Date; 
   const [step, setStep] = useState(0)
   useEffect(() => { const id = setInterval(() => setStep((i) => (i + 1) % steps.length), 2400); return () => clearInterval(id) }, [steps.length])
   const stage = '#F5F7FA' // the sprite's white cells multiply to this color and disappear
-  const row = (key: string) => <div key={key} className="flex items-end gap-4 pr-4" aria-hidden="true">{CONVEYOR.map((f) => <Food key={f} item={f} size={56} />)}</div>
+  const row = (key: string) => <div key={key} className="flex items-center gap-4 pr-4" aria-hidden="true">{CONVEYOR.map((f) => <Food key={f} item={f} size={56} />)}</div>
   return (
     <section className="card p-6 sm:p-8" aria-live="polite">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
         <div className="relative h-28 w-64 shrink-0 self-center overflow-hidden rounded-3xl" style={{ background: stage }}>
-          <div className="ai-track absolute bottom-4 left-0 flex w-max items-end" style={{ background: stage }}>{row('a')}{row('b')}</div>
+          <div className="ai-track absolute inset-y-0 left-0 flex w-max items-center" style={{ background: stage }}>{row('a')}{row('b')}</div>
           <div className="pointer-events-none absolute inset-y-0 left-0 w-10" style={{ background: `linear-gradient(90deg, ${stage}, transparent)` }} />
           <div className="pointer-events-none absolute inset-y-0 right-0 w-10" style={{ background: `linear-gradient(270deg, ${stage}, transparent)` }} />
         </div>
