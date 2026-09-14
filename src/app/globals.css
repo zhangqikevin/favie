@@ -166,3 +166,6 @@ body {
 .ai-bar::after { content: ''; position: absolute; inset: 0; width: 35%; border-radius: 9999px; background: linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-3)); animation: favie-shimmer 1.8s ease-in-out infinite; }
 @keyframes favie-shimmer { from { transform: translateX(-110%); } to { transform: translateX(300%); } }
 @media (prefers-reduced-motion: reduce) { .ai-track, .ai-bar::after { animation: none; } }
+
+/* Landing: how-it-works step timer */
+@keyframes how-fill { from { width: 0; } to { width: 100%; } }
