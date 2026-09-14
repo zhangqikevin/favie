@@ -149,7 +149,6 @@ export function MenuClinic({ restaurantId, connected, initial }: {
                   {t('menu.sync', { n: queuedAll.length })}
                 </button>
               )}
-              <p className="text-xs text-ink-500">{t('menu.diag.hint')}</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
