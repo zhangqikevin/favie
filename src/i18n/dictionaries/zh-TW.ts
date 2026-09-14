@@ -24,7 +24,7 @@ const zhTW: Dictionary = {
 
   'hero.badge': '專為使用 Uber Eats 和 DoorDash 的美國餐廳',
   'hero.title.pre': '外送多接單、多賺錢，',
-  'hero.title.highlight': 'Favie 幫你做。',
+  'hero.title.highlight': 'Favie 替你做。',
   'hero.subtitle': 'Favie 的 AI 每天替你營運 Uber Eats 和 DoorDash：把菜單做成會賣的樣子，把廣告和促銷花在有回報的地方，每一筆爭議訂單都替你去爭。',
   'hero.cta': '開始使用 — $299/月',
   'hero.secondary': '看看它怎麼運作',

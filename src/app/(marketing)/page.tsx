@@ -38,7 +38,7 @@ export default async function LandingPage() {
             {t('hero.badge')}
           </div>
           <h1 className="font-display max-w-4xl text-5xl font-bold leading-[1.02] tracking-tight sm:text-6xl md:text-7xl">
-            {t('hero.title.pre')}<span className="text-brand-400">{t('hero.title.highlight')}</span>
+            {t('hero.title.pre')}<span className="block text-brand-400">{t('hero.title.highlight')}</span>
           </h1>
           <p className="mt-7 max-w-2xl text-lg leading-relaxed text-white/80 sm:text-xl">{t('hero.subtitle')}</p>
           <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
