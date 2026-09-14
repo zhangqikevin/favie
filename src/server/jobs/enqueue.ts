@@ -72,9 +72,9 @@ export async function enqueueMenuPull(jobId: string, restaurantId: string, platf
   await b.send(JOBS.menuPull, { jobId, restaurantId, platform }, { singletonKey: `menu-pull:${restaurantId}:${platform}`, singletonSeconds: 60, retryLimit: 0, expireInSeconds: 40 * 60 })
 }
 /** Menu Clinic: AI description + photo for one item (no browser). */
-export async function enqueueMenuGenerate(jobId: string, menuItemId: string) {
+export async function enqueueMenuGenerate(jobId: string, menuItemId: string, scope: 'text' | 'image' | 'both' = 'both') {
   const b = await boss()
-  await b.send(JOBS.menuGenerate, { jobId, menuItemId }, { singletonKey: `menu-gen:${menuItemId}`, singletonSeconds: 30, retryLimit: 0, expireInSeconds: 15 * 60 })
+  await b.send(JOBS.menuGenerate, { jobId, menuItemId }, { singletonKey: `menu-gen:${menuItemId}:${scope}`, singletonSeconds: 30, retryLimit: 0, expireInSeconds: 15 * 60 })
 }
 /** Menu Clinic: write approved drafts to the platform (browser) — one item (menuItemId) or every draft of that platform. */
 export async function enqueueMenuApply(jobId: string, restaurantId: string, platform: 'uber_eats' | 'doordash') {

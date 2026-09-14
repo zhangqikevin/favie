@@ -4,7 +4,7 @@ import { useT, useLocale } from '@/i18n/client'
 import { INTL_TAG } from '@/i18n/config'
 import type { DictKey } from '@/i18n'
 import { PlatformIcon } from '@/components/PlatformIcon'
-import { pullMenu, pickStorefront, publishAllQueued, aiOptimize, updateDraft, uploadPhoto, queueItem, unqueueItem, discardDraft } from '@/app/(app)/dashboard/[restaurantId]/menu/actions'
+import { pullMenu, pickStorefront, publishAllQueued, aiDescribe, aiPhoto, updateDraft, uploadPhoto, queueItem, unqueueItem, discardDraft, requestMenuOptimization, cancelMenuOptimization } from '@/app/(app)/dashboard/[restaurantId]/menu/actions'
 import type { MenuState } from '@/lib/zoowork/menu'
 
 type Platform = 'uber_eats' | 'doordash'
@@ -26,6 +26,9 @@ export function MenuClinic({ restaurantId, connected, initial }: {
   const [pending, start] = useTransition()
   const s = state[platform]
   const busy = s.active.length > 0 || s.items.some((i) => i.status === 'saving')
+  // "Favie AI optimize": the whole menu is in Favie's hands → owner side is read-only until ops marks it done.
+  const optimization = state.uber_eats.optimization ?? state.doordash.optimization
+  const locked = !!optimization
 
   // Poll while the agent works.
   const load = async (p: Platform) => {
@@ -34,11 +37,11 @@ export function MenuClinic({ restaurantId, connected, initial }: {
   }
   const anyBusy = busy || (['uber_eats', 'doordash'] as Platform[]).some((p) => state[p].active.length > 0 || state[p].items.some((i) => i.status === 'saving'))
   useEffect(() => {
-    if (!anyBusy) return
+    if (!anyBusy && !locked) return
     const tick = () => { for (const p of ['uber_eats', 'doordash'] as Platform[]) void load(p).catch(() => {}) }
-    const id = setInterval(tick, 3000)
+    const id = setInterval(tick, anyBusy ? 3000 : 30_000) // while locked: notice the unlock when ops finishes
     return () => clearInterval(id)
-  }, [anyBusy, restaurantId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [anyBusy, locked, restaurantId]) // eslint-disable-line react-hooks/exhaustive-deps
   const refresh = async () => { await Promise.all((['uber_eats', 'doordash'] as Platform[]).map((p) => load(p).catch(() => {}))) }
 
   const visible = s.items.filter((i) => {
@@ -75,7 +78,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
         <div className="flex items-center gap-3 text-xs text-ink-500">
           {s.pull?.status === 'done' && s.pull.updatedAt && <span>{t('menu.pulledAt', { when: new Date(s.pull.updatedAt).toLocaleString(intl, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }), n: s.counts.total })}</span>}
           {connected[platform] && !activePull && (
-            <button type="button" disabled={pending} onClick={() => start(async () => { await pullMenu(restaurantId, platform); await refresh() })} className="pill">
+            <button type="button" disabled={pending || locked} onClick={() => start(async () => { await pullMenu(restaurantId, platform); await refresh() })} className="pill disabled:opacity-60">
               {s.counts.total ? t('menu.repull') : t('menu.pull', { platform: LABEL[platform] })}
             </button>
           )}
@@ -113,6 +116,12 @@ export function MenuClinic({ restaurantId, connected, initial }: {
       )}
       {s.pull?.status === 'failed' && !activePull && !(s.storefront.candidates?.length) && <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{t('menu.jobError', { error: s.pull.error ?? '' })}</div>}
 
+      {optimization && (
+        <OptimizingBanner since={optimization.requestedAt} pending={pending} onCancel={() => {
+          if (!window.confirm(t('menu.opt.cancelConfirm'))) return
+          start(async () => { await cancelMenuOptimization(restaurantId); await refresh() })
+        }} />
+      )}
       {anyApplyActive && (
         <div className="card flex items-center gap-4 p-5">
           <Spinner />
@@ -124,7 +133,15 @@ export function MenuClinic({ restaurantId, connected, initial }: {
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-display text-lg font-semibold">{t('menu.diag.title')}</h2>
             <div className="flex items-center gap-3">
-              {queuedAll.length > 0 && !anyApplyActive && (
+              {!locked && (
+                <button type="button" disabled={pending}
+                  onClick={() => { if (!window.confirm(t('menu.opt.confirm'))) return; start(async () => { await requestMenuOptimization(restaurantId); await refresh() }) }}
+                  className="pill !border-transparent !py-1.5 text-xs font-semibold !text-white disabled:opacity-60"
+                  style={{ background: 'linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-3))' }}>
+                  <Sparkle className="h-3.5 w-3.5" /> {t('menu.opt.button')}
+                </button>
+              )}
+              {queuedAll.length > 0 && !anyApplyActive && !locked && (
                 <button type="button" disabled={pending}
                   onClick={() => { if (!window.confirm(t('menu.sync.confirm', { n: queuedAll.length, min: estMinutes(queuedAll) }))) return; start(async () => { await publishAllQueued(restaurantId); await refresh() }) }}
                   className="pill !border-transparent !bg-brand-500 !py-1.5 text-xs font-semibold !text-white hover:!bg-brand-600">
@@ -165,7 +182,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
               <span className="text-xs text-ink-500">{rows.length}</span>
             </div>
             <ul className="grid gap-4 border-t border-ink-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
-              {rows.map((i) => <Row key={i.id} item={i} platform={p} jobs={state[p].active.filter((j) => j.menuItemId === i.id)} onChange={refresh} />)}
+              {rows.map((i) => <Row key={i.id} item={i} platform={p} jobs={state[p].active.filter((j) => j.menuItemId === i.id)} onChange={refresh} locked={locked} />)}
             </ul>
           </section>
         )
@@ -177,7 +194,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
             <span className="text-xs text-ink-500">{items.length}</span>
           </div>
           <ul className="grid gap-4 border-t border-ink-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((i) => <Row key={i.id} item={i} platform={platform} jobs={s.active.filter((j) => j.menuItemId === i.id)} onChange={refresh} />)}
+            {items.map((i) => <Row key={i.id} item={i} platform={platform} jobs={s.active.filter((j) => j.menuItemId === i.id)} onChange={refresh} locked={locked} />)}
           </ul>
         </section>
       ))}
@@ -185,7 +202,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
   )
 }
 
-function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platform; jobs: MenuState['active']; onChange: () => Promise<void> }) {
+function Row({ item, platform, jobs, onChange, locked }: { item: Item; platform: Platform; jobs: MenuState['active']; onChange: () => Promise<void>; locked: boolean }) {
   const t = useT()
   const intl = INTL_TAG[useLocale()]
   const [open, setOpen] = useState(false)
@@ -228,7 +245,10 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
     setActing('unqueue')
     start(async () => { try { await unqueueItem(item.id); await onChange() } finally { setActing(null) } })
   }
-  const generating = jobs.some((j) => j.kind === 'generate')
+  const genJobs = jobs.filter((j) => j.kind === 'generate')
+  const generating = genJobs.length > 0
+  const generatingText = genJobs.some((j) => j.scope !== 'image')   // 'text' or legacy both
+  const generatingImage = genJobs.some((j) => j.scope !== 'text')   // 'image' or legacy both
   const NOTE_KEYS: Record<string, DictKey> = {
     'Writing the description…': 'menu.progress.describe', 'Studying your existing photos…': 'menu.progress.analyze', 'Generating the photo…': 'menu.progress.photo',
     'Checking the photo against your menu style…': 'menu.progress.check', 'Adjusting and generating again…': 'menu.progress.retry',
@@ -237,7 +257,7 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
   const progress = generating ? t(NOTE_KEYS[genNote] ?? 'menu.progress.generic') : ''
   const saving = item.status === 'saving' || jobs.some((j) => j.kind === 'apply')
   const queued = item.status === 'queued'
-  const frozen = queued || saving // no edits while waiting for / during the sync
+  const frozen = queued || saving || locked // no edits while waiting for / during the sync, or while Favie's team has the menu
   const photo = item.draftImageUrl ?? item.imageUrl
   const shown = item.draftDescription ?? item.description
   const flags = [
@@ -247,7 +267,7 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
     item.descThin && !item.draftDescription && ['menu.diag.descThin', 'bg-amber-50 text-amber-700'],
   ].filter(Boolean) as [DictKey, string][]
 
-  const actions = saving ? (
+  const actions = locked ? null : saving ? (
     <span className="pill !py-1.5 text-xs"><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</span>
   ) : queued ? (
     <>
@@ -258,8 +278,11 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
     </>
   ) : (
     <>
-      <button type="button" disabled={pending || generating} onClick={() => start(async () => { await aiOptimize(item.id); await onChange() })} className="pill !py-1.5 text-xs">
-        {generating ? <><Spinner small /> {t('menu.optimizing')}</> : t('menu.optimize')}
+      <button type="button" disabled={pending || generatingText} onClick={() => start(async () => { await aiDescribe(item.id); await onChange() })} className="pill !py-1.5 text-xs disabled:opacity-60">
+        {generatingText ? <><Spinner small /> {t('menu.describing')}</> : <><Sparkle className="h-3 w-3" /> {t('menu.describe')}</>}
+      </button>
+      <button type="button" disabled={pending || generatingImage} onClick={() => start(async () => { await aiPhoto(item.id); await onChange() })} className="pill !py-1.5 text-xs disabled:opacity-60">
+        {generatingImage ? <><Spinner small /> {t('menu.genPhotoing')}</> : <><Sparkle className="h-3 w-3" /> {t('menu.genPhoto')}</>}
       </button>
       <button type="button" disabled={pending || generating || !hasChanges || !!acting} onMouseDown={(e) => e.preventDefault()} onClick={queueNow} className="pill pill-active !py-1.5 text-xs disabled:opacity-60">
         {acting === 'queue' ? <><Spinner small /> {t('menu.working')}</> : t('menu.queue')}
@@ -300,13 +323,13 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
       <p className={`mt-2 line-clamp-2 flex-1 text-sm ${shown ? 'text-ink-700' : 'italic text-ink-300'}`}>{shown || t('menu.noDesc')}</p>
       {item.lastError && item.status === 'failed' && <p className="mt-1 line-clamp-2 text-xs text-red-700">{item.lastError}</p>}
       <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-        {saving ? <span className="pill !py-1.5 text-xs"><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</span> : queued ? (
+        {saving ? <span className="pill !py-1.5 text-xs"><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</span> : queued && !locked ? (
           <button type="button" disabled={pending || !!acting} onClick={unqueueNow} className="pill !py-1.5 text-xs disabled:opacity-60">
             {acting === 'unqueue' ? <><Spinner small /> {t('menu.working')}</> : t('menu.unqueue')}
           </button>
         ) : null}
-        <button type="button" onClick={() => setOpen(true)} className={`pill !py-1.5 text-xs ${queued || saving ? '' : 'pill-active'}`}>
-          {generating ? <><Spinner small /> {t('menu.optimizing')}</> : queued || saving ? t('menu.view') : t('menu.edit')}
+        <button type="button" onClick={() => setOpen(true)} className={`pill !py-1.5 text-xs ${frozen ? '' : 'pill-active'}`}>
+          {generating ? <><Spinner small /> {t(generatingText && generatingImage ? 'menu.optimizing' : generatingText ? 'menu.describing' : 'menu.genPhotoing')}</> : frozen ? t('menu.view') : t('menu.edit')}
         </button>
       </div>
       {generating && <p className="mt-2 text-right text-[11px] text-ink-500">{progress}</p>}
@@ -352,14 +375,62 @@ function Row({ item, platform, jobs, onChange }: { item: Item; platform: Platfor
                 {item.lastError && item.status === 'failed' && <p className="mt-2 text-xs text-red-700">{item.lastError}</p>}
               </section>
             </div>
-            <div className="border-t border-ink-100 px-6 py-4">
-              {generating && <p className="mb-2 text-xs text-ink-500">{progress}</p>}
-              <div className="flex flex-wrap items-center gap-2">{actions}</div>
-            </div>
+            {actions && (
+              <div className="border-t border-ink-100 px-6 py-4">
+                {generating && <p className="mb-2 text-xs text-ink-500">{progress}</p>}
+                <div className="flex flex-wrap items-center gap-2">{actions}</div>
+              </div>
+            )}
           </div>
         </div>
       )}
     </li>
+  )
+}
+
+function Sparkle({ className = '' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true"><path d="M12 2l1.8 5.7L19.5 9.5l-5.7 1.8L12 17l-1.8-5.7L4.5 9.5l5.7-1.8L12 2z" /><path d="M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9L19 14z" opacity=".7" /></svg>
+}
+
+/** "Favie AI is optimizing your menu": animated working state with the only control the owner keeps — cancel. */
+function OptimizingBanner({ since, pending, onCancel }: { since: string | Date; pending: boolean; onCancel: () => void }) {
+  const t = useT()
+  const intl = INTL_TAG[useLocale()]
+  const steps = t('menu.opt.steps').split(' · ')
+  const [step, setStep] = useState(0)
+  useEffect(() => { const id = setInterval(() => setStep((i) => (i + 1) % steps.length), 2400); return () => clearInterval(id) }, [steps.length])
+  return (
+    <section className="ai-banner relative overflow-hidden rounded-3xl p-6 text-white sm:p-8" aria-live="polite">
+      <span className="ai-blob absolute -left-10 -top-16 h-56 w-56 rounded-full" style={{ background: 'var(--accent-1)' }} />
+      <span className="ai-blob absolute -bottom-20 right-1/3 h-64 w-64 rounded-full" style={{ background: 'var(--accent-2)', animationDelay: '-3s' }} />
+      <span className="ai-blob absolute -right-10 -top-10 h-48 w-48 rounded-full" style={{ background: 'var(--accent-3)', animationDelay: '-6s' }} />
+      <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
+        <div className="relative h-24 w-24 shrink-0 self-center">
+          <span className="ai-ring absolute inset-0 rounded-full" />
+          <span className="ai-ring absolute inset-2 rounded-full opacity-60" style={{ animationDirection: 'reverse', animationDuration: '3.6s' }} />
+          <span className="ai-core absolute inset-6 rounded-full" />
+          <span className="ai-orbit absolute inset-0"><span className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_12px_2px_rgba(255,255,255,.8)]" /></span>
+          <span className="ai-orbit absolute inset-3" style={{ animationDuration: '7s', animationDirection: 'reverse' }}><span className="absolute bottom-0 left-1/2 h-1.5 w-1.5 -translate-x-1/2 translate-y-1/2 rounded-full bg-white/80" /></span>
+          <Sparkle className="absolute inset-0 m-auto h-7 w-7 text-white drop-shadow" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-xl font-semibold leading-tight sm:text-2xl">{t('menu.opt.title')}</p>
+          <p className="mt-2 max-w-2xl text-sm text-white/80">{t('menu.opt.body')}</p>
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            {steps.map((label, i) => (
+              <span key={label} className={`flex items-center gap-1.5 transition-opacity duration-500 ${i === step ? 'opacity-100' : 'opacity-40'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full bg-white ${i === step ? 'animate-pulse' : ''}`} />{label}
+              </span>
+            ))}
+          </div>
+          <div className="ai-shimmer mt-4 h-1 w-full max-w-md overflow-hidden rounded-full bg-white/15" />
+        </div>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <button type="button" disabled={pending} onClick={onCancel} className="rounded-full border border-white/30 px-4 py-2 text-xs font-medium text-white/90 transition-colors hover:bg-white/10 disabled:opacity-60">{t('menu.opt.cancel')}</button>
+          <span className="text-[11px] text-white/60">{t('menu.opt.since', { when: new Date(since).toLocaleString(intl, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) })}</span>
+        </div>
+      </div>
+    </section>
   )
 }
 

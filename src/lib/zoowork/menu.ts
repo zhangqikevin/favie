@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, ne, sql, desc } from 'drizzle-orm'
 import { canonicalStorefrontUrl, firecrawlKey, readStorefront, searchStorefront } from '@/lib/menu/firecrawl'
 import { menuDescribePrompt, menuImageModel } from '@/lib/menu/prompts'
 import { generateDishImageViaAgent } from './menu-image'
@@ -396,8 +396,12 @@ export async function runMenuGenerate(jobId: string) {
   if (!job?.menuItemId) return
   const [item] = await db.select().from(schema.menuItems).where(eq(schema.menuItems.id, job.menuItemId)).limit(1)
   if (!item) return
+  // scope 'text' = description only, 'image' = photo only, null = both (legacy button).
+  const scope = job.scope === 'text' || job.scope === 'image' ? job.scope : 'both'
   try {
     const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, job.restaurantId)).limit(1)
+    let en = item.aiDescriptionEn ?? (item.draftDescription ?? item.description ?? '').split('\n')[0] ?? ''
+    if (scope !== 'image') {
     await note(jobId, 'Writing the description…', { status: 'running' })
     const message = [
       'FAVIE_MENU_DESCRIBE',
@@ -417,11 +421,14 @@ export async function runMenuGenerate(jobId: string) {
     const { text } = await runAgentTurn(job.restaurantId, message, jobId, { budgetMs: 6 * 60_000 })
     const parsed = (fenced(text, 'favie-menu-text') ?? fenced(text, 'json')) as { items?: Record<string, unknown>[] } | null
     const got = parsed?.items?.[0]
-    const { en, zh } = splitBilingual(got)
-    if (!en) throw new Error('the agent did not return a description')
-    await db.update(schema.menuItems).set({ aiDescriptionEn: en, aiDescriptionZh: zh || null, draftDescription: zh ? `${en}\n${zh}` : en, status: 'draft', updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
+    const bi = splitBilingual(got)
+    if (!bi.en) throw new Error('the agent did not return a description')
+    en = bi.en
+    await db.update(schema.menuItems).set({ aiDescriptionEn: en, aiDescriptionZh: bi.zh || null, draftDescription: bi.zh ? `${en}\n${bi.zh}` : en, status: 'draft', updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
+    if (scope === 'text') { await note(jobId, 'Description ready', { status: 'done' }); return }
+    }
     // Photo: the agent's image_generate tool (ZooWork-hosted providers); the legacy direct-OpenAI path only when forced.
-    await note(jobId, 'Generating the photo…')
+    await note(jobId, 'Generating the photo…', scope === 'image' ? { status: 'running' } : undefined)
     try {
       const references = await referencePhotos(item)
       const renderPrompt = (styleAttributes?: string) => dishPrompt(item.name, { category: item.category, cuisine: r?.cuisine, descriptionEn: en, hasReferences: references.length > 0, styleAttributes })
@@ -434,10 +441,11 @@ export async function runMenuGenerate(jobId: string) {
         img = await generateDishImageViaAgent(job.restaurantId, { renderPrompt, model: await menuImageModel(), filename: `${item.id}.jpg`, references, jobId, onProgress: (step) => note(jobId, stepNote[step] ?? 'Generating the photo…') })
       }
       const url = await putImage(job.restaurantId, `${item.id}-ai-${Date.now()}.jpg`, img.bytes, img.contentType)
-      await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, raw: { ...(item.raw as Record<string, unknown> ?? {}), aiImage: { model: img.model, r2Key: img.r2Key, artifactUrl: img.artifactUrl, prompt: img.prompt, references, styleText: img.styleText ?? null, ms: img.ms, check: img.check ?? null, attempts: img.attempts ?? 1 } }, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
-      await note(jobId, 'Description and photo ready', { status: 'done' })
+      await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, status: 'draft', raw: { ...(item.raw as Record<string, unknown> ?? {}), aiImage: { model: img.model, r2Key: img.r2Key, artifactUrl: img.artifactUrl, prompt: img.prompt, references, styleText: img.styleText ?? null, ms: img.ms, check: img.check ?? null, attempts: img.attempts ?? 1 } }, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
+      await note(jobId, scope === 'image' ? 'Photo ready' : 'Description and photo ready', { status: 'done' })
     } catch (e) {
       console.warn('[menuGenerate] photo failed:', (e as Error).message)
+      if (scope === 'image') throw e
       await note(jobId, `Description ready · photo failed: ${(e as Error).message.slice(0, 160)}`, { status: 'done' })
     }
   } catch (e) {
@@ -533,11 +541,13 @@ export async function menuState(restaurantId: string, platform: Platform) {
   // A worker that died mid-job would leave "running" rows forever; the UI would spin forever with them.
   await db.update(schema.menuJobs).set({ status: 'failed', error: 'timed out', updatedAt: new Date() })
     .where(and(eq(schema.menuJobs.restaurantId, restaurantId), inArray(schema.menuJobs.status, ['queued', 'running']), sql`${schema.menuJobs.createdAt} < now() - interval '25 minutes'`)).catch(() => {})
-  const [items, jobs, [conn]] = await Promise.all([
+  const [items, jobs, [conn], [optimization]] = await Promise.all([
     db.select().from(schema.menuItems).where(and(eq(schema.menuItems.restaurantId, restaurantId), eq(schema.menuItems.platform, platform))).orderBy(schema.menuItems.position),
     db.select().from(schema.menuJobs).where(and(eq(schema.menuJobs.restaurantId, restaurantId), eq(schema.menuJobs.platform, platform))).orderBy(schema.menuJobs.createdAt),
     db.select({ storefrontUrl: schema.platformConnections.storefrontUrl, storefrontCandidates: schema.platformConnections.storefrontCandidates }).from(schema.platformConnections)
       .where(and(eq(schema.platformConnections.restaurantId, restaurantId), eq(schema.platformConnections.platform, platform))).limit(1),
+    db.select({ id: schema.menuOptimizations.id, requestedAt: schema.menuOptimizations.createdAt }).from(schema.menuOptimizations)
+      .where(and(eq(schema.menuOptimizations.restaurantId, restaurantId), eq(schema.menuOptimizations.status, 'requested'))).orderBy(desc(schema.menuOptimizations.createdAt)).limit(1),
   ])
   const recent = jobs.slice(-40)
   const pull = [...recent].reverse().find((j) => j.kind === 'pull') ?? null
@@ -554,6 +564,8 @@ export async function menuState(restaurantId: string, platform: Platform) {
   return {
     items: items as MenuItem[], pull: pull as MenuJob | null, active: active as MenuJob[], counts, imageGeneration: imageGenerationAvailable(),
     storefront: { url: conn?.storefrontUrl ?? null, candidates: conn?.storefrontUrl ? null : (conn?.storefrontCandidates ?? null) },
+    // Open "Favie AI optimize" request: the owner's Menu Clinic is read-only until ops marks it done.
+    optimization: optimization ? { id: optimization.id, requestedAt: optimization.requestedAt } : null,
     fastRead: !!(await firecrawlKey()),
   }
 }

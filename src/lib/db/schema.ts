@@ -350,5 +350,21 @@ export const menuJobs = pgTable('menu_jobs', {
   note: text('note'),   // live progress line for the UI
   error: text('error'),
   runId: uuid('run_id'),
+  // generate jobs: 'text' (description only), 'image' (photo only); null = both (legacy).
+  scope: text('scope'),
   ...timestamps,
 }, (t) => [index('menu_jobs_restaurant_idx').on(t.restaurantId, t.createdAt)])
+
+// "Favie AI optimize my menu": the owner hands the whole menu to Favie. While a request is open the
+// Menu Clinic is read-only for the owner; Favie's ops team does the work in the platform portals and
+// marks it done in /admin. status: requested | cancelled | done.
+export const menuOptimizations = pgTable('menu_optimizations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
+  status: text('status').notNull().default('requested'),
+  requestedByUserId: uuid('requested_by_user_id').references(() => users.id),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  note: text('note'), // ops notes (what was changed)
+  ...timestamps,
+}, (t) => [index('menu_optimizations_restaurant_idx').on(t.restaurantId, t.createdAt)])

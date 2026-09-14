@@ -2,7 +2,12 @@
 
 export const DESC_MIN_CHARS = 40
 export const DESC_MIN_WORDS = 8
-export const PHOTO_MIN_WIDTH = 600
+// Storefront images are CDN thumbnails (Uber Eats serves ≤550×685 / ≤720×440 regardless of the upload),
+// so size says little about the original. Only flag what is unmistakably bad even as a thumbnail:
+// a tiny image, or a strip/banner shape that cannot show a dish.
+export const PHOTO_MIN_WIDTH = 300
+export const PHOTO_MIN_RATIO = 0.5
+export const PHOTO_MAX_RATIO = 3
 
 export function descriptionFlags(desc: string | null | undefined) {
   const text = (desc ?? '').trim()
@@ -49,7 +54,7 @@ export async function photoFlags(url: string | null | undefined): Promise<{ phot
     const dim = imageSize(buf)
     if (!dim) return { photoMissing: false, photoPoor: false }
     const ratio = dim.width / dim.height
-    const poor = dim.width < PHOTO_MIN_WIDTH || ratio < 0.7 || ratio > 2.2
+    const poor = dim.width < PHOTO_MIN_WIDTH || ratio < PHOTO_MIN_RATIO || ratio > PHOTO_MAX_RATIO
     return { photoMissing: false, photoPoor: poor, ...dim }
   } catch {
     return { photoMissing: false, photoPoor: false }

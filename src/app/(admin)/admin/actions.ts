@@ -176,3 +176,12 @@ export async function saveMenuImageModel(_prev: AdminState, fd: FormData): Promi
   revalidatePath('/admin/menu-prompts')
   return { ok: `Dish photos now use ${model}.` }
 }
+
+/** Ops finished (or dropped) a "Favie AI optimize my menu" request. */
+export async function completeMenuOptimization(fd: FormData) {
+  await requireAdmin()
+  const id = String(fd.get('id') ?? '')
+  const note = String(fd.get('note') ?? '').trim() || null
+  await db.update(schema.menuOptimizations).set({ status: 'done', completedAt: new Date(), note, updatedAt: new Date() }).where(eq(schema.menuOptimizations.id, id))
+  revalidatePath('/admin')
+}
