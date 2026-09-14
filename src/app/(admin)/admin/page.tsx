@@ -48,15 +48,22 @@ export default async function AdminCustomers() {
                 <td className="px-4 py-3">{r.dailySchedulePaused ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">paused</span> : <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">auto</span>}</td>
                 <td className="px-4 py-3 text-ink-500">{lastRun ? new Date(lastRun).toLocaleString('en-US', { timeZone: r.timezone }) : '—'}</td>
                 <td className="px-4 py-3">
-                  {menuOpt ? (
-                    <form action={completeMenuOptimization} className="flex flex-col gap-1.5">
-                      <input type="hidden" name="id" value={menuOpt.id} />
-                      <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500" /> requested {new Date(menuOpt.since).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} PT</span>
-                      <p className="text-xs text-ink-500">Log into the owner's portals (their saved browser login), rewrite descriptions and photos, then:</p>
-                      <input name="note" placeholder="what was changed (optional)" className="input !py-1 text-xs" />
-                      <button type="submit" className="pill w-fit !py-1 text-xs">Mark done → unlock owner</button>
-                    </form>
-                  ) : <span className="text-xs text-ink-400">—</span>}
+                  <div className="flex flex-col gap-2">
+                    {menuOpt && (
+                      <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500" /> owner requested {new Date(menuOpt.since).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} PT</span>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <Link href={`/admin/${r.id}/portal`} className="pill !py-1 text-xs" title="Live browser on the owner's saved login, opened on the menu editor">Portal browser</Link>
+                      <Link href={`/admin/${r.id}/menu`} className="pill !py-1 text-xs" title="Their Menu Clinic, acting on their behalf (AI text/photos, sync)">Menu Clinic</Link>
+                    </div>
+                    {menuOpt && (
+                      <form action={completeMenuOptimization} className="flex flex-wrap items-center gap-2">
+                        <input type="hidden" name="id" value={menuOpt.id} />
+                        <input name="note" placeholder="what was changed (optional)" className="input !w-52 !py-1 text-xs" />
+                        <button type="submit" className="pill !py-1 text-xs">Mark done → unlock owner</button>
+                      </form>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

@@ -15,6 +15,7 @@ export const JOBS = {
   menuPull: 'menu-pull',
   menuGenerate: 'menu-generate',
   menuApply: 'menu-apply',
+  opsHandoff: 'ops-handoff',
 } as const
 
 declare global {
@@ -80,4 +81,10 @@ export async function enqueueMenuGenerate(jobId: string, menuItemId: string, sco
 export async function enqueueMenuApply(jobId: string, restaurantId: string, platform: 'uber_eats' | 'doordash') {
   const b = await boss()
   await b.send(JOBS.menuApply, { jobId, restaurantId, platform }, { singletonKey: `menu-apply:${restaurantId}:${platform}`, singletonSeconds: 30, retryLimit: 0, expireInSeconds: 45 * 60 })
+}
+
+/** Ops: open (or release) a live browser on the restaurant's saved login for Favie's team. */
+export async function enqueueOpsHandoff(opsId: string, op: 'start' | 'release') {
+  const b = await boss()
+  await b.send(JOBS.opsHandoff, { opsId, op }, { singletonKey: `ops-handoff:${opsId}:${op}`, singletonSeconds: 30, retryLimit: 0, expireInSeconds: 10 * 60 })
 }

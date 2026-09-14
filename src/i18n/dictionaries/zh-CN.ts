@@ -452,6 +452,7 @@ const zhCN: Dictionary = {
   'menu.opt.cancel': '取消优化',
   'menu.opt.cancelConfirm': '确定停止优化？已经在平台上完成的修改会保留。',
   'menu.opt.steps': '读取菜单 · 分析热销菜品 · 撰写描述 · 统一图片风格',
+  'menu.opt.opsNote': '店主已于 {when} 请求 Favie 优化菜单。你正在代为操作，完成后在 Customers 里标记完成。',
   'menu.upload': '上传图片',
   'menu.edit': '编辑',
   'menu.progress.generic': "Favie 正在处理……",

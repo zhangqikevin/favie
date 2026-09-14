@@ -9,7 +9,7 @@ import { JOBS } from '@/server/jobs/enqueue'
 import { provisionAgent } from '@/lib/zoowork/provisioning'
 import { reconcileSchedule } from '@/lib/zoowork/schedule'
 import { verifyConnection } from '@/lib/zoowork/verify'
-import { startHandoff, confirmLogin } from '@/lib/zoowork/handoff'
+import { startHandoff, confirmLogin, startOpsHandoff, releaseOpsHandoff } from '@/lib/zoowork/handoff'
 import { runManualPrompt } from '@/lib/zoowork/manual'
 import { collectRuns, staleRuns } from '@/lib/zoowork/collect'
 import { decommissionAgent } from '@/lib/zoowork/teardown'
@@ -92,6 +92,11 @@ await boss.work<{ jobId: string; menuItemId: string }>(JOBS.menuGenerate, { batc
 })
 await boss.work<{ jobId: string; restaurantId: string; platform: string }>(JOBS.menuApply, { batchSize: 4, pollingIntervalSeconds: 0.5 }, async (jobs) => {
   await Promise.all(jobs.map(async (job) => { console.log('[menuApply]', job.data.restaurantId, job.data.platform); await runMenuApply(job.data.jobId) }))
+})
+await boss.work<{ opsId: string; op: 'start' | 'release' }>(JOBS.opsHandoff, { batchSize: 1, pollingIntervalSeconds: 0.5 }, async ([job]) => {
+  console.log('[opsHandoff]', job.data.op, job.data.opsId)
+  if (job.data.op === 'release') await releaseOpsHandoff(job.data.opsId)
+  else await startOpsHandoff(job.data.opsId)
 })
 await boss.work<{ restaurantAgentId: string }>(JOBS.decommissionAgent, { batchSize: 1 }, async ([job]) => { await decommissionAgent(job.data.restaurantAgentId) })
 

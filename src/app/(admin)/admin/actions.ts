@@ -1,13 +1,14 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { eq, isNotNull } from 'drizzle-orm'
 import { createZooworkClient } from '@zoowork-ai/sdk'
 import { SETTING_KEYS, setSetting, deleteSetting } from '@/server/settings'
 import { zoowork, resolveModel, logged } from '@/lib/zoowork/client'
 import { db, schema } from '@/lib/db/client'
 import { requireAdmin } from '@/server/admin'
-import { enqueueManualRun, enqueueReconcileSchedule } from '@/server/jobs/enqueue'
+import { enqueueManualRun, enqueueReconcileSchedule, enqueueOpsHandoff } from '@/server/jobs/enqueue'
 import { publishOperatingPrompt, rollbackTo } from '@/lib/zoowork/skill-publish'
 
 export type AdminState = { ok?: string; error?: string } | undefined
@@ -184,4 +185,26 @@ export async function completeMenuOptimization(fd: FormData) {
   const note = String(fd.get('note') ?? '').trim() || null
   await db.update(schema.menuOptimizations).set({ status: 'done', completedAt: new Date(), note, updatedAt: new Date() }).where(eq(schema.menuOptimizations.id, id))
   revalidatePath('/admin')
+}
+
+// ---- Ops browser: a live browser on the restaurant's saved login (menu work, support) ----
+
+export async function openOpsBrowser(fd: FormData) {
+  const user = await requireAdmin()
+  const restaurantId = String(fd.get('restaurantId') ?? '')
+  const platform = String(fd.get('platform') ?? '')
+  if (platform !== 'uber_eats' && platform !== 'doordash') throw new Error('platform')
+  const [row] = await db.insert(schema.opsHandoffs).values({ restaurantId, platform, requestedByUserId: user.id, note: 'Queued…' }).returning()
+  await enqueueOpsHandoff(row!.id, 'start')
+  revalidatePath(`/admin/${restaurantId}/portal`)
+  redirect(`/admin/${restaurantId}/portal?platform=${platform}`)
+}
+
+export async function releaseOpsBrowser(fd: FormData) {
+  await requireAdmin()
+  const id = String(fd.get('id') ?? '')
+  const restaurantId = String(fd.get('restaurantId') ?? '')
+  await db.update(schema.opsHandoffs).set({ note: 'Releasing…', updatedAt: new Date() }).where(eq(schema.opsHandoffs.id, id))
+  await enqueueOpsHandoff(id, 'release')
+  revalidatePath(`/admin/${restaurantId}/portal`)
 }

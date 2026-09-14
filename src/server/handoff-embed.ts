@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { getAuthUser } from '@/server/auth'
 import { getRestaurantForUser } from '@/server/restaurants'
+import { isAdminEmail } from '@/server/admin'
 import type { Platform } from '@/lib/db/schema'
 
 /**
@@ -49,6 +50,16 @@ export async function ownerHandoffTarget(restaurantId: string, platform: string)
   if (!conn?.handoffUrl || conn.status !== 'awaiting_login') return null
   if (conn.handoffStartedAt && Date.now() - conn.handoffStartedAt.getTime() > 60 * 60_000) return null // token lifetime
   return parseHandoffUrl(conn.handoffUrl)
+}
+
+/** An admin's live ops browser (ops_handoffs row), or null (not admin, not ready, or older than the token lifetime). */
+export async function adminOpsTarget(opsId: string) {
+  const user = await getAuthUser()
+  if (!user || !isAdminEmail(user.email)) return null
+  const [row] = await db.select().from(schema.opsHandoffs).where(eq(schema.opsHandoffs.id, opsId)).limit(1)
+  if (!row?.liveUrl || row.status !== 'ready') return null
+  if (row.readyAt && Date.now() - row.readyAt.getTime() > 60 * 60_000) return null
+  return parseHandoffUrl(row.liveUrl)
 }
 
 /** Our stand-in for ZooWork's vnc_embed.html: same noVNC wiring, assets through our proxy, websocket direct. */

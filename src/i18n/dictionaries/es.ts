@@ -452,6 +452,7 @@ const es: Dictionary = {
   'menu.opt.cancel': 'Cancelar optimización',
   'menu.opt.cancelConfirm': '¿Detener la optimización? Los cambios ya hechos en las plataformas se mantienen.',
   'menu.opt.steps': 'Leyendo tu menú · Analizando los más vendidos · Escribiendo descripciones · Unificando fotos',
+  'menu.opt.opsNote': 'El dueño pidió a Favie optimizar este menú ({when}). Estás actuando en su nombre; márcalo como hecho en Customers al terminar.',
   'menu.upload': 'Subir foto',
   'menu.edit': 'Editar',
   'menu.progress.generic': "Favie está trabajando…",

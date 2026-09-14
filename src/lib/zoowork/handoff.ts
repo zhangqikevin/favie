@@ -245,3 +245,83 @@ export async function confirmLogin(restaurantId: string, platform: Platform) {
   await collectRun(fresh!, restaurant?.timezone ?? 'America/Los_Angeles')
   await db.update(schema.platformConnections).set({ loginConfirmedAt: new Date(), handoffUrl: null, progressNote: null, updatedAt: new Date() }).where(eq(schema.platformConnections.id, conn.id))
 }
+
+// ---------------------------------------------------------------------------------------------
+// Ops: live browser on the restaurant's saved login for Favie's team (menu work, support).
+// Same two-step handoff as onboarding, but nothing on platform_connections changes and the browser
+// opens straight on the menu editor. One browser per agent still applies: while ops holds it, the
+// restaurant's menu jobs and daily run wait.
+
+/** Where the ops browser should land: the menu editor when we know it, else the portal home. */
+async function opsTargetUrl(restaurantId: string, platform: Platform) {
+  const [conn] = await db.select().from(schema.platformConnections)
+    .where(and(eq(schema.platformConnections.restaurantId, restaurantId), eq(schema.platformConnections.platform, platform))).limit(1)
+  if (platform === 'doordash') return conn?.menuEditorUrl ?? 'https://www.doordash.com/merchant/menu-editor/'
+  const uuid = conn?.storeExternalId && /^[0-9a-f-]{36}$/i.test(conn.storeExternalId) ? conn.storeExternalId : null
+  return uuid ? `https://merchants.ubereats.com/manager/menumaker/${uuid}` : 'https://merchants.ubereats.com/manager/menumaker'
+}
+
+export async function startOpsHandoff(opsId: string) {
+  const [row] = await db.select().from(schema.opsHandoffs).where(eq(schema.opsHandoffs.id, opsId)).limit(1)
+  if (!row || row.status !== 'queued') return
+  const set = (patch: Partial<typeof schema.opsHandoffs.$inferInsert>) => db.update(schema.opsHandoffs).set({ ...patch, updatedAt: new Date() }).where(eq(schema.opsHandoffs.id, opsId))
+  try {
+    const agent = await readyAgent(row.restaurantId)
+    const label = await resolveLoginLabel(row.restaurantId)
+    const zc = zoowork()
+    // Close any earlier ops browser for this restaurant (the profile is locked while it is open).
+    const earlier = await db.select().from(schema.opsHandoffs)
+      .where(and(eq(schema.opsHandoffs.restaurantId, row.restaurantId), eq(schema.opsHandoffs.status, 'ready')))
+    for (const e of earlier) {
+      if (e.sessionId) { await set({ note: 'Closing the previous browser…' }); await releaseBrowser(agent.zooworkAgentId, e.sessionId, agent.id) }
+      await db.update(schema.opsHandoffs).set({ status: 'released', releasedAt: new Date(), updatedAt: new Date() }).where(eq(schema.opsHandoffs.id, e.id))
+    }
+    const target = row.targetUrl ?? await opsTargetUrl(row.restaurantId, row.platform)
+    await set({ note: 'Opening the browser…', targetUrl: target })
+    const stepA = [
+      `FAVIE_HANDOFF ${row.platform} — STEP A only (do NOT call handoff yet).`,
+      `1. browser action "session" op "restart" with loginLabel "${label}" and egressCountry "US".`,
+      `2. browser action "navigate" to ${target}`,
+      '3. browser action "act" kind "wait" for 4 seconds, then browser action "snapshot" (mode "efficient").',
+      '4. Reply with exactly one line: PAGE <current url> | <page title or first heading>. Type nothing into the page. Leave the browser open.',
+    ].join('\n')
+    const session = await logged('createSession.opsHandoff', agent.id, { platform: row.platform, opsId }, () =>
+      zc.createSession(agent.zooworkAgentId!, {
+        initial_events: [{ type: 'user.message', content: stepA }],
+        metadata: { kind: 'ops-handoff', restaurant_id: row.restaurantId, platform: row.platform },
+      }, `ops-handoff-${opsId}`))
+    await set({ sessionId: session.session_id })
+    const turn = async (afterSeq: number, budgetMs: number) => {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), budgetMs)
+      try { return await streamTurn(zc, agent.zooworkAgentId, session.session_id, { signal: ctl.signal, afterSeq }) } finally { clearTimeout(t) }
+    }
+    const post = async (content: string) => {
+      const prior = await zc.listAllEvents(agent.zooworkAgentId, session.session_id)
+      const afterSeq = prior.reduce((m, e) => Math.max(m, e.seq), -1)
+      await zc.postEvents(agent.zooworkAgentId, session.session_id, [{ type: 'user.message', content, idempotency_key: `ops-${session.session_id}-${Date.now()}` }])
+      return afterSeq
+    }
+    let res = await turn(-1, 2 * 60_000)
+    await set({ note: 'Preparing the live view…' })
+    const afterSeq = await post([
+      `STEP B: browser action "handoff" with reason "Favie ops: ${PLATFORM_NAME[row.platform]}".`,
+      'Reply with the handoff tool\'s JSON verbatim (it contains liveUrl) and nothing else. Leave the browser session open; your turn ends there.',
+    ].join('\n'))
+    res = await turn(afterSeq, 90_000)
+    const liveUrl = extractLiveUrl(res.text)
+    if (!liveUrl) throw new Error(`handoff produced no liveUrl (outcome ${res.outcome}); tail: ${res.text.slice(-200)}`)
+    const embedUrl = await redeemLiveUrl(liveUrl)
+    await set({ status: 'ready', liveUrl: embedUrl, readyAt: new Date(), note: null, error: null })
+  } catch (e) {
+    await set({ status: 'failed', error: (e as Error).message.slice(0, 500), note: null })
+  }
+}
+
+export async function releaseOpsHandoff(opsId: string) {
+  const [row] = await db.select().from(schema.opsHandoffs).where(eq(schema.opsHandoffs.id, opsId)).limit(1)
+  if (!row || row.status === 'released') return
+  const [agent] = await db.select().from(schema.restaurantAgents)
+    .where(and(eq(schema.restaurantAgents.restaurantId, row.restaurantId), eq(schema.restaurantAgents.kind, 'delivery-ops'))).limit(1)
+  if (row.sessionId && agent?.zooworkAgentId) await releaseBrowser(agent.zooworkAgentId, row.sessionId, agent.id)
+  await db.update(schema.opsHandoffs).set({ status: 'released', releasedAt: new Date(), updatedAt: new Date() }).where(eq(schema.opsHandoffs.id, opsId))
+}

@@ -452,6 +452,7 @@ const zhTW: Dictionary = {
   'menu.opt.cancel': '取消優化',
   'menu.opt.cancelConfirm': '確定停止優化？已經在平台上完成的修改會保留。',
   'menu.opt.steps': '讀取菜單 · 分析熱銷菜品 · 撰寫描述 · 統一圖片風格',
+  'menu.opt.opsNote': '店主已於 {when} 請求 Favie 優化菜單。你正在代為操作，完成後在 Customers 裡標記完成。',
   'menu.upload': '上傳圖片',
   'menu.edit': '編輯',
   'menu.progress.generic': "Favie 正在處理……",

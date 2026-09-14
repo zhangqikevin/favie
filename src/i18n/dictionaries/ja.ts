@@ -452,6 +452,7 @@ const ja: Dictionary = {
   'menu.opt.cancel': '最適化を中止',
   'menu.opt.cancelConfirm': '最適化を中止しますか？すでにプラットフォームに反映された変更は残ります。',
   'menu.opt.steps': 'メニューを読む · 人気商品を分析 · 説明文を作成 · 写真の統一',
+  'menu.opt.opsNote': 'オーナーが {when} に Favie へメニュー最適化を依頼しました。代理で作業中です。完了後 Customers で完了にしてください。',
   'menu.upload': '写真をアップロード',
   'menu.edit': '編集',
   'menu.progress.generic': "Favie が処理中…",

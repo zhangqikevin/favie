@@ -14,10 +14,12 @@ type Filter = 'all' | 'photoMissing' | 'photoPoor' | 'descMissing' | 'descThin' 
 const LABEL: Record<Platform, string> = { uber_eats: 'Uber Eats', doordash: 'DoorDash' }
 
 /** Two platform tabs → diagnosis card → menu grouped by category, with per-item AI optimize / upload / edit / save. */
-export function MenuClinic({ restaurantId, connected, initial }: {
+export function MenuClinic({ restaurantId, connected, initial, ops = false }: {
   restaurantId: string
   connected: Record<Platform, boolean>
   initial: Record<Platform, MenuState>
+  /** Favie's team acting for the owner (admin): the owner's "Favie AI optimize" lock does not apply. */
+  ops?: boolean
 }) {
   const t = useT()
   const intl = INTL_TAG[useLocale()]
@@ -29,7 +31,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
   const busy = s.active.length > 0 || s.items.some((i) => i.status === 'saving')
   // "Favie AI optimize": the whole menu is in Favie's hands → owner side is read-only until ops marks it done.
   const optimization = state.uber_eats.optimization ?? state.doordash.optimization
-  const locked = !!optimization
+  const locked = !!optimization && !ops
 
   // Poll while the agent works.
   const load = async (p: Platform) => {
@@ -117,7 +119,10 @@ export function MenuClinic({ restaurantId, connected, initial }: {
       )}
       {s.pull?.status === 'failed' && !activePull && !(s.storefront.candidates?.length) && <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{t('menu.jobError', { error: s.pull.error ?? '' })}</div>}
 
-      {optimization && (
+      {optimization && ops && (
+        <div className="rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-700">{t('menu.opt.opsNote', { when: new Date(optimization.requestedAt).toLocaleString(intl, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) })}</div>
+      )}
+      {optimization && !ops && (
         <OptimizingBanner since={optimization.requestedAt} pending={pending} onCancel={() => {
           if (!window.confirm(t('menu.opt.cancelConfirm'))) return
           start(async () => { await cancelMenuOptimization(restaurantId); await refresh() })
@@ -134,7 +139,7 @@ export function MenuClinic({ restaurantId, connected, initial }: {
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-display text-lg font-semibold">{t('menu.diag.title')}</h2>
             <div className="flex items-center gap-3">
-              {!locked && (
+              {!locked && !ops && (
                 <button type="button" disabled={pending}
                   onClick={() => { if (!window.confirm(t('menu.opt.confirm'))) return; start(async () => { await requestMenuOptimization(restaurantId); await refresh() }) }}
                   className="pill !border-transparent !py-1.5 text-xs font-semibold !text-white disabled:opacity-60"

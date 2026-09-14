@@ -456,6 +456,7 @@ const en = {
   'menu.opt.cancel': 'Cancel optimization',
   'menu.opt.cancelConfirm': 'Stop the optimization? Changes already made on the platforms stay.',
   'menu.opt.steps': 'Reading your menu · Studying your best sellers · Writing descriptions · Styling photos',
+  'menu.opt.opsNote': 'Owner asked Favie to optimize this menu ({when}). You are working on their behalf; mark it done in Customers when finished.',
   'menu.upload': 'Upload photo',
   'menu.edit': 'Edit',
   'menu.progress.generic': "Favie is working on it…",

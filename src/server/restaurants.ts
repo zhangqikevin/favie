@@ -1,3 +1,4 @@
+import { isAdminEmail } from '@/server/admin'
 import { and, eq } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import type { Platform } from '@/lib/db/schema'
@@ -20,6 +21,15 @@ export async function createRestaurantShell(ownerUserId: string, name = 'My rest
     await tx.insert(schema.platformConnections).values(PLATFORMS.map((platform) => ({ restaurantId: r!.id, platform })))
     return r!
   })
+}
+
+/** Owner access, or admin access to any restaurant (ops acting for the owner). */
+export async function getRestaurantForUserOrAdmin(restaurantId: string, user: { id: string; email?: string | null }) {
+  const own = await getRestaurantForUser(restaurantId, user.id)
+  if (own) return own
+  if (!isAdminEmail(user.email)) return null
+  const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1)
+  return r ?? null
 }
 
 export async function getRestaurantForUser(restaurantId: string, userId: string) {

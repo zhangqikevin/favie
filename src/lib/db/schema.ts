@@ -355,6 +355,24 @@ export const menuJobs = pgTable('menu_jobs', {
   ...timestamps,
 }, (t) => [index('menu_jobs_restaurant_idx').on(t.restaurantId, t.createdAt)])
 
+// Ops: a live browser on the restaurant's saved login (same handoff mechanism as onboarding, but for
+// Favie's team, without touching the owner's connection state). status: queued | ready | failed | released.
+export const opsHandoffs = pgTable('ops_handoffs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
+  platform: platformEnum('platform').notNull(),
+  status: text('status').notNull().default('queued'),
+  requestedByUserId: uuid('requested_by_user_id').references(() => users.id),
+  sessionId: text('session_id'),
+  liveUrl: text('live_url'),   // redeemed vnc_embed URL (access token lasts ~60 min)
+  targetUrl: text('target_url'),
+  note: text('note'),          // progress line
+  error: text('error'),
+  readyAt: timestamp('ready_at', { withTimezone: true }),
+  releasedAt: timestamp('released_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => [index('ops_handoffs_restaurant_idx').on(t.restaurantId, t.createdAt)])
+
 // "Favie AI optimize my menu": the owner hands the whole menu to Favie. While a request is open the
 // Menu Clinic is read-only for the owner; Favie's ops team does the work in the platform portals and
 // marks it done in /admin. status: requested | cancelled | done.
