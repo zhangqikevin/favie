@@ -108,13 +108,17 @@ export function HowItWorks() {
                 <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{t('how.mock.ran')}</span>
               </div>
               <ul className="mt-5 divide-y divide-ink-100">
+                {/* every job runs on both platforms, so each row carries both marks */}
                 {([
-                  ['uber_eats', 'dash.nav.menu', '+12'],
-                  ['doordash', 'cat.ad_budget_changed', '$40 → $31'],
-                  ['doordash', 'cat.dispute_filed', '$14.50'],
-                ] as const).map(([p, k, v], i) => (
+                  ['dash.nav.menu', '+12'],
+                  ['cat.ad_budget_changed', '$40 → $31'],
+                  ['cat.dispute_filed', '$14.50'],
+                ] as const).map(([k, v], i) => (
                   <li key={i} className="flex items-center gap-3 py-3">
-                    <PlatformIcon platform={p} className="h-8 w-8 rounded-lg" />
+                    <span className="flex shrink-0 -space-x-2">
+                      <PlatformIcon platform="uber_eats" className="h-8 w-8 rounded-lg ring-2 ring-white" />
+                      <PlatformIcon platform="doordash" className="h-8 w-8 rounded-lg ring-2 ring-white" />
+                    </span>
                     <span className="flex-1 text-sm font-medium">{t(k)}</span>
                     <span className="font-display text-sm font-bold tabular-nums">{v}</span>
                   </li>
