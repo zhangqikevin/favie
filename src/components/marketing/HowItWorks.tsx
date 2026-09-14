@@ -66,8 +66,10 @@ export function HowItWorks() {
 
       <div className="relative mx-auto w-full max-w-xl lg:col-span-7">
         {/* the two dishes change with the step (remount → pop-in animation) */}
-        <span key={`a${step}`} className="how-pop absolute -left-6 -top-10 -rotate-6"><Food item={FOODS[step]![0]} size={110} /></span>
-        <span key={`b${step}`} className="how-pop absolute -bottom-10 -right-4 rotate-6" style={{ animationDelay: '120ms' }}><Food item={FOODS[step]![1]} size={130} /></span>
+        {/* animate the sprite element itself: a wrapper would form its own stacking context and the
+            multiply blend that hides the sprite's white cells would stop seeing the page behind it */}
+        <Food key={`a${step}`} item={FOODS[step]![0]} size={110} className="how-pop absolute -left-6 -top-10 -rotate-6" />
+        <Food key={`b${step}`} item={FOODS[step]![1]} size={130} className="how-pop absolute -bottom-10 -right-4 rotate-6" style={{ animationDelay: '120ms' }} />
         <div className="relative min-h-[380px]">
           {/* 1 · sign up */}
           <Scene show={step === 0}>
