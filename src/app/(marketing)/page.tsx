@@ -51,19 +51,14 @@ export default async function LandingPage() {
           </div>
           <p className="mt-4 text-sm text-white/60">{t('hero.fineprint')}</p>
 
-          {/* Three product tiles, one per job — example figures, labeled as such. */}
-          <div className="mt-16 w-full max-w-4xl">
-            <div className="grid gap-3 sm:grid-cols-3">
-              {([1, 2, 3] as const).map((i) => (
-                <div key={i} className="rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-left backdrop-blur">
-                  <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/60">{t(`hero.tile${i}.t`)}{i === 3 && <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-white/70">{t('common.comingSoon')}</span>}</p>
-                  <p className="font-display mt-1 text-2xl font-bold tabular-nums sm:text-3xl">{t(`hero.tile${i}.v`)}</p>
-                  <p className="mt-1 text-xs leading-snug text-white/70">{t(`hero.tile${i}.l`)}</p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-right text-[11px] text-white/40">{t('hero.tile.example')}</p>
-          </div>
+          <dl className="mt-16 grid w-full max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
+            {([1, 2, 3, 4] as const).map((i) => (
+              <div key={i} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-4 backdrop-blur">
+                <dt className="font-display text-2xl font-bold sm:text-3xl">{t(`hero.stat${i}.v`)}</dt>
+                <dd className="mt-1 text-xs text-white/70">{t(`hero.stat${i}.l`)}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </section>
 
@@ -96,12 +91,13 @@ export default async function LandingPage() {
                 </div>
                 <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-500">{t(`pillars.${i}.k`)}{i === 3 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-amber-700">{t('common.comingSoon')}</span>}</p>
                 <h3 className="font-display mt-1 text-xl font-bold">{t(`pillars.${i}.t`)}</h3>
-                <ul className="mt-4 space-y-2 text-sm leading-relaxed text-ink-700">
-                  {([1, 2, 3, 4] as const).map((j) => (
-                    <li key={j} className="flex gap-2.5"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />{t(`pillars.${i}.b${j}`)}</li>
+                <p className="mt-2 leading-relaxed text-ink-500">{t(`pillars.${i}.p`)}</p>
+                <ul className="mt-5 flex flex-wrap gap-2">
+                  {([1, 2, 3] as const).map((j) => (
+                    <li key={j} className="rounded-full bg-ink-100/80 px-3 py-1 text-xs font-medium text-ink-700">{t(`pillars.${i}.b${j}`)}</li>
                   ))}
                 </ul>
-                <p className="mt-5 border-t border-dashed border-ink-100 pt-4 text-sm text-ink-500">{t(`pillars.${i}.see`)}</p>
+                <p className="mt-6 text-sm text-ink-500">{t(`pillars.${i}.see`)}</p>
               </div>
             ))}
           </div>
