@@ -12,6 +12,7 @@
     "m0": "tsx scripts/m0-spike.ts",
     "worker": "tsx src/worker/index.ts",
     "worker:forever": "sh scripts/worker-forever.sh",
+    "start:all": "sh scripts/start-all.sh",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/db-migrate.ts",
     "db:studio": "drizzle-kit studio"
