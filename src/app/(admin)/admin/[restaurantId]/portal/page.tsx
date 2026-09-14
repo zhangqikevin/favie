@@ -24,7 +24,7 @@ export default async function AdminPortal({ params, searchParams }: { params: Pr
           <h1 className="font-display text-2xl font-bold tracking-tight">{r.name} · portal browser</h1>
           <Link href={`/admin/${r.id}/menu`} className="pill text-xs">Menu Clinic (ops) →</Link>
         </div>
-        <p className="mt-1 max-w-3xl text-sm text-ink-500">The agent opens its browser on this restaurant's saved login and lands on the menu editor; you work in the live view below. The owner's connection state is untouched. One browser per restaurant: menu jobs and the daily run wait while you hold it, so release it when you are done. The view expires after 60 minutes; open again if needed.</p>
+        <p className="mt-1 max-w-3xl text-sm text-ink-500">The agent opens its browser on this restaurant's saved login and lands on the menu editor; you work in the live view below. The owner's connection state is untouched. One browser per restaurant: menu jobs wait while you hold it, so release it when you are done. The view expires after 60 minutes and the browser is then released automatically; open again if needed.</p>
       </div>
       <OpsBrowser restaurantId={r.id} initialPlatform={platform === 'doordash' ? 'doordash' : 'uber_eats'}
         connected={{ uber_eats: conns.some((c) => c.platform === 'uber_eats' && c.status === 'connected'), doordash: conns.some((c) => c.platform === 'doordash' && c.status === 'connected') }}

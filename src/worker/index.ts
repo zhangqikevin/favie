@@ -9,7 +9,7 @@ import { JOBS } from '@/server/jobs/enqueue'
 import { provisionAgent } from '@/lib/zoowork/provisioning'
 import { reconcileSchedule } from '@/lib/zoowork/schedule'
 import { verifyConnection } from '@/lib/zoowork/verify'
-import { startHandoff, confirmLogin, startOpsHandoff, releaseOpsHandoff } from '@/lib/zoowork/handoff'
+import { startHandoff, confirmLogin, startOpsHandoff, releaseOpsHandoff, releaseOpsHandoffs } from '@/lib/zoowork/handoff'
 import { runManualPrompt } from '@/lib/zoowork/manual'
 import { collectRuns, staleRuns } from '@/lib/zoowork/collect'
 import { decommissionAgent } from '@/lib/zoowork/teardown'
@@ -98,11 +98,14 @@ await boss.work<{ opsId: string; op: 'start' | 'release' }>(JOBS.opsHandoff, { b
   if (job.data.op === 'release') await releaseOpsHandoff(job.data.opsId)
   else await startOpsHandoff(job.data.opsId)
 })
+// Auto-release ops browsers whose live view expired (60 min), so restaurants get their profile back.
+await boss.work(JOBS.opsHandoffSweep, { batchSize: 1 }, async () => { const n = await releaseOpsHandoffs(); if (n) console.log('[opsHandoff] auto-released', n) })
 await boss.work<{ restaurantAgentId: string }>(JOBS.decommissionAgent, { batchSize: 1 }, async ([job]) => { await decommissionAgent(job.data.restaurantAgentId) })
 
 // Cron
 await boss.schedule(JOBS.collectRuns, '*/5 * * * *', {}, { tz: 'UTC' })
 await boss.schedule(JOBS.staleRuns, '17 * * * *', {}, { tz: 'UTC' })
+await boss.schedule(JOBS.opsHandoffSweep, '*/5 * * * *', {}, { tz: 'UTC' })
 await boss.schedule(JOBS.zoodataSync, '30 5 * * *', {}, { tz: 'UTC' })
 // weeklyDigest intentionally NOT scheduled in V1 (placeholder job only).
 

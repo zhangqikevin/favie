@@ -5,6 +5,7 @@ import { generateDishImageViaAgent } from './menu-image'
 import { buildApplyScript } from '@/lib/menu/recipes'
 import { toolCall, type SessionEvent } from '@zoowork-ai/sdk'
 import { db, schema } from '@/lib/db/client'
+import { activeOpsHandoff, releaseOpsHandoffs } from './handoff'
 import { zoowork, logged } from './client'
 import { streamTurn } from './streamTurn'
 import { collectRun, localDate } from './collect'
@@ -184,14 +185,23 @@ async function discoverStorefront(r: typeof schema.restaurants.$inferSelect, pla
 /** One browser per agent: wait until no other pull/save job for this restaurant is running. */
 async function waitForAgentBrowser(restaurantId: string, jobId: string, maxMs = 30 * 60_000) {
   const started = Date.now()
-  let noted = false
+  let noted: string | null = null
+  const say = async (n: string) => { if (noted !== n) { noted = n; await db.update(schema.menuJobs).set({ note: n, updatedAt: new Date() }).where(eq(schema.menuJobs.id, jobId)) } }
   for (;;) {
+    // Expired ops browsers (Favie's team) are closed right away; a live one is waited for like any other task.
+    await releaseOpsHandoffs(restaurantId).catch(() => {})
+    if (await activeOpsHandoff(restaurantId)) {
+      if (Date.now() - started > maxMs) throw new Error('the Favie team is working in this restaurant\'s browser; try again later')
+      await say('Favie is working on this menu in the portal right now; this task waits until they are done…')
+      await new Promise((r) => setTimeout(r, 10_000))
+      continue
+    }
     const busy = await db.select({ id: schema.menuJobs.id }).from(schema.menuJobs)
       .where(and(eq(schema.menuJobs.restaurantId, restaurantId), eq(schema.menuJobs.status, 'running'), ne(schema.menuJobs.id, jobId), inArray(schema.menuJobs.kind, ['pull', 'save', 'apply'])))
       .limit(1)
     if (!busy.length) return
     if (Date.now() - started > maxMs) throw new Error('another Favie browser task on this restaurant did not finish in time')
-    if (!noted) { noted = true; await db.update(schema.menuJobs).set({ note: 'Waiting for another Favie task on this restaurant…', updatedAt: new Date() }).where(eq(schema.menuJobs.id, jobId)) }
+    await say('Waiting for another Favie task on this restaurant…')
     await new Promise((r) => setTimeout(r, 5000))
   }
 }

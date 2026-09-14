@@ -16,6 +16,7 @@ export const JOBS = {
   menuGenerate: 'menu-generate',
   menuApply: 'menu-apply',
   opsHandoff: 'ops-handoff',
+  opsHandoffSweep: 'ops-handoff-sweep',
 } as const
 
 declare global {

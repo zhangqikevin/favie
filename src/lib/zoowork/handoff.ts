@@ -140,6 +140,8 @@ export async function startHandoff(restaurantId: string, platform: Platform) {
       await releaseBrowser(agent.zooworkAgentId, c.handoffSessionId, agent.id)
     }
   }
+  // An ops browser (Favie's team) holding this profile gives way to the owner's own connect flow; ops can reopen.
+  await releaseOpsHandoffs(restaurantId, { all: true })
   // Two turns in one session. The agent used to skip the navigate step and hand off a blank browser,
   // so step A (open the login page, prove it loaded) is checked before step B (handoff) is even asked.
   const stepA = [
@@ -324,4 +326,34 @@ export async function releaseOpsHandoff(opsId: string) {
     .where(and(eq(schema.restaurantAgents.restaurantId, row.restaurantId), eq(schema.restaurantAgents.kind, 'delivery-ops'))).limit(1)
   if (row.sessionId && agent?.zooworkAgentId) await releaseBrowser(agent.zooworkAgentId, row.sessionId, agent.id)
   await db.update(schema.opsHandoffs).set({ status: 'released', releasedAt: new Date(), updatedAt: new Date() }).where(eq(schema.opsHandoffs.id, opsId))
+}
+
+export const OPS_HANDOFF_TTL_MS = 60 * 60_000 // the live-view access token's lifetime
+
+/** The ops browser currently holding this restaurant's profile (ready and not expired), or null. */
+export async function activeOpsHandoff(restaurantId: string) {
+  const rows = await db.select().from(schema.opsHandoffs)
+    .where(and(eq(schema.opsHandoffs.restaurantId, restaurantId), eq(schema.opsHandoffs.status, 'ready')))
+  return rows.find((r) => r.readyAt && Date.now() - r.readyAt.getTime() < OPS_HANDOFF_TTL_MS) ?? null
+}
+
+/**
+ * Auto-release: ops browsers whose live view has expired (nobody can use them any more) are closed so
+ * the restaurant's own tasks get the profile back; stuck 'queued' rows are marked failed. Runs from the
+ * worker sweep every 5 minutes and right before any task that needs the restaurant's browser.
+ * `all` = release even live ones (the owner's own connect flow takes precedence over ops).
+ */
+export async function releaseOpsHandoffs(restaurantId?: string, opts: { all?: boolean } = {}) {
+  const where = restaurantId ? and(eq(schema.opsHandoffs.restaurantId, restaurantId), inArray(schema.opsHandoffs.status, ['ready', 'queued'])) : inArray(schema.opsHandoffs.status, ['ready', 'queued'])
+  const rows = await db.select().from(schema.opsHandoffs).where(where)
+  let released = 0
+  for (const r of rows) {
+    const age = Date.now() - (r.readyAt ?? r.createdAt).getTime()
+    if (r.status === 'queued') {
+      if (age > 15 * 60_000) await db.update(schema.opsHandoffs).set({ status: 'failed', error: 'timed out', note: null, updatedAt: new Date() }).where(eq(schema.opsHandoffs.id, r.id))
+      continue
+    }
+    if (opts.all || age > OPS_HANDOFF_TTL_MS) { await releaseOpsHandoff(r.id); released++ }
+  }
+  return released
 }
