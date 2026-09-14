@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useT } from '@/i18n/client'
 import { PlatformIcon } from '@/components/PlatformIcon'
 import { Logo } from '@/components/marketing/Logo'
-import { Food } from '@/components/marketing/Food'
+import { Food, type FoodItem } from '@/components/marketing/Food'
 
 const STEP_MS = 4500
+const FOODS: [FoodItem, FoodItem][] = [['boba', 'wings'], ['sushi', 'tempura'], ['curry', 'poke']]
 
 /**
  * How it works: the three steps cycle on their own (click to jump, hover to pause). A highlight slides
@@ -64,8 +65,9 @@ export function HowItWorks() {
       </div>
 
       <div className="relative mx-auto w-full max-w-xl lg:col-span-7">
-        <Food item="boba" size={110} className="absolute -left-6 -top-10 -rotate-6" />
-        <Food item="wings" size={130} className="absolute -bottom-10 -right-4 rotate-6" />
+        {/* the two dishes change with the step (remount → pop-in animation) */}
+        <span key={`a${step}`} className="how-pop absolute -left-6 -top-10 -rotate-6"><Food item={FOODS[step]![0]} size={110} /></span>
+        <span key={`b${step}`} className="how-pop absolute -bottom-10 -right-4 rotate-6" style={{ animationDelay: '120ms' }}><Food item={FOODS[step]![1]} size={130} /></span>
         <div className="relative min-h-[380px]">
           {/* 1 · sign up */}
           <Scene show={step === 0}>
