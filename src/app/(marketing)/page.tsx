@@ -67,14 +67,14 @@ export default async function LandingPage() {
         <div className="container-x">
           <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">{t('leaks.kicker')}</p>
           <h2 className="font-display mt-3 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">{t('leaks.title')}</h2>
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
             {([1, 2, 3] as const).map((i) => (
-              <div key={i} className="flex gap-4 rounded-2xl border border-ink-100 bg-white p-5">
-                <span className="font-display flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-50 text-sm font-bold text-orange-600">{i}</span>
-                <div>
-                  <h3 className="font-semibold">{t(`leaks.${i}.t`)}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-ink-500">{t(`leaks.${i}.b`)}</p>
-                </div>
+              <div key={i} className="relative overflow-hidden rounded-3xl bg-[#FFF4EA] p-8 pt-10">
+                {/* faint oversized numeral: the leak's place in the story, not decoration */}
+                <span aria-hidden="true" className="font-display pointer-events-none absolute -right-2 -top-6 select-none text-[120px] font-bold leading-none text-orange-500/10">{i}</span>
+                <span className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-orange-600 ring-1 ring-orange-200">{t(`leaks.${i}.tag`)}</span>
+                <h3 className="font-display mt-5 text-2xl font-bold leading-tight tracking-tight">{t(`leaks.${i}.t`)}</h3>
+                <p className="mt-3 max-w-[30ch] leading-relaxed text-ink-700">{t(`leaks.${i}.b`)}</p>
               </div>
             ))}
           </div>
