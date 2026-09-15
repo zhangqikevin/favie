@@ -4,6 +4,7 @@ import { startConnect, confirmLoggedIn, continueToPreferences, selectStore } fro
 import type { ConnectionStatus } from '@/lib/db/schema'
 import { useT } from '@/i18n/client'
 import type { DictKey } from '@/i18n'
+import { FoodMarquee } from '@/components/marketing/Food'
 
 export type StoreCandidate = { name: string; external_id: string | null; address: string | null }
 export type ConnRow = {
@@ -25,6 +26,7 @@ export function ConnectPanel({ restaurantId, initial, agentStatus, onboardingDon
   const [picked, setPicked] = useState<Record<string, string>>({})
   const inProgress = rows.find((r) => r.status === 'awaiting_login' || r.status === 'verifying' || r.status === 'select_store')
   const busy = !!inProgress || agent !== 'ready'
+  const starting = agent !== 'ready' && agent !== 'failed'
 
   useEffect(() => {
     if (!busy) return
@@ -54,12 +56,22 @@ export function ConnectPanel({ restaurantId, initial, agentStatus, onboardingDon
 
   return (
     <div className="space-y-6">
-      {agent !== 'ready' && (
-        <div className={`rounded-2xl border p-4 text-sm ${agent === 'failed' ? 'border-red-200 bg-red-50 text-red-800' : 'border-brand-100 bg-brand-50 text-brand-800'}`}>
-          {agent === 'failed' ? t('ob.connect.agent.failed') : t('ob.connect.agent.settingUp')}
-        </div>
+      {agent === 'failed' && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{t('ob.connect.agent.failed')}</div>
       )}
-      {rows.map((c) => {
+      {/* Agent still being provisioned (~1 min): one "starting" card with the dish marquee instead of two locked platform cards. */}
+      {starting && (
+        <section className="card overflow-hidden px-8 pb-9 pt-10 text-center" aria-live="polite">
+          <FoodMarquee size={64} bg="#ffffff" />
+          <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand-600">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-brand-500" />{t('ob.connect.starting.kicker')}
+          </p>
+          <h2 className="font-display mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{t('ob.connect.starting.title')}</h2>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink-500">{t('ob.connect.starting.body')}</p>
+          <div className="ai-bar mx-auto mt-6 h-1 w-56 overflow-hidden rounded-full bg-ink-100" />
+        </section>
+      )}
+      {!starting && rows.map((c) => {
         const m = META[c.platform]
         const portal = t(m.portal as DictKey)
         return (
