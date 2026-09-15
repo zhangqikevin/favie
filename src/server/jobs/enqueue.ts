@@ -27,7 +27,9 @@ declare global {
 /** A lightweight pg-boss handle for enqueueing from the web process (workers live in src/worker). */
 export async function boss() {
   if (globalThis.__favieBoss) return globalThis.__favieBoss
-  const url = process.env.DATABASE_URL
+  // The web process only *sends* jobs (plain inserts), so it can use the transaction pooler and leave the
+  // 15-client session pooler to the worker (which needs session mode for LISTEN). Falls back to DATABASE_URL.
+  const url = process.env.DATABASE_URL_WEB || process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL is not set')
   const b = new PgBoss({ connectionString: url, schema: 'pgboss', max: 2, supervise: false, schedule: false })
   await b.start()
