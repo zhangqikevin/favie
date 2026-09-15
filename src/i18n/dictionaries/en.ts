@@ -56,7 +56,7 @@ const en = {
   'pillars.1.see': 'You see: the menu diagnosis, before and after',
   'pillars.2.k': 'AI delivery operations',
   'pillars.2.t': 'Ads and promos that pay back',
-  'pillars.2.p': 'Daily pacing inside the cap you set, promos sized to your basket.',
+  'pillars.2.p': 'Daily pacing inside the cap you set, promos designed around your restaurant and your customers, reviewed monthly.',
   'pillars.2.b1': 'Never over your monthly cap',
   'pillars.2.b2': 'New-customer and happy-hour offers',
   'pillars.2.b3': 'Weekly review, one change at a time',

@@ -55,7 +55,7 @@ const es: Dictionary = {
   'pillars.1.see': 'Ves: el diagnóstico del menú, antes y después',
   'pillars.2.k': 'Operación de delivery con IA',
   'pillars.2.t': 'Anuncios y promos que se recuperan',
-  'pillars.2.p': 'Presupuesto repartido a diario dentro de tu límite, promos a la medida de tu ticket.',
+  'pillars.2.p': 'Presupuesto repartido a diario dentro de tu límite, promos diseñadas para tu restaurante y tus clientes, revisadas cada mes.',
   'pillars.2.b1': 'Nunca por encima de tu límite mensual',
   'pillars.2.b2': 'Ofertas a nuevos clientes y happy hour',
   'pillars.2.b3': 'Revisión semanal, un cambio a la vez',
