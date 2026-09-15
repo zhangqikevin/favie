@@ -34,17 +34,48 @@ async function call<T>(key: string, path: string, body: unknown, timeoutMs: numb
 }
 
 /** One scrape. `scroll` renders lazy-loaded sections (DoorDash stores that only paint the first category). */
-export async function scrapeStorefront(key: string, url: string, opts: { scroll?: boolean } = {}): Promise<{ markdown: string; title: string | null; ms: number }> {
+export async function scrapeStorefront(key: string, url: string, opts: { scroll?: boolean; html?: boolean } = {}): Promise<{ markdown: string; html: string | null; title: string | null; ms: number }> {
   const actions: unknown[] = []
   if (opts.scroll) {
     actions.push({ type: 'wait', milliseconds: 2500 })
     for (let i = 0; i < 12; i++) actions.push({ type: 'scroll', direction: 'down' }, { type: 'wait', milliseconds: 700 })
   }
   const t0 = Date.now()
-  const j = await call<{ data?: { markdown?: string; metadata?: { title?: string } } }>(key, '/scrape',
-    { url, formats: ['markdown'], onlyMainContent: false, waitFor: 2000, location: { country: 'US' }, timeout: 90_000, ...(actions.length ? { actions } : {}) }, 150_000)
+  const j = await call<{ data?: { markdown?: string; rawHtml?: string; metadata?: { title?: string } } }>(key, '/scrape',
+    { url, formats: opts.html ? ['markdown', 'rawHtml'] : ['markdown'], onlyMainContent: false, waitFor: 2000, location: { country: 'US' }, timeout: 90_000, ...(actions.length ? { actions } : {}) }, 150_000)
   if (!j.data?.markdown) throw new Error('firecrawl: no markdown')
-  return { markdown: j.data.markdown, title: j.data.metadata?.title ?? null, ms: Date.now() - t0 }
+  return { markdown: j.data.markdown, html: j.data.rawHtml ?? null, title: j.data.metadata?.title ?? null, ms: Date.now() - t0 }
+}
+
+/**
+ * Uber Eats renders only the first ~10 card photos until the page is scrolled, but the page's embedded
+ * state carries every item as {"uuid","imageUrl","title"} (with \u0022-escaped quotes). Read those, so a
+ * single scrape yields every photo. Keyed by item uuid and by normalized title.
+ */
+export function embeddedPhotos(html: string | null | undefined): { byId: Map<string, string>; byName: Map<string, string> } {
+  const byId = new Map<string, string>(), byName = new Map<string, string>()
+  if (!html) return { byId, byName }
+  const text = html.replace(/\\u0022/g, '"').replace(/\\\//g, '/')
+  const re = /"uuid":"([0-9a-f-]{36})","imageUrl":"(https:\/\/[^"]+)","title":"((?:[^"\\]|\\.)*)"/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text))) {
+    if (!byId.has(m[1]!)) byId.set(m[1]!, m[2]!)
+    const k = nameKey(m[3]!.replace(/\\u([0-9a-f]{4})/gi, (_, h) => String.fromCharCode(parseInt(h, 16))).replace(/\\"/g, '"'))
+    if (k && !byName.has(k)) byName.set(k, m[2]!)
+  }
+  return { byId, byName }
+}
+export const nameKey = (n: string) => n.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
+
+/** Fill missing item photos from a uuid/title → url map; returns how many were filled. */
+export function backfillPhotos(items: PulledItem[], photos: { byId: Map<string, string>; byName: Map<string, string> }): number {
+  let n = 0
+  for (const i of items) {
+    if (i.image_url) continue
+    const url = (i.external_id && photos.byId.get(i.external_id)) || photos.byName.get(nameKey(i.name))
+    if (url) { i.image_url = url; i.has_photo = true; n++ }
+  }
+  return n
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -206,15 +237,25 @@ function parseUberEats(md: string): ParsedMenu {
 
 /** Full read: plain scrape first; DoorDash stores that lazy-load get a second pass with scroll actions. */
 export async function readStorefront(key: string, platform: 'doordash' | 'uber_eats', url: string): Promise<ParsedMenu & { ms: number; passes: number }> {
-  const first = await scrapeStorefront(key, url)
+  const first = await scrapeStorefront(key, url, { html: platform === 'uber_eats' })
   let parsed = parseStorefrontMarkdown(platform, first.markdown)
   let ms = first.ms, passes = 1
-  const lazy = platform === 'doordash' && (parsed.items.length < 5 || parsed.emptyCategories > 0)
-  if (lazy) {
+  if (platform === 'uber_eats') backfillPhotos(parsed.items, embeddedPhotos(first.html))
+  // Lazy rendering, two flavours: DoorDash paints only the first category; Uber Eats paints every
+  // card but only the first ~10 photos until the page is scrolled (seen 2026-09-15: 10 of 41 photos).
+  const withPhoto = parsed.items.filter((i) => i.image_url).length
+  const lazySections = platform === 'doordash' && (parsed.items.length < 5 || parsed.emptyCategories > 0)
+  const lazyPhotos = parsed.items.length >= 5 && withPhoto > 0 && withPhoto < parsed.items.length * 0.8
+  if (lazySections || lazyPhotos) {
     const second = await scrapeStorefront(key, url, { scroll: true })
     const p2 = parseStorefrontMarkdown(platform, second.markdown)
     ms += second.ms; passes = 2
-    if (p2.items.length > parsed.items.length) parsed = p2
+    // Backfill photos from whichever pass rendered them (by uuid, then by name).
+    const photos = { byId: new Map<string, string>(), byName: new Map<string, string>() }
+    for (const i of [...p2.items, ...parsed.items]) if (i.image_url) { if (i.external_id) photos.byId.set(i.external_id, photos.byId.get(i.external_id) ?? i.image_url); photos.byName.set(nameKey(i.name), photos.byName.get(nameKey(i.name)) ?? i.image_url) }
+    const base = p2.items.length > parsed.items.length ? p2 : parsed
+    backfillPhotos(base.items, photos)
+    parsed = base
   }
   return { ...parsed, ms, passes }
 }
