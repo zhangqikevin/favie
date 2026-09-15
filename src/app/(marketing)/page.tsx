@@ -113,9 +113,10 @@ export default async function LandingPage() {
       {/* PRODUCT */}
       <section className="py-24">
         <div className="container-x">
-          <div className="mx-auto max-w-2xl text-center">
+          <div className="mx-auto max-w-3xl text-center">
             <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">{t('product.kicker')}</p>
-            <h2 className="font-display mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{t('product.title')}</h2>
+            {/* wide enough for the 20-character Chinese title on one line; balanced if it must wrap */}
+            <h2 className="font-display mt-3 text-balance text-3xl font-bold tracking-tight sm:text-4xl">{t('product.title')}</h2>
             <p className="mt-4 text-lg text-ink-500">{t('product.body')}</p>
           </div>
           <div className="mt-12"><DashboardPreview /></div>
