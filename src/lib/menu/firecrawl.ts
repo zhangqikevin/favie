@@ -42,7 +42,9 @@ export async function scrapeStorefront(key: string, url: string, opts: { scroll?
   }
   const t0 = Date.now()
   const j = await call<{ data?: { markdown?: string; rawHtml?: string; metadata?: { title?: string } } }>(key, '/scrape',
-    { url, formats: opts.html ? ['markdown', 'rawHtml'] : ['markdown'], onlyMainContent: false, waitFor: 2000, location: { country: 'US' }, timeout: 90_000, ...(actions.length ? { actions } : {}) }, 150_000)
+    // maxAge 0: never serve Firecrawl's cached copy — a menu read must reflect the store page now, and a
+    // cached entry made without rawHtml would silently lose every lazily rendered photo (seen 2026-09-15).
+    { url, formats: opts.html ? ['markdown', 'rawHtml'] : ['markdown'], onlyMainContent: false, waitFor: 2000, location: { country: 'US' }, timeout: 90_000, maxAge: 0, ...(actions.length ? { actions } : {}) }, 150_000)
   if (!j.data?.markdown) throw new Error('firecrawl: no markdown')
   return { markdown: j.data.markdown, html: j.data.rawHtml ?? null, title: j.data.metadata?.title ?? null, ms: Date.now() - t0 }
 }
