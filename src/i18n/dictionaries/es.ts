@@ -48,7 +48,7 @@ const es: Dictionary = {
   'pillars.title': 'Favie tapa las tres, cada día.',
   'pillars.1.k': 'Optimización continua del menú',
   'pillars.1.t': 'Que cada plato dé ganas de pedirlo',
-  'pillars.1.p': 'Descripciones, fotos y carta siempre al día; tú apruebas cada borrador.',
+  'pillars.1.p': 'Descripciones, fotos y carta siempre al día y en mejora continua.',
   'pillars.1.b1': 'Descripciones bilingües',
   'pillars.1.b2': 'Fotos con tu propio estilo',
   'pillars.1.b3': 'Revisión mensual: impulsar, corregir, retirar',

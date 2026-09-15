@@ -49,7 +49,7 @@ const en = {
   'pillars.title': 'Favie plugs all three, every day.',
   'pillars.1.k': 'Continuous menu optimization',
   'pillars.1.t': 'Make every dish look worth ordering',
-  'pillars.1.p': 'Descriptions, photos and lineup, kept fresh — you approve every draft.',
+  'pillars.1.p': 'Descriptions, photos and lineup, kept fresh and improving.',
   'pillars.1.b1': 'Bilingual descriptions',
   'pillars.1.b2': 'Photos in your own style',
   'pillars.1.b3': 'Monthly review: push, fix, retire',

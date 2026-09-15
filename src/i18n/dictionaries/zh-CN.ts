@@ -48,7 +48,7 @@ const zhCN: Dictionary = {
   'pillars.title': 'Favie 每天把这三个口子都堵上。',
   'pillars.1.k': '持续优化菜单',
   'pillars.1.t': '让每道菜看起来都想点',
-  'pillars.1.p': '描述、图片、菜品阵容持续更新，每次改动你先看草稿。',
+  'pillars.1.p': '描述、图片、菜品阵容持续更新，不断优化。',
   'pillars.1.b1': '中英双语描述',
   'pillars.1.b2': '按你店里的照片风格生图',
   'pillars.1.b3': '每月复盘：推、改、下架',
