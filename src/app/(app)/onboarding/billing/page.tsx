@@ -1,3 +1,4 @@
+import { SubmitButton } from '@/components/SubmitButton'
 import { redirect } from 'next/navigation'
 import { requireUser, getPrimaryRestaurant } from '@/server/auth'
 import { getSubscription } from '@/server/restaurants'
@@ -41,12 +42,12 @@ export default async function BillingStep({ searchParams }: { searchParams: Prom
             <span className="text-ink-500">{t('common.month')}</span>
           </div>
           <form action={startCheckout} className="mt-6">
-            <button type="submit" className="btn-primary w-full !py-3.5">{t('ob.billing.pay')}</button>
+            <SubmitButton className="btn-primary w-full !py-3.5">{t('ob.billing.pay')}</SubmitButton>
           </form>
           <p className="mt-3 text-center text-xs text-ink-500">{t('ob.billing.guarantee')}</p>
           {process.env.FAVIE_SKIP_BILLING === '1' && (
             <form action={devSkipBilling} className="mt-4 border-t border-dashed border-ink-100 pt-4">
-              <button type="submit" className="btn-secondary w-full !py-2 text-xs">{t('ob.billing.devSkip')}</button>
+              <SubmitButton className="btn-secondary w-full !py-2 text-xs">{t('ob.billing.devSkip')}</SubmitButton>
             </form>
           )}
         </div>

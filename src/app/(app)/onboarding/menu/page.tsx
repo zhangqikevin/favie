@@ -1,3 +1,4 @@
+import { SubmitButton } from '@/components/SubmitButton'
 import { redirect } from 'next/navigation'
 import { requireUser, getPrimaryRestaurant } from '@/server/auth'
 import { getConnections } from '@/server/restaurants'
@@ -21,8 +22,8 @@ export default async function MenuStep() {
         <MenuClinic restaurantId={r.id} connected={connected} initial={{ uber_eats: ue, doordash: dd }} />
       </div>
       <form action={continueFromMenu} className="mt-8 flex flex-wrap items-center gap-4">
-        <button type="submit" className="btn-primary !px-8 !py-3.5">{t('ob.menu.continue')}</button>
-        <button type="submit" className="text-sm text-ink-500 hover:text-ink-900">{t('ob.menu.skip')}</button>
+        <SubmitButton className="btn-primary !px-8 !py-3.5">{t('ob.menu.continue')}</SubmitButton>
+        <SubmitButton className="text-sm text-ink-500 hover:text-ink-900">{t('ob.menu.skip')}</SubmitButton>
       </form>
     </OnboardingShell>
   )

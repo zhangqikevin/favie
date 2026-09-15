@@ -5,6 +5,7 @@ import type { ConnectionStatus } from '@/lib/db/schema'
 import { useT } from '@/i18n/client'
 import type { DictKey } from '@/i18n'
 import { FoodMarquee } from '@/components/marketing/Food'
+import { SubmitButton } from '@/components/SubmitButton'
 
 export type StoreCandidate = { name: string; external_id: string | null; address: string | null }
 export type ConnRow = {
@@ -191,9 +192,9 @@ export function ConnectPanel({ restaurantId, initial, agentStatus, onboardingDon
       })}
 
       {mode === 'onboarding' && <form action={continueToPreferences} className="pt-2">
-        <button type="submit" className={anyConnected ? 'btn-primary !px-8 !py-3.5' : 'btn-secondary !px-8 !py-3.5'}>
+        <SubmitButton className={anyConnected ? 'btn-primary !px-8 !py-3.5' : 'btn-secondary !px-8 !py-3.5'}>
           {onboardingDone ? t('ob.connect.backToDashboard') : anyConnected ? t('common.continue') : t('ob.connect.skip')}
-        </button>
+        </SubmitButton>
         {!anyConnected && !onboardingDone && <p className="mt-2 text-sm text-ink-500">{t('ob.connect.skipHint')}</p>}
       </form>}
     </div>
