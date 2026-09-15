@@ -14,7 +14,7 @@ type Filter = 'all' | 'photoMissing' | 'photoPoor' | 'descMissing' | 'descThin' 
 const LABEL: Record<Platform, string> = { uber_eats: 'Uber Eats', doordash: 'DoorDash' }
 
 /** Two platform tabs → diagnosis card → menu grouped by category, with per-item AI optimize / upload / edit / save. */
-export function MenuClinic({ restaurantId, connected, initial, ops = false, autoPull = false }: {
+export function MenuClinic({ restaurantId, connected, initial, ops = false, autoPull = false, sidebar = false, aside }: {
   restaurantId: string
   connected: Record<Platform, boolean>
   initial: Record<Platform, MenuState>
@@ -22,6 +22,10 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false, auto
   ops?: boolean
   /** Onboarding: start reading every connected platform's menu on arrival instead of waiting for a click. */
   autoPull?: boolean
+  /** Onboarding: diagnosis + actions in a sticky right-hand panel next to the list (the list can be long). */
+  sidebar?: boolean
+  /** Rendered at the bottom of the sticky panel (the onboarding "Continue" form). */
+  aside?: React.ReactNode
 }) {
   const t = useT()
   const intl = INTL_TAG[useLocale()]
@@ -76,8 +80,67 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false, auto
   // One sync at a time per restaurant (the agent has one browser); the next batch waits for this one.
   const anyApplyActive = PLATFORMS.some((p) => state[p].active.some((j) => j.kind === 'apply')) || savingAll.length > 0
   const estMinutes = (rows: { platform: Platform }[]) => Math.max(1, Math.ceil(rows.reduce((m, q) => m + (q.platform === 'doordash' ? 2 : 1), 0)))
+  const STATS: [Filter, number, DictKey, string][] = [
+    ['all', s.counts.total, 'menu.diag.all', ''],
+    ['photoMissing', s.counts.photoMissing, 'menu.diag.photoMissing', 'text-[color:var(--accent-orange)]'],
+    ['photoPoor', s.counts.photoPoor, 'menu.diag.photoPoor', 'text-amber-600'],
+    ['descMissing', s.counts.descMissing, 'menu.diag.descMissing', 'text-[color:var(--accent-orange)]'],
+    ['descThin', s.counts.descThin, 'menu.diag.descThin', 'text-amber-600'],
+    ['queued', queuedAll.length, 'menu.diag.queued', 'text-[color:var(--accent-blue,#2f66ff)]'],
+  ]
+  const requestOptimize = () => { if (!window.confirm(t('menu.opt.confirm'))) return; start(async () => { await requestMenuOptimization(restaurantId); await refresh() }) }
+  /** "Favie AI auto-optimize": a pill in the dashboard header, a full-width block in the onboarding side panel. */
+  const optimizeButton = (variant: 'pill' | 'block') => (locked || ops) ? null : variant === 'pill' ? (
+    <button type="button" disabled={pending} onClick={requestOptimize}
+      className="pill !border-transparent !py-1.5 text-xs font-semibold !text-white disabled:opacity-60"
+      style={{ background: 'linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-3))' }}>
+      <Sparkle className="h-3.5 w-3.5" /> {t('menu.opt.button')}
+    </button>
+  ) : (
+    <button type="button" disabled={pending} onClick={requestOptimize}
+      className="group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl px-4 py-4 text-left text-white shadow-[0_10px_30px_-12px_rgba(59,108,255,.7)] transition-transform hover:-translate-y-0.5 disabled:opacity-60"
+      style={{ background: 'linear-gradient(120deg, var(--accent-1), var(--accent-2) 55%, var(--accent-3))' }}>
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20"><Sparkle className="h-5 w-5" /></span>
+      <span className="min-w-0">
+        <span className="block font-display text-base font-semibold leading-tight">{t('menu.opt.button')}</span>
+        <span className="mt-0.5 block text-xs leading-snug text-white/85">{t('menu.opt.hint')}</span>
+      </span>
+    </button>
+  )
+  const syncButton = (variant: 'pill' | 'block') => (queuedAll.length > 0 && !anyApplyActive && !locked) ? (
+    <button type="button" disabled={pending}
+      onClick={() => { if (!window.confirm(t('menu.sync.confirm', { n: queuedAll.length, min: estMinutes(queuedAll) }))) return; start(async () => { await publishAllQueued(restaurantId); await refresh() }) }}
+      className={variant === 'pill' ? 'pill !border-transparent !bg-brand-500 !py-1.5 text-xs font-semibold !text-white hover:!bg-brand-600' : 'btn-primary w-full !py-3 text-sm'}>
+      {t('menu.sync', { n: queuedAll.length })}
+    </button>
+  ) : null
+  const sidePanel = sidebar && (
+    <aside className="space-y-4 lg:sticky lg:top-24">
+      {s.counts.total > 0 && (
+        <section className="card p-5">
+          <h2 className="font-display text-base font-semibold">{t('menu.diag.title')}</h2>
+          <ul className="mt-3 space-y-1.5">
+            {STATS.filter(([f]) => f !== 'queued' || queuedAll.length > 0).map(([f, n, key, tone]) => (
+              <li key={f}>
+                <button type="button" onClick={() => setFilter(f)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors ${filter === f ? 'bg-ink-900 text-[color:var(--app-bg)]' : 'bg-ink-100/70 text-ink-700 hover:bg-ink-100'}`}>
+                  <span className={`font-display min-w-[2.2rem] text-xl font-semibold tabular-nums ${filter === f ? '' : n > 0 ? tone : 'text-ink-500'}`}>{n}</span>
+                  <span className={filter === f ? 'opacity-80' : ''}>{t(key)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-4 space-y-3">
+            {optimizeButton('block')}
+            {syncButton('block')}
+          </div>
+        </section>
+      )}
+      {aside && <section className="card p-5">{aside}</section>}
+    </aside>
+  )
 
   return (
+    <div className={sidebar ? 'grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]' : ''}>
     <div className="space-y-6">
       {/* platform tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -137,37 +200,17 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false, auto
           <p className="text-sm font-semibold">{t('menu.publishing', { platform: [...new Set(savingAll.map((q) => LABEL[q.platform]))].join(' · ') || LABEL[platform], min: estMinutes(savingAll.length ? savingAll : [{ platform }]) })}</p>
         </div>
       )}
-      {s.counts.total > 0 && (
+      {s.counts.total > 0 && !sidebar && (
         <section className="card p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-display text-lg font-semibold">{t('menu.diag.title')}</h2>
             <div className="flex items-center gap-3">
-              {!locked && !ops && (
-                <button type="button" disabled={pending}
-                  onClick={() => { if (!window.confirm(t('menu.opt.confirm'))) return; start(async () => { await requestMenuOptimization(restaurantId); await refresh() }) }}
-                  className="pill !border-transparent !py-1.5 text-xs font-semibold !text-white disabled:opacity-60"
-                  style={{ background: 'linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-3))' }}>
-                  <Sparkle className="h-3.5 w-3.5" /> {t('menu.opt.button')}
-                </button>
-              )}
-              {queuedAll.length > 0 && !anyApplyActive && !locked && (
-                <button type="button" disabled={pending}
-                  onClick={() => { if (!window.confirm(t('menu.sync.confirm', { n: queuedAll.length, min: estMinutes(queuedAll) }))) return; start(async () => { await publishAllQueued(restaurantId); await refresh() }) }}
-                  className="pill !border-transparent !bg-brand-500 !py-1.5 text-xs font-semibold !text-white hover:!bg-brand-600">
-                  {t('menu.sync', { n: queuedAll.length })}
-                </button>
-              )}
+              {optimizeButton('pill')}
+              {syncButton('pill')}
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {([
-              ['all', s.counts.total, 'menu.diag.all', ''],
-              ['photoMissing', s.counts.photoMissing, 'menu.diag.photoMissing', 'text-[color:var(--accent-orange)]'],
-              ['photoPoor', s.counts.photoPoor, 'menu.diag.photoPoor', 'text-amber-600'],
-              ['descMissing', s.counts.descMissing, 'menu.diag.descMissing', 'text-[color:var(--accent-orange)]'],
-              ['descThin', s.counts.descThin, 'menu.diag.descThin', 'text-amber-600'],
-              ['queued', queuedAll.length, 'menu.diag.queued', 'text-[color:var(--accent-blue,#2f66ff)]'],
-            ] as [Filter, number, DictKey, string][]).map(([f, n, key, tone]) => (
+            {STATS.map(([f, n, key, tone]) => (
               <button key={f} type="button" onClick={() => setFilter(f)} className={`rounded-2xl p-4 text-left transition-colors ${filter === f ? 'bg-ink-900 text-[color:var(--app-bg)]' : 'bg-ink-100/70 hover:bg-ink-100'}`}>
                 <p className={`font-display text-3xl font-semibold tracking-tight ${filter === f ? '' : n > 0 ? tone : 'text-ink-500'}`}>{n}</p>
                 <p className={`mt-1 text-xs ${filter === f ? 'opacity-80' : 'text-ink-500'}`}>{t(key)}</p>
@@ -206,6 +249,8 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false, auto
           </ul>
         </section>
       ))}
+    </div>
+    {sidePanel}
     </div>
   )
 }

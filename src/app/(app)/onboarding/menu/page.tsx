@@ -19,12 +19,15 @@ export default async function MenuStep() {
   return (
     <OnboardingShell step="menu" title={t('ob.menu.title')} subtitle={t('ob.menu.subtitle')} wide>
       <div className="app-shell -mx-5 rounded-3xl px-5 py-6 sm:-mx-8 sm:px-8">
-        <MenuClinic restaurantId={r.id} connected={connected} initial={{ uber_eats: ue, doordash: dd }} autoPull />
+        {/* Diagnosis + "Continue" live in a sticky side panel: the menu list can be long, the next step must stay in reach. */}
+        <MenuClinic restaurantId={r.id} connected={connected} initial={{ uber_eats: ue, doordash: dd }} autoPull sidebar
+          aside={
+            <form action={continueFromMenu} className="space-y-3">
+              <SubmitButton className="btn-primary w-full !py-3.5 !bg-brand-500 !text-white hover:!bg-brand-600">{t('ob.menu.continue')}</SubmitButton>
+              <p className="text-center text-xs text-ink-500">{t('ob.menu.laterHint')}</p>
+            </form>
+          } />
       </div>
-      <form action={continueFromMenu} className="mt-8 flex flex-wrap items-center gap-4">
-        <SubmitButton className="btn-primary !px-8 !py-3.5">{t('ob.menu.continue')}</SubmitButton>
-        <SubmitButton className="text-sm text-ink-500 hover:text-ink-900">{t('ob.menu.skip')}</SubmitButton>
-      </form>
     </OnboardingShell>
   )
 }
