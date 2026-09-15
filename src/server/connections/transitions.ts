@@ -2,6 +2,14 @@ import { and, eq, sql } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import type { FavieSummary } from '@/lib/zoowork/summary-schema'
 import { enqueueReconcileSchedule } from '@/server/jobs/enqueue'
+import { canonicalStorefrontUrl } from '@/lib/menu/firecrawl'
+
+/** Store id shapes that identify the public store page: Uber Eats uuid, DoorDash numeric store_id. */
+export function storefrontFromId(platform: 'uber_eats' | 'doordash', id: string | null | undefined, name?: string | null): string | null {
+  if (!id) return null
+  if (platform === 'uber_eats') return /^[0-9a-f-]{36}$/i.test(id) ? canonicalStorefrontUrl('uber_eats', id, name) : null
+  return /^\d{6,10}$/.test(id) ? canonicalStorefrontUrl('doordash', id, name) : null
+}
 
 type PlatformReport = FavieSummary['platforms'][number]
 
@@ -23,8 +31,11 @@ export async function applyConnectionReport(restaurantId: string, p: PlatformRep
   if (!conn.storeExternalId && !conn.storeName && p.login === 'ok') {
     const stores = p.stores.map((st) => ({ name: st.name, external_id: st.external_id ?? null, address: st.address ?? null }))
     if (stores.length === 1) {
+      const sid = p.store_external_id ?? stores[0]!.external_id
       await db.update(schema.platformConnections).set({
-        status: 'connected', storeName: stores[0]!.name, storeExternalId: stores[0]!.external_id, storeAddress: stores[0]!.address, storeCandidates: stores,
+        status: 'connected', storeName: stores[0]!.name, storeExternalId: sid, storeAddress: stores[0]!.address, storeCandidates: stores,
+        // The store id came from the portal URL, so the public store page follows from it: no web search, no picker.
+        storefrontUrl: conn.storefrontUrl ?? storefrontFromId(p.platform, sid, stores[0]!.name),
         roleSeen: p.role_seen ?? null, verifiedAt: now, lastVerifiedAt: now, lastVerifyRunId: runId, lastError: null, brokenSince: null, verifyAttempts: 0, updatedAt: now,
       }).where(eq(schema.platformConnections.id, conn.id))
       await adoptRestaurantName(restaurantId, stores[0]!)
@@ -52,6 +63,7 @@ export async function applyConnectionReport(restaurantId: string, p: PlatformRep
   if (ok) {
     await db.update(schema.platformConnections).set({
       status: 'connected', storeName: p.store_name ?? conn.storeName, storeExternalId: p.store_external_id ?? conn.storeExternalId,
+      storefrontUrl: conn.storefrontUrl ?? storefrontFromId(p.platform, p.store_external_id, p.store_name ?? conn.storeName),
       roleSeen: p.role_seen ?? conn.roleSeen, verifiedAt: conn.verifiedAt ?? now, lastVerifiedAt: now, lastVerifyRunId: runId,
       lastError: null, brokenSince: null, verifyAttempts: 0, updatedAt: now,
     }).where(eq(schema.platformConnections.id, conn.id))

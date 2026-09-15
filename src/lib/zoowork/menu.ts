@@ -5,7 +5,8 @@ import { generateDishImageViaAgent } from './menu-image'
 import { buildApplyScript } from '@/lib/menu/recipes'
 import { toolCall, type SessionEvent } from '@zoowork-ai/sdk'
 import { db, schema } from '@/lib/db/client'
-import { activeOpsHandoff, releaseOpsHandoffs } from './handoff'
+import { activeOpsHandoff, releaseOpsHandoffs, resolveLoginLabel, PORTAL_URL } from './handoff'
+import { storefrontFromId } from '@/server/connections/transitions'
 import { zoowork, logged } from './client'
 import { streamTurn } from './streamTurn'
 import { collectRun, localDate } from './collect'
@@ -163,6 +164,43 @@ async function storefrontUrl(r: typeof schema.restaurants.$inferSelect, platform
   return null
 }
 
+/** Same store? Loose comparison of the storefront's own title with the name we have on file. */
+function sameStore(a: string | null | undefined, b: string | null | undefined) {
+  if (!a || !b) return true // nothing to compare against
+  const norm = (s: string) => s.normalize('NFKC').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^\p{L}\p{N}]+/gu, '')
+  const x = norm(a), y = norm(b)
+  if (!x || !y) return true
+  if (x.includes(y) || y.includes(x)) return true
+  // English part only (Chinese names are often appended differently on the storefront)
+  const en = (s: string) => s.replace(/[^a-z0-9]/g, '')
+  const ex = en(x), ey = en(y)
+  return ex.length >= 5 && ey.length >= 5 && (ex.includes(ey) || ey.includes(ex))
+}
+
+/**
+ * The owner is logged in, so the agent can read the store id straight from the merchant portal URL
+ * (Uber Eats: uuid in the path; DoorDash: `store_id=` query parameter) — no web search, no picker.
+ * One short browser turn (~30 s).
+ */
+async function storeIdFromPortal(r: typeof schema.restaurants.$inferSelect, platform: Platform, jobId: string): Promise<string | null> {
+  const label = await resolveLoginLabel(r.id)
+  const message = [
+    `FAVIE_STORE_URL ${platform}. Read this store's id from the merchant portal URL. No context fetch, change nothing, type nothing.`,
+    `1. browser action "session" op "restart" with loginLabel "${label}" and egressCountry "US".`,
+    `2. browser action "navigate" to ${PORTAL_URL[platform]}; act kind "wait" 4 seconds; snapshot (mode "efficient") and note the current URL.`,
+    platform === 'doordash'
+      ? '3. The store id is the `store_id=` query parameter of the portal URL. If the current URL has none, click "Menu" (Menu Manager) or "Orders" in the sidebar once, wait 4 seconds, snapshot, and read it from that URL. Ignore the number in the store switcher (business id).'
+      : '3. The store id is the UUID path segment of the portal URL, e.g. /manager/home/<uuid>. If the URL has no UUID, click "Home" once and read it again.',
+    r.name ? `4. The store should be "${r.name}"; if the portal shows a different store selected, switch to the right one first.` : '4. Use the store currently selected.',
+    '5. Close the browser session (action "session" op "close"). Reply with exactly one line: STORE <id> <current url>. If you cannot find it, reply: STORE none <current url>.',
+  ].join('\n')
+  await note(jobId, 'Reading the store id from your merchant portal…')
+  const { text } = await runAgentTurn(r.id, message, jobId, { budgetMs: 4 * 60_000 })
+  const m = /STORE\s+([A-Za-z0-9-]+)/.exec(text)
+  const id = m && m[1] !== 'none' ? m[1] : null
+  return id && storefrontFromId(platform, id, r.name) ? id : null
+}
+
 /**
  * No URL on file: web-search the store page. Exactly one candidate (or one matching a store id we know)
  * is confirmed automatically; several are stored for the owner to pick in Menu Clinic.
@@ -250,13 +288,27 @@ export async function runMenuPull(jobId: string) {
     const [rr] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, job.restaurantId)).limit(1)
     if (!rr) throw new Error('restaurant not found')
     const key = await firecrawlKey()
+    const connWhere = and(eq(schema.platformConnections.restaurantId, job.restaurantId), eq(schema.platformConnections.platform, job.platform))
+    const [conn0] = await db.select().from(schema.platformConnections).where(connWhere).limit(1)
     let url = await storefrontUrl(rr, job.platform)
+    let candidates = 0
     if (!url && key) {
       await note(jobId, 'Finding the store page…', { status: 'running' })
       const found = await discoverStorefront(rr, job.platform, key)
       if ('url' in found) url = found.url
-      else if (found.candidates > 0) { await fail(jobId, 'Several stores match this name — pick yours in Menu Clinic, then read again.'); return }
+      else candidates = found.candidates
     }
+    // Still ambiguous or unknown: the owner is logged in, so read the store id from the portal URL and
+    // build the page from it — the picker is only the very last resort.
+    if (!url && conn0?.status === 'connected') {
+      await waitForAgentBrowser(job.restaurantId, jobId)
+      const id = await storeIdFromPortal(rr, job.platform, jobId).catch((e) => { console.warn('[menuPull] store id read failed:', (e as Error).message); return null })
+      if (id) {
+        url = storefrontFromId(job.platform, id, rr.name)
+        await db.update(schema.platformConnections).set({ storeExternalId: id, storefrontUrl: url, storefrontCandidates: null, updatedAt: new Date() }).where(connWhere)
+      }
+    }
+    if (!url && candidates > 0) { await fail(jobId, 'Several stores match this name — pick yours in Menu Clinic, then read again.'); return }
     // Fast path: server-side read of the public store page (seconds, with photo URLs and item ids).
     if (url && key) {
       try {
@@ -264,6 +316,13 @@ export async function runMenuPull(jobId: string) {
         const t0 = Date.now()
         const menu = await readStorefront(key, job.platform, url)
         menu.ms = Date.now() - t0
+        if (menu.items.length >= 3 && !sameStore(menu.storeName, conn0?.storeName)) {
+          // A wrong id (e.g. a DoorDash business id) points at another restaurant's page: never ingest it.
+          console.warn('[menuPull] storefront title does not match the connected store; discarding url', url, menu.storeName, conn0?.storeName)
+          await db.update(schema.platformConnections).set({ storefrontUrl: null, updatedAt: new Date() }).where(connWhere)
+          await fail(jobId, `The store page found (${menu.storeName ?? url}) does not look like ${conn0?.storeName ?? 'your store'}. Please read again — Favie will look it up from your merchant portal.`)
+          return
+        }
         if (menu.items.length >= 3) {
           await db.update(schema.platformConnections).set({ storefrontUrl: url, storefrontCandidates: null, updatedAt: new Date() })
             .where(and(eq(schema.platformConnections.restaurantId, job.restaurantId), eq(schema.platformConnections.platform, job.platform)))

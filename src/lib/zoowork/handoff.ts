@@ -238,7 +238,10 @@ export async function confirmLogin(restaurantId: string, platform: Platform) {
     `FAVIE_CONFIRM_LOGIN ${platform}. The owner says they finished logging in to ${PLATFORM_NAME[platform]} in the handed-off browser. You already have the favie-ops skill in context; do not re-read it. Be fast:`,
     '1. snapshot. If a login form is still showing → report login "failed", login_failure_reason "not_logged_in", type nothing, close the session, summary.',
     '2. Otherwise call action "session" op "save_login" immediately.',
-    '3. List the stores this account can see using ONLY the store/location switcher or business selector list (one snapshot of that list is enough). Record each store\'s exact name and its id if the list or URL shows one. Do NOT open each store, do NOT look up addresses (leave address null). Budget: at most 8 tool calls for this step.',
+    '3. List the stores this account can see using ONLY the store/location switcher or business selector list (one snapshot of that list is enough). Record each store\'s exact name and its id. Do NOT open each store, do NOT look up addresses (leave address null). Budget: at most 8 tool calls for this step.',
+    '   Store id rules (Favie builds the public store page from it, so it must be the STORE id, not a business/organization id):',
+    '   - Uber Eats: the UUID path segment of the current portal URL, e.g. /manager/home/<uuid> or /manager/menumaker/<uuid>. Use it as `store_external_id` and as `external_id` of the selected store.',
+    '   - DoorDash: the `store_id=` query parameter of the current portal URL (Merchant Portal pages carry it; if the current URL has none, open Menu Manager or Orders once and read it there). The number shown in the store switcher is often the business id — never report that one as `store_external_id`.',
     '4. Close the browser session and end with the favie-summary block (mode "verify") with those stores in "stores".',
     `5. ${VERIFY_REPLY_FORMAT}`,
   ].join('\n')

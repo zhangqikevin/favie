@@ -142,11 +142,16 @@ no bearing here — this platform is being connected right now, that is the whol
 2. If the merchant dashboard / store list is visible: immediately `browser action:"session" op:"save_login"`.
    The profile is shared by all platforms, so this also keeps any platform the owner connected earlier.
 3. **List the stores this account can see — quickly.** Open the store / location switcher or
-   business selector ONCE and read the list from a single snapshot: exact store name plus the store
-   id when the list or the current URL shows one (DoorDash `store_id`, Uber Eats store UUID). Do
-   not open each store, do not hunt for addresses (leave `address` null), do not scroll through
-   dashboards. Budget: at most 8 tool calls for this step. Put the stores in the summary's `stores`
-   array; the owner picks one. Record `role_seen` only if it is already on screen. Change nothing.
+   business selector ONCE and read the list from a single snapshot: exact store names. Do not open
+   each store, do not hunt for addresses (leave `address` null), do not scroll through dashboards.
+   Budget: at most 8 tool calls for this step. Put the stores in the summary's `stores` array; the
+   owner picks one. Record `role_seen` only if it is already on screen. Change nothing.
+   **Store id** — Favie builds the public store page from it, so it must be the *store* id:
+   Uber Eats = the UUID in the portal URL path (`/manager/home/<uuid>`, `/manager/menumaker/<uuid>`);
+   DoorDash = the `store_id=` query parameter of the portal URL (open Menu Manager or Orders once if
+   the current URL has none). The number in DoorDash's store switcher is usually the *business* id —
+   never report it as `store_external_id`. Put the id in `store_external_id` and in the selected
+   store's `external_id`.
 4. If a login form is still visible: report `login: "failed"`, `login_failure_reason: "not_logged_in"`. Type nothing.
 5. Close the browser session and end with the summary block (`mode: "verify"`).
 
