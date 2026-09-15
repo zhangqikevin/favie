@@ -7,7 +7,7 @@ import { zoowork, logged } from './client'
 import { DAILY_SCHEDULE_ID } from './schedule'
 import { parseFavieSummary, type FavieSummary } from './summary-schema'
 import { applyConnectionReport } from '@/server/connections/transitions'
-import { enqueueVerifyConnection } from '@/server/jobs/enqueue'
+import { enqueueVerifyConnection, enqueueConfirmLogin } from '@/server/jobs/enqueue'
 
 const TERMINAL = new Set(['succeeded', 'failed', 'aborted', 'completed', 'error', 'cancelled', 'canceled'])
 
@@ -149,7 +149,11 @@ async function recoverUnparsedVerify(restaurantId: string) {
   for (const c of conns) {
     if ((c.verifyAttempts ?? 0) < 2) {
       await db.update(schema.platformConnections).set({ verifyAttempts: (c.verifyAttempts ?? 0) + 1, progressNote: null, updatedAt: new Date() }).where(eq(schema.platformConnections.id, c.id))
-      await enqueueVerifyConnection(restaurantId, c.platform).catch((e) => console.error('[collect] re-verify enqueue failed', e))
+      // Confirm-login flow (handoff session still open with the owner's login): retry in that session.
+      // A fresh verify session would restart the browser and hit "profile locked".
+      const retry = c.handoffSessionId && c.handoffStartedAt && Date.now() - c.handoffStartedAt.getTime() < 3 * 3600_000
+        ? enqueueConfirmLogin(restaurantId, c.platform) : enqueueVerifyConnection(restaurantId, c.platform)
+      await retry.catch((e) => console.error('[collect] re-verify enqueue failed', e))
     } else {
       await db.update(schema.platformConnections)
         .set({ status: 'broken', verifyAttempts: 0, lastError: 'Favie could not read the result of the check. Please connect again.', brokenSince: new Date(), progressNote: null, updatedAt: new Date() })

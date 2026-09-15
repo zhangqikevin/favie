@@ -71,6 +71,27 @@ export async function releaseBrowser(zooworkAgentId: string, sessionId: string, 
   }
 }
 
+/**
+ * Close every browser a recent handoff session of this restaurant may still hold (the profile is locked
+ * while any session has it open). Called before anything that restarts the browser: a new handoff, a
+ * fresh verify session. `loginConfirmedAt` is deliberately not a condition — a confirm turn that failed
+ * half-way leaves the browser open just the same.
+ */
+export async function releaseHandoffBrowsers(restaurantId: string, zooworkAgentId: string, restaurantAgentId: string | null, note?: (connId: string) => Promise<unknown>) {
+  const conns = await db.select().from(schema.platformConnections).where(eq(schema.platformConnections.restaurantId, restaurantId))
+  const seen = new Set<string>()
+  for (const c of conns) {
+    if (!c.handoffSessionId || seen.has(c.handoffSessionId)) continue
+    if (!c.handoffStartedAt || Date.now() - c.handoffStartedAt.getTime() > 3 * 3600_000) continue
+    seen.add(c.handoffSessionId)
+    if (note) await note(c.id).catch(() => {})
+    await releaseBrowser(zooworkAgentId, c.handoffSessionId, restaurantAgentId)
+  }
+  return seen.size
+}
+
+const PROFILE_LOCKED = /profile[^"]{0,40}locked|409|PROXY_REQUEST_ERROR/i
+
 /** Turns tool-call events into a short "what is happening" note the connect page shows while it waits. */
 function progressNoter(restaurantId: string, platform: Platform) {
   let last = ''
@@ -130,16 +151,9 @@ export async function startHandoff(restaurantId: string, platform: Platform) {
   const [restaurant] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1)
   const label = await resolveLoginLabel(restaurantId)
   const zc = zoowork()
-  // A previous handoff that was never confirmed may still hold this profile open in another
-  // browser session; close it first or the restart answers 409 "profile locked".
-  const abandoned = await db.select().from(schema.platformConnections)
-    .where(and(eq(schema.platformConnections.restaurantId, restaurantId), inArray(schema.platformConnections.status, ['awaiting_login', 'broken'])))
-  for (const c of abandoned) {
-    if (c.handoffSessionId && !c.loginConfirmedAt && c.handoffStartedAt && Date.now() - c.handoffStartedAt.getTime() < 3 * 3600_000) {
-      await db.update(schema.platformConnections).set({ progressNote: 'Closing a previous browser…' }).where(eq(schema.platformConnections.id, c.id))
-      await releaseBrowser(agent.zooworkAgentId, c.handoffSessionId, agent.id)
-    }
-  }
+  // A previous handoff (confirmed or not) may still hold this profile open in another browser
+  // session; close it first or the restart answers 409 "profile locked".
+  await releaseHandoffBrowsers(restaurantId, agent.zooworkAgentId, agent.id, (id) => db.update(schema.platformConnections).set({ progressNote: 'Closing a previous browser…' }).where(eq(schema.platformConnections.id, id)))
   // An ops browser (Favie's team) holding this profile gives way to the owner's own connect flow; ops can reopen.
   await releaseOpsHandoffs(restaurantId, { all: true })
   // Two turns in one session. The agent used to skip the navigate step and hand off a blank browser,
@@ -172,6 +186,14 @@ export async function startHandoff(restaurantId: string, platform: Platform) {
   let res
   try {
     res = await turn(-1, 2 * 60_000)
+    if (!onPortal(res.text) && PROFILE_LOCKED.test(res.text)) {
+      // The profile is still held by another session (a confirm turn that died half-way, an ops browser
+      // we do not know about): release what we know and try the restart once more.
+      note.stopped = false
+      await releaseHandoffBrowsers(restaurantId, agent.zooworkAgentId, agent.id)
+      const afterSeq = await post(`The profile was locked by another session; it has been released. Run STEP A again from step 1 (session restart with loginLabel "${label}", navigate to ${PORTAL_URL[platform]}, wait 3 seconds, snapshot) and reply with the one-line PAGE report.`)
+      res = await turn(afterSeq, 2 * 60_000)
+    }
     if (!onPortal(res.text)) {
       // One retry: the first navigate sometimes lands on a blank tab or an interstitial.
       const afterSeq = await post(`The page is not the ${PLATFORM_NAME[platform]} login page yet. browser action "navigate" to ${PORTAL_URL[platform]} again, wait 3 seconds, snapshot, and reply with the same one-line PAGE report.`)
@@ -231,13 +253,27 @@ export async function confirmLogin(restaurantId: string, platform: Platform) {
     channel: 'api', kind: 'verify', status: 'running', runDate: localDate(new Date(), restaurant?.timezone ?? 'America/Los_Angeles'), startedAt: new Date(),
   }).onConflictDoUpdate({ target: schema.agentRuns.zooworkSessionId, set: { status: 'running', kind: 'verify', startedAt: new Date(), updatedAt: new Date() } }).returning()
 
-  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6 * 60_000)
-  let res
   const note = progressNoter(restaurantId, platform)
+  const turn = async (after: number, budgetMs: number) => {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), budgetMs)
+    try {
+      return await streamTurn(zc, agent.zooworkAgentId, sessionId, { afterSeq: after, signal: ctl.signal,
+        onEvent: (ev) => { note(ev); if (ev.cursor) void db.update(schema.agentRuns).set({ lastCursor: ev.cursor }).where(eq(schema.agentRuns.id, run!.id)).catch(() => {}) } })
+    } finally { clearTimeout(t) }
+  }
+  let res
   try {
-    res = await streamTurn(zc, agent.zooworkAgentId, sessionId, { afterSeq, signal: ctl.signal,
-      onEvent: (ev) => { note(ev); if (ev.cursor) void db.update(schema.agentRuns).set({ lastCursor: ev.cursor }).where(eq(schema.agentRuns.id, run!.id)).catch(() => {}) } })
-  } finally { clearTimeout(t); note.stopped = true }
+    res = await turn(afterSeq, 6 * 60_000)
+    // The model sometimes ends a turn after a thinking block with no tool call and no text (seen
+    // 2026-09-15). Nudge once in the same session before giving up — the browser is still open here.
+    if (res.outcome && !/```favie-summary/.test(res.text)) {
+      const prior = await zc.listAllEvents(agent.zooworkAgentId, sessionId)
+      const next = prior.reduce((m, e) => Math.max(m, e.seq), -1)
+      await zc.postEvents(agent.zooworkAgentId, sessionId, [{ type: 'user.message', content: 'You stopped before finishing. Continue now: save_login if not done, list the stores, close the browser session, and end with the favie-summary block as instructed.', idempotency_key: `confirm-cont-${conn.id}-${Date.now()}` }])
+      const more = await turn(next, 4 * 60_000)
+      res = { ...more, text: `${res.text}\n${more.text}` }
+    }
+  } finally { note.stopped = true }
   if (!res.outcome) {
     await db.update(schema.agentRuns).set({ status: 'timed_out', updatedAt: new Date() }).where(eq(schema.agentRuns.id, run!.id))
     return

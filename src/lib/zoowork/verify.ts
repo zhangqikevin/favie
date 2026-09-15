@@ -3,7 +3,7 @@ import { db, schema } from '@/lib/db/client'
 import { zoowork, logged } from './client'
 import { streamTurn } from './streamTurn'
 import { collectRun, localDate } from './collect'
-import { VERIFY_REPLY_FORMAT } from './handoff'
+import { VERIFY_REPLY_FORMAT, releaseHandoffBrowsers } from './handoff'
 import type { Platform } from '@/lib/db/schema'
 
 const PLATFORM_WORD: Record<Platform, string> = { uber_eats: 'uber_eats', doordash: 'doordash' }
@@ -25,6 +25,8 @@ export async function verifyConnection(restaurantId: string, platform: Platform)
   if (inflight.length) throw new Error('another run is in flight for this agent; retry later')
 
   const zc = zoowork()
+  // A handoff browser still open for this restaurant would make the restart below answer "profile locked".
+  await releaseHandoffBrowsers(restaurantId, agent.zooworkAgentId, agent.id)
   const [conn] = await db.select().from(schema.platformConnections)
     .where(and(eq(schema.platformConnections.restaurantId, restaurantId), eq(schema.platformConnections.platform, platform))).limit(1)
   const attempt = (conn?.verifyAttempts ?? 0) + 1
