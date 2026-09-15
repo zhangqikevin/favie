@@ -19,7 +19,7 @@ export default async function MenuStep() {
   return (
     <OnboardingShell step="menu" title={t('ob.menu.title')} subtitle={t('ob.menu.subtitle')} wide>
       <div className="app-shell -mx-5 rounded-3xl px-5 py-6 sm:-mx-8 sm:px-8">
-        <MenuClinic restaurantId={r.id} connected={connected} initial={{ uber_eats: ue, doordash: dd }} />
+        <MenuClinic restaurantId={r.id} connected={connected} initial={{ uber_eats: ue, doordash: dd }} autoPull />
       </div>
       <form action={continueFromMenu} className="mt-8 flex flex-wrap items-center gap-4">
         <SubmitButton className="btn-primary !px-8 !py-3.5">{t('ob.menu.continue')}</SubmitButton>

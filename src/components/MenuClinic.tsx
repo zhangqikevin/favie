@@ -14,12 +14,14 @@ type Filter = 'all' | 'photoMissing' | 'photoPoor' | 'descMissing' | 'descThin' 
 const LABEL: Record<Platform, string> = { uber_eats: 'Uber Eats', doordash: 'DoorDash' }
 
 /** Two platform tabs → diagnosis card → menu grouped by category, with per-item AI optimize / upload / edit / save. */
-export function MenuClinic({ restaurantId, connected, initial, ops = false }: {
+export function MenuClinic({ restaurantId, connected, initial, ops = false, autoPull = false }: {
   restaurantId: string
   connected: Record<Platform, boolean>
   initial: Record<Platform, MenuState>
   /** Favie's team acting for the owner (admin): the owner's "Favie AI optimize" lock does not apply. */
   ops?: boolean
+  /** Onboarding: start reading every connected platform's menu on arrival instead of waiting for a click. */
+  autoPull?: boolean
 }) {
   const t = useT()
   const intl = INTL_TAG[useLocale()]
@@ -46,6 +48,15 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false }: {
     return () => clearInterval(id)
   }, [anyBusy, locked, restaurantId]) // eslint-disable-line react-hooks/exhaustive-deps
   const refresh = async () => { await Promise.all((['uber_eats', 'doordash'] as Platform[]).map((p) => load(p).catch(() => {}))) }
+  // Onboarding arrival: kick off the first read for every connected platform that has never been read.
+  const autoPulled = useRef(false)
+  useEffect(() => {
+    if (!autoPull || autoPulled.current) return
+    autoPulled.current = true
+    const todo = (['uber_eats', 'doordash'] as Platform[]).filter((p) => connected[p] && state[p].counts.total === 0 && !state[p].pull && state[p].active.length === 0)
+    if (!todo.length) return
+    start(async () => { await Promise.all(todo.map((p) => pullMenu(restaurantId, p).catch(() => {}))); await refresh() })
+  }, [autoPull]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const visible = s.items.filter((i) => {
     if (filter === 'all') return true
@@ -90,15 +101,7 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false }: {
 
       {!connected[platform] && <div className="card p-6 text-sm text-ink-500">{t('menu.notConnected', { platform: LABEL[platform] })}</div>}
 
-      {activePull && (
-        <div className="card flex items-center gap-4 p-5">
-          <Spinner />
-          <div>
-            <p className="text-sm font-semibold">{t(s.fastRead ? 'menu.pulling.fast' : 'menu.pulling')}</p>
-            <p className="mt-0.5 text-xs text-ink-500">{activePull.note}</p>
-          </div>
-        </div>
-      )}
+      {activePull && <MenuReading platform={platform} />}
       {/* The web search found several stores with this name: the owner picks, then the read runs. */}
       {!activePull && connected[platform] && s.storefront.candidates && s.storefront.candidates.length > 0 && (
         <section className="card p-6">
@@ -390,6 +393,28 @@ function Row({ item, platform, jobs, onChange, locked }: { item: Item; platform:
         </div>
       )}
     </li>
+  )
+}
+
+/** "Reading your menu": dishes from the landing-page sprite pop in one after another while the pull runs. */
+const READING_DISHES: FoodItem[] = ['ramen', 'dumplings', 'sushi', 'fried_rice', 'boba', 'tempura']
+function MenuReading({ platform }: { platform: Platform }) {
+  const t = useT()
+  return (
+    <section className="card px-8 pb-10 pt-11 text-center" aria-live="polite">
+      <div className="relative mx-auto h-[150px] w-[220px]">
+        {READING_DISHES.map((f, i) => (
+          <Food key={f} item={f} size={150} className="menu-cyc absolute bottom-2.5 left-1/2" style={{ animationDelay: `${i * 1.3}s` }} />
+        ))}
+        <span aria-hidden="true" className="menu-cyc-shadow absolute bottom-0 left-1/2 h-3.5 w-36 rounded-full" />
+      </div>
+      <p className="mt-5 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand-600">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-brand-500" />{t('menu.reading.kicker')}
+      </p>
+      <h2 className="font-display mt-2 text-2xl font-semibold tracking-tight sm:text-[28px]">{t('menu.reading.title', { platform: LABEL[platform] })}</h2>
+      <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink-500">{t('menu.reading.body')}</p>
+      <div className="ai-bar mx-auto mt-6 h-1 w-56 overflow-hidden rounded-full bg-ink-100" />
+    </section>
   )
 }
 

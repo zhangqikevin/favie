@@ -172,3 +172,16 @@ body {
 .how-pop { animation: how-pop .55s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes how-pop { from { opacity: 0; transform: scale(.7) rotate(0deg); } to { opacity: 1; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .how-pop { animation: none; } }
+
+/* Menu Clinic: "reading your menu" — six sprite dishes take turns (6 × 1.3 s loop) */
+.menu-cyc { transform: translateX(-50%) translateY(18px) scale(.6); opacity: 0; animation: menu-cyc 7.8s ease-in-out infinite; }
+@keyframes menu-cyc {
+  0% { opacity: 0; transform: translateX(-50%) translateY(18px) scale(.6); }
+  6% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  14.7% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  16.7% { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(.85); }
+  100% { opacity: 0; }
+}
+.menu-cyc-shadow { transform: translateX(-50%); background: radial-gradient(ellipse at center, rgba(15, 23, 42, .12), transparent 70%); animation: menu-cyc-shadow 1.3s ease-in-out infinite; }
+@keyframes menu-cyc-shadow { 0%, 100% { transform: translateX(-50%) scaleX(.7); opacity: .5; } 50% { transform: translateX(-50%) scaleX(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .menu-cyc { animation: none; opacity: 1; transform: translateX(-50%); } .menu-cyc:not(:first-child) { display: none; } .menu-cyc-shadow { animation: none; } }
