@@ -33,7 +33,8 @@ if (!token) throw new Error('SUPABASE_ACCESS_TOKEN (personal access token, sbp_â
 
 const body: Record<string, unknown> = {
   site_url: siteUrl,
-  uri_allow_list: [`${siteUrl}/**`, 'http://localhost:3100/**', 'https://dev.favie.us/**'].join(','),
+  // Extra origins that may complete auth flows (e.g. the Replit default domain next to favie.us): EXTRA_REDIRECT_URLS=a,b
+  uri_allow_list: [`${siteUrl}/**`, 'http://localhost:3100/**', 'https://dev.favie.us/**', ...(process.env.EXTRA_REDIRECT_URLS ?? '').split(',').map((u) => u.trim()).filter(Boolean).map((u) => `${u.replace(/\/$/, '')}/**`)].join(','),
   mailer_subjects_confirmation: AUTH_TEMPLATES.confirmation.subject,
   mailer_templates_confirmation_content: AUTH_TEMPLATES.confirmation.html,
   mailer_subjects_magic_link: AUTH_TEMPLATES.magic_link.subject,
