@@ -31,7 +31,7 @@ export default async function ActivityPage({ params, searchParams }: { params: P
     <div className="space-y-6">
       <section className="card p-7 sm:p-9">
         <div className="mb-6 text-center">
-          <h2 className="font-display text-lg font-semibold">{t('settings.platforms')}</h2>
+          <h2 className="font-display text-lg font-semibold">{t('dash.platforms.title')}</h2>
         </div>
         <PlatformLinkage restaurantId={r.id} conns={conns.map((c) => ({ platform: c.platform, status: c.status, storeName: c.storeName }))} />
       </section>

@@ -266,7 +266,7 @@ const es: Dictionary = {
   'prefs.finish': 'Terminar configuración',
 
   'dash.nav.activity': 'Optimización de delivery',
-  'dash.nav.orders': 'Pedidos',
+  'dash.nav.orders': 'Análisis de pedidos',
   'dash.nav.adCaps': 'Marketing',
   'dash.nav.settings': 'Ajustes',
   'dash.conn.connected': 'conectado',
@@ -274,6 +274,7 @@ const es: Dictionary = {
   'dash.conn.connecting': 'conectando',
   'dash.conn.notConnected': 'no conectado',
   'dash.billing': 'Facturación: {status}',
+  'dash.platforms.title': 'Favie está gestionando tu negocio de delivery',
   'dash.stat.actions': 'Acciones este mes',
   'dash.stat.runs': 'Ejecuciones este mes',
   'dash.stat.completed': '{n} completadas',

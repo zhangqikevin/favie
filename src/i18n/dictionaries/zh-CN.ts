@@ -266,7 +266,7 @@ const zhCN: Dictionary = {
   'prefs.finish': '完成设置',
 
   'dash.nav.activity': '外卖优化',
-  'dash.nav.orders': '订单',
+  'dash.nav.orders': '订单分析',
   'dash.nav.adCaps': '外卖营销',
   'dash.nav.settings': '设置',
   'dash.conn.connected': '已连接',
@@ -274,6 +274,7 @@ const zhCN: Dictionary = {
   'dash.conn.connecting': '连接中',
   'dash.conn.notConnected': '未连接',
   'dash.billing': '账单:{status}',
+  'dash.platforms.title': 'Favie 正在为您运营外卖业务',
   'dash.stat.actions': '本月操作',
   'dash.stat.runs': '本月运行',
   'dash.stat.completed': '{n} 次完成',

@@ -266,7 +266,7 @@ const ja: Dictionary = {
   'prefs.finish': '設定を完了',
 
   'dash.nav.activity': 'デリバリー最適化',
-  'dash.nav.orders': '注文',
+  'dash.nav.orders': '注文分析',
   'dash.nav.adCaps': 'マーケティング',
   'dash.nav.settings': '設定',
   'dash.conn.connected': '連携済み',
@@ -274,6 +274,7 @@ const ja: Dictionary = {
   'dash.conn.connecting': '連携中',
   'dash.conn.notConnected': '未連携',
   'dash.billing': '請求:{status}',
+  'dash.platforms.title': 'Favie があなたのデリバリー事業を運営中',
   'dash.stat.actions': '今月の操作',
   'dash.stat.runs': '今月の実行',
   'dash.stat.completed': '{n} 件完了',

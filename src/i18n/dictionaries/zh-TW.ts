@@ -266,7 +266,7 @@ const zhTW: Dictionary = {
   'prefs.finish': '完成設定',
 
   'dash.nav.activity': '外送優化',
-  'dash.nav.orders': '訂單',
+  'dash.nav.orders': '訂單分析',
   'dash.nav.adCaps': '外送行銷',
   'dash.nav.settings': '設定',
   'dash.conn.connected': '已連接',
@@ -274,6 +274,7 @@ const zhTW: Dictionary = {
   'dash.conn.connecting': '連接中',
   'dash.conn.notConnected': '未連接',
   'dash.billing': '帳單:{status}',
+  'dash.platforms.title': 'Favie 正在為您營運外送業務',
   'dash.stat.actions': '本月操作',
   'dash.stat.runs': '本月執行',
   'dash.stat.completed': '{n} 次完成',

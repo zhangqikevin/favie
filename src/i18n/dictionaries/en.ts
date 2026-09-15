@@ -270,7 +270,7 @@ const en = {
 
   // ---- dashboard
   'dash.nav.activity': 'Delivery optimization',
-  'dash.nav.orders': 'Orders',
+  'dash.nav.orders': 'Order analytics',
   'dash.nav.adCaps': 'Marketing',
   'dash.nav.settings': 'Settings',
   'dash.conn.connected': 'connected',
@@ -278,6 +278,7 @@ const en = {
   'dash.conn.connecting': 'connecting',
   'dash.conn.notConnected': 'not connected',
   'dash.billing': 'Billing: {status}',
+  'dash.platforms.title': 'Favie is running your delivery business',
   'dash.stat.actions': 'Actions this month',
   'dash.stat.runs': 'Runs this month',
   'dash.stat.completed': '{n} completed',

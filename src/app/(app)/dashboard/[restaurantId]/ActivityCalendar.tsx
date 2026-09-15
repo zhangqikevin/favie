@@ -92,7 +92,7 @@ export function ActivityCalendar({ restaurantId, timezone, ym, prev, next, today
           </div>
         ) : (
           <ul className="space-y-3">
-            {[...dayActions].sort((a, b) => Number(b.needsAttention) - Number(a.needsAttention)).map((a) => (
+            {[...dayActions].sort((a, b) => b.at.localeCompare(a.at)).map((a) => (
               <li key={a.id} className={`card p-5 ${a.needsAttention ? 'ring-1 ring-amber-300/70' : ''}`}>
                 <div className="flex items-center justify-between gap-3 text-xs text-ink-500">
                   <span className="flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${PLATFORM[a.platform].dot}`} />{PLATFORM[a.platform].label} · {t(`cat.${a.category}` as DictKey)}</span>
