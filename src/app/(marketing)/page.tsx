@@ -90,7 +90,7 @@ export default async function LandingPage() {
                 <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                   <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">{icons[i - 1]}</svg>
                 </div>
-                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-500">{t(`pillars.${i}.k`)}{i === 3 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-amber-700">{t('common.comingSoon')}</span>}</p>
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-500">{t(`pillars.${i}.k`)}</p>
                 <h3 className="font-display mt-1 text-xl font-bold">{t(`pillars.${i}.t`)}</h3>
                 <p className="mt-2 leading-relaxed text-ink-500">{t(`pillars.${i}.p`)}</p>
                 <ul className="mt-5 flex flex-wrap gap-2">
@@ -133,7 +133,7 @@ export default async function LandingPage() {
             <ul className="mt-8 space-y-2.5 text-white/85">
               {([['g1', 1, 2], ['g2', 3, 4], ['g3', 5], ['g4', 6, 7]] as const).map(([g, ...items]) => (
                 <li key={g}>
-                  <p className="mt-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/50 first:mt-0">{t(`pricing.${g}`)}{g === 'g3' && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-white/70">{t('common.comingSoon')}</span>}</p>
+                  <p className="mt-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/50 first:mt-0">{t(`pricing.${g}`)}</p>
                   <ul className="mt-1.5 space-y-2">
                     {items.map((i) => (
                       <li key={i} className="flex items-start gap-3">
