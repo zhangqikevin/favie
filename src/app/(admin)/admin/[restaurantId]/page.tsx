@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { desc, eq } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { getConnections, getPrimaryAgent, getAdCaps } from '@/server/restaurants'
-import { RunNow } from './RunNow'
+import { RunNow, RunDisputesNow } from './RunNow'
 import { setDailyPaused, setAgentActionsEnabled } from '../actions'
 
 const money = (c: number | null) => (c == null ? 'not set' : `$${(c / 100).toLocaleString('en-US')}`)
@@ -75,6 +75,7 @@ export default async function AdminRestaurant({ params }: { params: Promise<{ re
       </div>
 
       <RunNow restaurantId={r.id} />
+      <RunDisputesNow restaurantId={r.id} />
 
       <section className="card p-6">
         <h2 className="font-display text-base font-bold">Recent runs</h2>

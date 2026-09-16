@@ -238,6 +238,11 @@ async function materializeDisputes(run: typeof schema.agentRuns.$inferSelect, da
       restaurantId: run.restaurantId, platform: p.platform, orderExternalId: d.order_id, orderDate: d.order_date ?? prev?.orderDate ?? null,
       kind: d.kind, amountCents: d.amount_cents ?? prev?.amountCents ?? null, recoveredCents: d.recovered_cents ?? prev?.recoveredCents ?? null,
       status: d.status, reason: d.reason ?? prev?.reason ?? null, evidence: d.evidence ?? prev?.evidence ?? null, deadline: d.deadline ?? prev?.deadline ?? null,
+      reasonCategory: d.reason_category ?? prev?.reasonCategory ?? null, submittedText: d.submitted_text ?? prev?.submittedText ?? null,
+      customerNote: d.customer_note ?? prev?.customerNote ?? null, customerPhoto: d.customer_photo ?? prev?.customerPhoto ?? null,
+      itemsTotal: d.items_total ?? prev?.itemsTotal ?? null, itemsDisputed: d.items_disputed ?? prev?.itemsDisputed ?? null,
+      customerType: d.customer_type ?? prev?.customerType ?? null, decisionText: d.decision_text ?? prev?.decisionText ?? null,
+      filedBy: d.filed_by ?? prev?.filedBy ?? (d.status === 'filed' && prev?.status !== 'filed' ? 'favie' : null),
       filedAt: d.status === 'filed' && prev?.status !== 'filed' ? now : prev?.filedAt ?? null,
       resolvedAt: (d.status === 'won' || d.status === 'lost') && prev?.status !== d.status ? now : prev?.resolvedAt ?? null,
       runId: run.id, raw: d as object, updatedAt: now,
@@ -245,7 +250,7 @@ async function materializeDisputes(run: typeof schema.agentRuns.$inferSelect, da
     await db.insert(schema.disputes).values(values)
       .onConflictDoUpdate({ target: [schema.disputes.restaurantId, schema.disputes.platform, schema.disputes.orderExternalId], set: values })
     // Calendar entries only on state changes, never on re-reports of the same state.
-    if (d.status === 'filed' && prev?.status !== 'filed') {
+    if (d.status === 'filed' && prev?.status !== 'filed' && d.filed_by !== 'owner') {
       await insertAction(run, date, p.platform, 'dispute_filed', t('sys.dispute_filed.t', { order: d.order_id, amount: money(d.amount_cents) }), d.reason ?? t('sys.dispute_filed.r'), false,
         { amountCents: d.amount_cents ?? null, after: { order_id: d.order_id, kind: d.kind, deadline: d.deadline ?? null } })
     } else if ((d.status === 'won' || d.status === 'lost') && prev?.status !== d.status) {

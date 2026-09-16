@@ -97,34 +97,11 @@ Decide at most **two** changes per platform from §3–§4, biggest expected lif
 ads / promotions split for the coming week from what converted. Write one `observations` line per
 platform with the week-over-week numbers — the owner reads it as the weekly report.
 
-### 6. Disputes and error charges (every day)
-Money the platform took back from this restaurant — refunds, "error charges" (DoorDash) and "order
-error adjustments" (Uber Eats) for missing or wrong items and late deliveries — is money to fight for.
-Every day, on each platform:
-1. Open the order-issues view: DoorDash Merchant Portal → **Orders** → the error-charge / issues filter
-   (the order shows a red "Error charge" or refund line); Uber Eats Manager → **Orders** → the
-   order-errors / adjustments view (also listed under Payments → order error adjustments). Read every
-   entry from the last 14 days with its order id, date, amount, and the customer's claim. Also read
-   `disputes.awaiting_outcome` from the context and check each of those orders for a decision.
-2. Decide per order. Appeal ("dispute") when the restaurant has grounds: the item is on the order
-   receipt and was marked ready/handed off complete; the order was picked up on time (a late delivery
-   after pickup is the courier's, not the kitchen's); the claim contradicts the order details; the
-   charge is a duplicate; or the same customer claims repeatedly. Do NOT appeal when the kitchen was
-   plainly at fault (item genuinely out of stock and not substituted, order handed off late by the
-   restaurant's own timestamps) — record it as `skipped` with the reason, so the owner can fix the cause.
-3. File the appeal inside the platform's window (DoorDash ~14 days, Uber Eats ~30 days from the
-   charge; use the deadline the page shows). Pick the platform's own reason category, write 2–4 factual
-   sentences (what the receipt shows, timestamps, what was handed off), submit once, and reopen the
-   order to confirm it now shows as disputed / under review. Never invent facts and never attach
-   anything you did not see in the portal.
-4. Report every entry you looked at in `disputes` (schema in the summary contract): `filed` today,
-   `won` / `lost` when a decision appeared for an awaiting one, `open` when the deadline is far and you
-   need the owner's input, `skipped` when there are no grounds, `expired` when the window closed
-   unused. `amount_cents` is the charge at stake, `recovered_cents` what came back on a win.
-   `actions_enabled: false` → read and classify everything but file nothing: report the ones you would
-   have appealed as `open` with the argument in `reason`; the owner sees them as recommendations.
-5. Reviews: new 1–2 star review → `review_flagged`, `needs_attention: true`, quote the complaint in the
-   reason. Do not reply. Repeated complaints or repeated charges about one item → `recommendation`.
+### 6. Reviews and charge patterns (every day)
+Error charges and refund disputes are handled by a separate daily task (`FAVIE_DISPUTES`) — do not
+open the order-issues views or file disputes in the daily routine, and leave `disputes` empty here.
+Reviews: new 1–2 star review → `review_flagged`, `needs_attention: true`, quote the complaint in the
+reason. Do not reply. Repeated complaints about one item → `recommendation`.
 
 ### 7. Recommendations (things only the owner can do)
 `recommendation` actions, `needs_attention: false`, at most three per platform per week. Each one:

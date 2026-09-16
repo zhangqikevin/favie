@@ -17,6 +17,8 @@ export const JOBS = {
   menuApply: 'menu-apply',
   opsHandoff: 'ops-handoff',
   opsHandoffSweep: 'ops-handoff-sweep',
+  disputesTick: 'disputes-tick',
+  disputesCheck: 'disputes-check',
 } as const
 
 declare global {
@@ -90,4 +92,10 @@ export async function enqueueMenuApply(jobId: string, restaurantId: string, plat
 export async function enqueueOpsHandoff(opsId: string, op: 'start' | 'release') {
   const b = await boss()
   await b.send(JOBS.opsHandoff, { opsId, op }, { singletonKey: `ops-handoff:${opsId}:${op}`, singletonSeconds: 30, retryLimit: 0, expireInSeconds: 10 * 60 })
+}
+
+/** Disputes: run today's check for one restaurant × platform now (the hourly tick enqueues these at 08:00 local). */
+export async function enqueueDisputesCheck(restaurantId: string, platform: 'uber_eats' | 'doordash', date: string) {
+  const b = await boss()
+  await b.send(JOBS.disputesCheck, { restaurantId, platform, date }, { singletonKey: `disputes:${restaurantId}:${platform}:${date}`, singletonSeconds: 3600, retryLimit: 0, expireInSeconds: 40 * 60 })
 }

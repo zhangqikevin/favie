@@ -46,3 +46,11 @@ Decisions that are not derivable from the code. Newest at the bottom. Dates are 
 - **The agent creates and adjusts promotions autonomously within the cap**, following the rule book in the operating prompt (v3): new-customer discount first, spend-threshold above AOV, weekday 2–5 pm Happy Hour, single high-margin BOGO, DoorDash lapsed win-back; guardrails on depth and stacking. Owners see every change with its reason on the calendar.
 - **Weekly review on Mondays** (`is_review_day` from the ctx endpoint) is the only day ads/promotions are re-planned; other days pace budgets and observe. Max two changes per platform per week.
 - New action category `recommendation` for things only the owner can do (photos, bundles, menu names, prep time). Research and sources: `docs/MARKETING-PLAYBOOK.md`.
+
+## Disputes (09-16)
+- **Separate daily task, not part of the daily routine.** `FAVIE_DISPUTES <platform>` runs at 08:00 local (pg-boss `disputes-tick` hourly → `disputes-check`; retries hourly until 20:00, max 3 attempts/day). Prompt v6 / skill v31 removed dispute filing from the daily §6 (reviews stay there).
+- **Dispute every "charged issue"** (Uber Eats 已收费问题) from the last 30 days; skip 优步已退款; accepted/rejected rows are results to record. The agent writes the packing-standards argument itself (≤ 400 chars, English, one hard fact from the order); the owner supplies nothing.
+- **Owner switch `restaurants.disputes_enabled`, default on**, independent of the admin observe-only switch (`agent_actions_enabled`). First visit shows an intro card until dismissed (`disputes_intro_seen_at`).
+- **Everything filed counts as Favie's** (`filed_by = favie`); a charge the owner already disputed is archived with `filed_by = owner` and excluded from "handled" counts. Decisions on *all* pending appeals are checked every day, not just yesterday's.
+- **One `dispute_checks` row per restaurant × platform × local day**, including failed and skipped days, so the owner's list never has silent gaps. Submitted text, reason category, customer note/photo flag and the platform's decision are archived on `disputes`.
+- Multi-store Uber Eats accounts: the agent switches to the bound store first and works only on it. DoorDash: skipped with "coming soon" until its portal steps are specified.

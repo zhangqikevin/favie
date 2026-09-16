@@ -28,6 +28,16 @@ export const FavieDispute = z.object({
   reason: z.string().nullable().optional(),   // the argument made, or why no appeal
   evidence: z.string().nullable().optional(),
   deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  // FAVIE_DISPUTES archive: what the portal showed and what was submitted.
+  reason_category: z.string().nullable().optional(),   // the portal's own reason option, in English
+  submitted_text: z.string().nullable().optional(),    // the dispute text exactly as sent (≤ 400 chars)
+  customer_note: z.string().nullable().optional(),     // the customer's complaint / issue description
+  customer_photo: z.boolean().nullable().optional(),
+  items_total: z.number().int().nullable().optional(),
+  items_disputed: z.string().nullable().optional(),    // which items the customer reported
+  customer_type: z.enum(['new', 'returning']).nullable().optional(),
+  filed_by: z.enum(['favie', 'owner']).nullable().optional(), // owner = already disputed before Favie saw it
+  decision_text: z.string().nullable().optional(),     // the platform's decision wording, when one appeared
 })
 export type FavieDispute = z.infer<typeof FavieDispute>
 
@@ -46,13 +56,14 @@ export const FaviePlatformReport = z.object({
   campaigns_seen: z.number().int().nullable().optional(),
   actions: z.array(FavieAction).default([]),
   disputes: z.array(FavieDispute).default([]), // every error charge / refund claim seen today and what happened to it
+  disputes_found: z.number().int().nullable().optional(), // FAVIE_DISPUTES: charged-issue orders visible in the 30-day list
   observations: z.array(z.string()).default([]),
   errors: z.array(z.string()).default([]),
 })
 
 export const FavieSummary = z.object({
   favie_summary_version: z.literal(1),
-  mode: z.enum(['daily', 'verify']),
+  mode: z.enum(['daily', 'verify', 'disputes']),
   run_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   aborted_early: z.boolean().default(false),
   abort_reason: z.string().nullable().optional(),

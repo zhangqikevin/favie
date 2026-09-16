@@ -91,6 +91,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
     language: LANG[owner?.locale ?? 'en'] ?? 'English',
     run_date: cal.runDate,
     actions_enabled: r.agentActionsEnabled,
+    disputes_enabled: r.disputesEnabled,   // owner switch for the FAVIE_DISPUTES task (independent of actions_enabled)
     weekday: cal.weekday,
     is_review_day: cal.isReviewDay,
     days_remaining_in_month: cal.daysRemaining,

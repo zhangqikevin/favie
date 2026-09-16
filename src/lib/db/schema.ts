@@ -12,7 +12,7 @@ export const onboardingStepEnum = pgEnum('onboarding_step', ['billing', 'connect
 export const agentKindEnum = pgEnum('agent_kind', ['delivery-ops'])
 export const agentStatusEnum = pgEnum('agent_status', ['none', 'creating', 'created', 'running', 'ready', 'failed'])
 export const connectionStatusEnum = pgEnum('connection_status', ['not_started', 'awaiting_login', 'verifying', 'select_store', 'connected', 'broken'])
-export const runKindEnum = pgEnum('run_kind', ['daily', 'verify', 'manual', 'menu'])
+export const runKindEnum = pgEnum('run_kind', ['daily', 'verify', 'manual', 'menu', 'disputes'])
 export const runStatusEnum = pgEnum('run_status', ['discovered', 'running', 'finished', 'collected', 'parse_failed', 'timed_out', 'interrupted'])
 export const runOutcomeEnum = pgEnum('run_outcome', ['succeeded', 'failed', 'aborted'])
 export const actionCategoryEnum = pgEnum('action_category', [
@@ -73,6 +73,9 @@ export const restaurants = pgTable('restaurants', {
   dailySchedulePaused: boolean('daily_schedule_paused').notNull().default(false),
   // Sysadmin kill switch per restaurant: false = the agent may only observe and recommend, never change anything on a platform.
   agentActionsEnabled: boolean('agent_actions_enabled').notNull().default(false),
+  // Disputes: owner-controlled, on by default, independent of the observe-only kill switch above.
+  disputesEnabled: boolean('disputes_enabled').notNull().default(true),
+  disputesIntroSeenAt: timestamp('disputes_intro_seen_at', { withTimezone: true }),
   serviceDisabled: boolean('service_disabled').notNull().default(false),
   ...timestamps,
 }, (t) => [index('restaurants_owner_idx').on(t.ownerUserId)])
@@ -372,12 +375,42 @@ export const disputes = pgTable('disputes', {
   reason: text('reason'),       // the agent's argument (or why it did not appeal)
   evidence: text('evidence'),   // what was submitted
   deadline: date('deadline'),   // last day the platform accepts the appeal
+  // What was actually submitted and what the platform said — the owner can read every case.
+  reasonCategory: text('reason_category'),   // e.g. customer_error | customer_evidence_wrong | refund_amount | other
+  submittedText: text('submitted_text'),     // the English dispute text as sent (≤ 400 chars)
+  customerNote: text('customer_note'),       // the customer's complaint as shown in the portal
+  customerPhoto: boolean('customer_photo'),  // the customer attached evidence
+  itemsTotal: integer('items_total'),
+  itemsDisputed: text('items_disputed'),     // which items were reported missing/wrong
+  filedBy: text('filed_by'),                 // favie | owner (disputed before Favie saw it) | null
+  decisionText: text('decision_text'),
+  customerType: text('customer_type'),       // new | returning | null
   filedAt: timestamp('filed_at', { withTimezone: true }),
   resolvedAt: timestamp('resolved_at', { withTimezone: true }),
   runId: uuid('run_id'),
   raw: jsonb('raw'),
   ...timestamps,
 }, (t) => [uniqueIndex('disputes_order_uq').on(t.restaurantId, t.platform, t.orderExternalId), index('disputes_restaurant_idx').on(t.restaurantId, t.createdAt)])
+
+// One row per restaurant × platform × local day: did the daily dispute check run, what did it find and do.
+// status: done | failed | skipped (feature off / platform not connected).
+export const disputeChecks = pgTable('dispute_checks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
+  platform: platformEnum('platform').notNull(),
+  date: date('date').notNull(),
+  status: text('status').notNull().default('done'),
+  found: integer('found').notNull().default(0),        // charged issues seen in the list (last 30 days)
+  filed: integer('filed').notNull().default(0),        // disputes Favie submitted in this check
+  skipped: integer('skipped').notNull().default(0),
+  won: integer('won').notNull().default(0),            // decisions that came back accepted in this check
+  lost: integer('lost').notNull().default(0),
+  recoveredCents: integer('recovered_cents').notNull().default(0),
+  error: text('error'),
+  runId: uuid('run_id'),
+  attempts: integer('attempts').notNull().default(1),
+  ...timestamps,
+}, (t) => [uniqueIndex('dispute_checks_day_uq').on(t.restaurantId, t.platform, t.date), index('dispute_checks_restaurant_idx').on(t.restaurantId, t.date)])
 
 // Ops: a live browser on the restaurant's saved login (same handoff mechanism as onboarding, but for
 // Favie's team, without touching the owner's connection state). status: queued | ready | failed | released.

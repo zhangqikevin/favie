@@ -20,6 +20,7 @@ export default async function DashboardLayout({ children, params }: { children: 
   const items: NavItem[] = [
     { href: base, key: 'dash.nav.activity', exact: true },
     { href: `${base}/menu`, key: 'dash.nav.menu' },
+    { href: `${base}/disputes`, key: 'dash.nav.disputes' },
     { href: `${base}/marketing`, key: 'dash.nav.adCaps' },
     { href: `${base}/orders`, key: 'dash.nav.orders' },
     { href: `${base}/settings`, key: 'dash.nav.settings' },

@@ -18,6 +18,7 @@ import { weeklyDigest } from './jobs/weeklyDigest'
 import { runMenuPull, runMenuGenerate, runMenuApply } from '@/lib/zoowork/menu'
 import { prepareZoowork } from '@/lib/zoowork/client'
 import { refreshSettings } from '@/server/settings'
+import { runDisputesCheck, disputesTick, InflightError } from '@/lib/zoowork/disputes'
 
 const url = process.env.DATABASE_URL
 if (!url) throw new Error('DATABASE_URL is not set')
@@ -100,6 +101,17 @@ await boss.work<{ opsId: string; op: 'start' | 'release' }>(JOBS.opsHandoff, { b
 })
 // Auto-release ops browsers whose live view expired (60 min), so restaurants get their profile back.
 await boss.work(JOBS.opsHandoffSweep, { batchSize: 1 }, async () => { const n = await releaseOpsHandoffs(); if (n) console.log('[opsHandoff] auto-released', n) })
+// Disputes: hourly tick decides who is due (08:00 local, retries until 20:00); checks run in parallel across restaurants.
+await boss.work(JOBS.disputesTick, { batchSize: 1 }, async () => { const n = await disputesTick(); if (n) console.log('[disputes] queued', n) })
+await boss.work<{ restaurantId: string; platform: 'uber_eats' | 'doordash'; date: string }>(JOBS.disputesCheck, { batchSize: 3, pollingIntervalSeconds: 1 }, async (jobs) => {
+  await Promise.all(jobs.map(async (job) => {
+    console.log('[disputesCheck]', job.data.restaurantId, job.data.platform, job.data.date)
+    try { await runDisputesCheck(job.data.restaurantId, job.data.platform, job.data.date) } catch (e) {
+      if (e instanceof InflightError) { console.log('[disputesCheck] agent busy, next tick retries'); return }
+      console.error('[disputesCheck] failed', (e as Error).message)
+    }
+  }))
+})
 await boss.work<{ restaurantAgentId: string }>(JOBS.decommissionAgent, { batchSize: 1 }, async ([job]) => { await decommissionAgent(job.data.restaurantAgentId) })
 
 // Cron
@@ -107,6 +119,7 @@ await boss.schedule(JOBS.collectRuns, '*/5 * * * *', {}, { tz: 'UTC' })
 await boss.schedule(JOBS.staleRuns, '17 * * * *', {}, { tz: 'UTC' })
 await boss.schedule(JOBS.opsHandoffSweep, '*/5 * * * *', {}, { tz: 'UTC' })
 await boss.schedule(JOBS.zoodataSync, '30 5 * * *', {}, { tz: 'UTC' })
+await boss.schedule(JOBS.disputesTick, '5 * * * *', {}, { tz: 'UTC' })
 // weeklyDigest intentionally NOT scheduled in V1 (placeholder job only).
 
 console.log('[worker] up; queues:', Object.values(JOBS).join(', '))

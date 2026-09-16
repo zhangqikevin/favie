@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { eq, isNotNull } from 'drizzle-orm'
+import { and, eq, isNotNull } from 'drizzle-orm'
 import { createZooworkClient } from '@zoowork-ai/sdk'
 import { SETTING_KEYS, setSetting, deleteSetting } from '@/server/settings'
 import { zoodataMenuTools } from '@/lib/menu/zoodata-menu'
@@ -10,7 +10,7 @@ import { ZOODATA_MENU_MCP_DEFAULT, ZOODATA_MENU_TOOL_DEFAULT } from '@/lib/menu/
 import { zoowork, resolveModel, logged } from '@/lib/zoowork/client'
 import { db, schema } from '@/lib/db/client'
 import { requireAdmin } from '@/server/admin'
-import { enqueueManualRun, enqueueReconcileSchedule, enqueueOpsHandoff } from '@/server/jobs/enqueue'
+import { enqueueManualRun, enqueueReconcileSchedule, enqueueOpsHandoff, enqueueDisputesCheck } from '@/server/jobs/enqueue'
 import { publishOperatingPrompt, rollbackTo } from '@/lib/zoowork/skill-publish'
 
 export type AdminState = { ok?: string; error?: string } | undefined
@@ -47,6 +47,21 @@ export async function runNow(_prev: AdminState, fd: FormData): Promise<AdminStat
   await enqueueManualRun(restaurantId)
   revalidatePath(`/admin/${restaurantId}`)
   return { ok: 'Queued. The run appears below within seconds; refresh to follow it.' }
+}
+
+/** Run today's Uber Eats disputes check for one restaurant now (instead of waiting for 08:00 local). */
+export async function runDisputesNow(_prev: AdminState, fd: FormData): Promise<AdminState> {
+  await requireAdmin()
+  const restaurantId = String(fd.get('restaurantId') ?? '')
+  const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1)
+  if (!r) return { error: 'restaurant not found' }
+  const { localDate } = await import('@/lib/zoowork/collect')
+  const today = localDate(new Date(), r.timezone)
+  // A 'done' row for today would make the job a no-op; drop it so the check really re-runs.
+  await db.delete(schema.disputeChecks).where(and(eq(schema.disputeChecks.restaurantId, restaurantId), eq(schema.disputeChecks.date, today), eq(schema.disputeChecks.platform, 'uber_eats')))
+  await enqueueDisputesCheck(restaurantId, 'uber_eats', today)
+  revalidatePath(`/admin/${restaurantId}`)
+  return { ok: `Queued the Uber Eats disputes check for ${today}. It shows up under Recent runs (kind "disputes") and on the owner's Disputes page.` }
 }
 
 export async function setDailyPaused(fd: FormData) {

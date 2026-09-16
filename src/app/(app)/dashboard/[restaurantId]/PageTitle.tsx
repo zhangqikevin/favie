@@ -9,7 +9,7 @@ export function PageTitle({ base }: { base: string }) {
   const pathname = usePathname()
   const segs = pathname.slice(base.length).split('/').filter(Boolean)
   const seg = segs[0] ?? ''
-  const key: DictKey = seg === 'settings' && segs[1] === 'connections' ? 'settings.platforms' : seg === 'menu' ? 'dash.nav.menu' : seg === 'orders' ? 'dash.nav.orders' : seg === 'marketing' ? 'dash.nav.adCaps' : seg === 'settings' ? 'dash.nav.settings' : seg === 'runs' ? 'cal.viewRun' : 'dash.nav.activity'
+  const key: DictKey = seg === 'settings' && segs[1] === 'connections' ? 'settings.platforms' : seg === 'menu' ? 'dash.nav.menu' : seg === 'disputes' ? 'dash.nav.disputes' : seg === 'orders' ? 'dash.nav.orders' : seg === 'marketing' ? 'dash.nav.adCaps' : seg === 'settings' ? 'dash.nav.settings' : seg === 'runs' ? 'cal.viewRun' : 'dash.nav.activity'
   const title = key === 'cal.viewRun' ? t('runs.title') : t(key)
   return (
     <div className="mb-7">
