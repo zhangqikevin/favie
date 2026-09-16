@@ -100,7 +100,8 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
               const ds = byRun.get(run.id) ?? []
               const startedAt = run.startedAt ?? run.createdAt
               const summary = run.summaryJson as { notes?: string | null; platforms?: { observations?: string[]; errors?: string[]; login?: string; login_failure_reason?: string | null }[] } | null
-              const notes = [...(summary?.platforms?.flatMap((p) => [...(p.observations ?? []), ...(p.errors ?? []), p.login && p.login !== 'ok' ? `login ${p.login}: ${p.login_failure_reason ?? ''}` : '']) ?? []), summary?.notes ?? ''].filter(Boolean)
+              // Only problems are shown here (login failed, agent errors); the agent's observations and notes are for /admin.
+              const notes = (summary?.platforms?.flatMap((p) => [...(p.errors ?? []), p.login && p.login !== 'ok' ? `login ${p.login}: ${p.login_failure_reason ?? ''}` : '']) ?? []).filter(Boolean)
               const statusKey = (run.status === 'running' ? 'disp.manual.st.running' : run.status === 'collected' ? 'disp.manual.st.done' : run.status === 'parse_failed' ? 'disp.manual.st.unparsed' : run.status === 'timed_out' ? 'disp.manual.st.timedOut' : run.status === 'finished' ? 'disp.manual.st.finishing' : 'disp.manual.st.failed') as DictKey
               const head = (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
