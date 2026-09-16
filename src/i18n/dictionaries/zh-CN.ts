@@ -385,6 +385,8 @@ const zhCN: Dictionary = {
   'mkt.share': '广告花费占销售额',
   'mkt.roasNote': '广告带来的销售额 = 广告带来的订单 × 客单价(估算);回报 = 广告带来的销售额 ÷ 广告花费。',
   'mkt.noData': '本月还没有销售数据。',
+  'data.sampleBanner': '示例数据。这家店还没有接入订单数据，这里的数字都是演示用的，不是真实经营数据。在设置里填写 Zoodata key 后即显示真实的订单、销售额和广告花费。',
+  'data.sampleBanner.link': '去设置',
   'mkt.sample': '门店数据到达前为示例数据。',
   'mkt.over': '已超出上限 — Favie 会暂停广告直到下月。',
   'theme.light': '切换到浅色模式',

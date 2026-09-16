@@ -1,3 +1,4 @@
+import { SampleDataNotice } from '@/components/SampleDataNotice'
 import { notFound } from 'next/navigation'
 import { desc, eq } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
@@ -28,6 +29,7 @@ export default async function MarketingPage({ params }: { params: Promise<{ rest
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
+      {mtd.source === 'mock' && <div className="lg:col-span-3"><SampleDataNotice restaurantId={r.id} /></div>}
       <div className="space-y-6 lg:col-span-2">
         {PLATFORMS.map((p) => {
           const cap = caps[p]

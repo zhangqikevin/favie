@@ -385,6 +385,8 @@ const es: Dictionary = {
   'mkt.share': 'Gasto publicitario sobre ventas',
   'mkt.roasNote': 'Ventas por anuncios = pedidos atribuidos × ticket medio (estimado); retorno = ventas por anuncios ÷ gasto.',
   'mkt.noData': 'Aún no hay datos de ventas de este mes.',
+  'data.sampleBanner': 'Datos de ejemplo. Este restaurante aún no tiene conexión de datos de pedidos, así que estas cifras son ilustrativas, no reales. Añade tu clave de Zoodata en Ajustes para ver pedidos, ventas y gasto publicitario reales.',
+  'data.sampleBanner.link': 'Abrir ajustes',
   'mkt.sample': 'Datos de ejemplo hasta que lleguen los de tu tienda.',
   'mkt.over': 'Límite superado: Favie mantiene las campañas en pausa hasta el próximo mes.',
   'theme.light': 'Cambiar a modo claro',

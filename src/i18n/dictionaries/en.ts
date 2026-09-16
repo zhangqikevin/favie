@@ -389,6 +389,8 @@ const en = {
   'mkt.share': 'Ad spend as a share of sales',
   'mkt.roasNote': 'Ad-driven sales are estimated as ad-attributed orders × average order value; return = ad-driven sales ÷ ad spend.',
   'mkt.noData': 'No sales data for this month yet.',
+  'data.sampleBanner': 'Sample data. This restaurant has no order-data connection yet, so these figures are illustrative — none of them are real. Add your Zoodata key in Settings to see actual orders, sales and ad spend.',
+  'data.sampleBanner.link': 'Open Settings',
   'mkt.sample': 'Sample data until your store data arrives.',
   'mkt.over': 'Over the cap — Favie keeps campaigns paused until next month.',
   'theme.light': 'Switch to light mode',

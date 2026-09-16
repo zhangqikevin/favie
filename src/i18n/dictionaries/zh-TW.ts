@@ -385,6 +385,8 @@ const zhTW: Dictionary = {
   'mkt.share': '廣告花費佔銷售額',
   'mkt.roasNote': '廣告帶來的銷售額 = 廣告帶來的訂單 × 客單價(估算);回報 = 廣告帶來的銷售額 ÷ 廣告花費。',
   'mkt.noData': '本月還沒有銷售數據。',
+  'data.sampleBanner': '示例資料。這家店還沒有接入訂單資料，這裡的數字都是示範用的，不是真實經營資料。在設定裡填寫 Zoodata key 後即顯示真實的訂單、銷售額和廣告花費。',
+  'data.sampleBanner.link': '前往設定',
   'mkt.sample': '門市數據到達前為範例數據。',
   'mkt.over': '已超出上限 — Favie 會暫停廣告直到下月。',
   'theme.light': '切換到淺色模式',

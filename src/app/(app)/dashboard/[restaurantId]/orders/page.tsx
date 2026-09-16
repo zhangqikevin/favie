@@ -1,3 +1,4 @@
+import { SampleDataNotice } from '@/components/SampleDataNotice'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/server/auth'
 import { getRestaurantForUser, getConnections } from '@/server/restaurants'
@@ -41,6 +42,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ restaur
 
   return (
     <div className="space-y-6">
+      {source === 'mock' && <SampleDataNotice restaurantId={r.id} />}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label={t('orders.stat.orders')} value={tot.orders.toLocaleString('en-US')} delta={delta(tot.orders, prev.orders)} sub={t('orders.vsPrev', { n: 30 })} />
         <Stat label={t('orders.stat.sales')} value={money(tot.gmvCents)} delta={delta(tot.gmvCents, prev.gmvCents)} sub={t('orders.vsPrev', { n: 30 })} />
