@@ -238,11 +238,11 @@ export async function confirmLogin(restaurantId: string, platform: Platform) {
     `FAVIE_CONFIRM_LOGIN ${platform}. The owner says they finished logging in to ${PLATFORM_NAME[platform]} in the handed-off browser. You already have the favie-ops skill in context; do not re-read it. Be fast:`,
     '1. snapshot. If a login form is still showing → report login "failed", login_failure_reason "not_logged_in", type nothing, close the session, summary.',
     '2. Otherwise call action "session" op "save_login" immediately.',
-    '3. List the stores this account can see using ONLY the store/location switcher or business selector list (one snapshot of that list is enough). Record each store\'s exact name and its id. Do NOT open each store, do NOT look up addresses (leave address null). Budget: at most 8 tool calls for this step.',
+    '3. List the stores this account can see using ONLY the store/location switcher or business selector list: open it, ONE snapshot (mode "efficient" — no second or "full" snapshot), read the names. Do NOT open each store, do NOT look up addresses (leave address null). Budget: at most 4 tool calls for this step.',
     '   Store id rules (Favie builds the public store page from it, so it must be the STORE id, not a business/organization id):',
     '   - Uber Eats: the UUID path segment of the current portal URL, e.g. /manager/home/<uuid> or /manager/menumaker/<uuid>. Use it as `store_external_id` and as `external_id` of the selected store.',
     '   - DoorDash: the `store_id=` query parameter of the current portal URL (Merchant Portal pages carry it; if the current URL has none, open Menu Manager or Orders once and read it there). The number shown in the store switcher is often the business id — never report that one as `store_external_id`.',
-    '4. Close the browser session and end with the favie-summary block (mode "verify") with those stores in "stores".',
+    '4. Do NOT close the browser (Favie closes it for you). End your reply immediately with the favie-summary block (mode "verify") with those stores in "stores".',
     `5. ${VERIFY_REPLY_FORMAT}`,
   ].join('\n')
   // Everything already in this session belongs to the handoff turn; only read what comes after it.
@@ -272,7 +272,7 @@ export async function confirmLogin(restaurantId: string, platform: Platform) {
     if (res.outcome && !/```favie-summary/.test(res.text)) {
       const prior = await zc.listAllEvents(agent.zooworkAgentId, sessionId)
       const next = prior.reduce((m, e) => Math.max(m, e.seq), -1)
-      await zc.postEvents(agent.zooworkAgentId, sessionId, [{ type: 'user.message', content: 'You stopped before finishing. Continue now: save_login if not done, list the stores, close the browser session, and end with the favie-summary block as instructed.', idempotency_key: `confirm-cont-${conn.id}-${Date.now()}` }])
+      await zc.postEvents(agent.zooworkAgentId, sessionId, [{ type: 'user.message', content: 'You stopped before finishing. Continue now: save_login if not done, list the stores, and end with the favie-summary block as instructed (do not close the browser).', idempotency_key: `confirm-cont-${conn.id}-${Date.now()}` }])
       const more = await turn(next, 4 * 60_000)
       res = { ...more, text: `${res.text}\n${more.text}` }
     }
@@ -285,6 +285,9 @@ export async function confirmLogin(restaurantId: string, platform: Platform) {
   const [fresh] = await db.select().from(schema.agentRuns).where(eq(schema.agentRuns.id, run!.id)).limit(1)
   await collectRun(fresh!, restaurant?.timezone ?? 'America/Los_Angeles')
   await db.update(schema.platformConnections).set({ loginConfirmedAt: new Date(), handoffUrl: null, progressNote: null, updatedAt: new Date() }).where(eq(schema.platformConnections.id, conn.id))
+  // The owner already sees the result; closing the browser happens off the critical path (the agent was
+  // told not to close it — that saved a model turn). Menu pulls that start meanwhile wait for it.
+  void releaseBrowser(agent.zooworkAgentId, sessionId, agent.id).catch((e) => console.warn('[confirmLogin] release failed', (e as Error).message))
 }
 
 // ---------------------------------------------------------------------------------------------
