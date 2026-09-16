@@ -1,5 +1,7 @@
 import { and, eq, inArray, isNotNull, ne, sql, desc } from 'drizzle-orm'
 import { canonicalStorefrontUrl, firecrawlKey, readStorefront, searchStorefront } from '@/lib/menu/firecrawl'
+import { menuReadConfig } from '@/lib/menu/provider'
+import { readStorefrontViaZoodata } from '@/lib/menu/zoodata-menu'
 import { menuDescribePrompt, menuImageModel } from '@/lib/menu/prompts'
 import { generateDishImageViaAgent } from './menu-image'
 import { buildApplyScript } from '@/lib/menu/recipes'
@@ -294,7 +296,8 @@ export async function runMenuPull(jobId: string) {
   try {
     const [rr] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, job.restaurantId)).limit(1)
     if (!rr) throw new Error('restaurant not found')
-    const key = await firecrawlKey()
+    const cfg = await menuReadConfig()
+    const key = cfg.firecrawlKey // web search for the store page still goes through Firecrawl when a key exists
     const connWhere = and(eq(schema.platformConnections.restaurantId, job.restaurantId), eq(schema.platformConnections.platform, job.platform))
     const [conn0] = await db.select().from(schema.platformConnections).where(connWhere).limit(1)
     let url = await storefrontUrl(rr, job.platform)
@@ -316,12 +319,19 @@ export async function runMenuPull(jobId: string) {
       }
     }
     if (!url && candidates > 0) { await fail(jobId, 'Several stores match this name — pick yours in Menu Clinic, then read again.'); return }
-    // Fast path: server-side read of the public store page (seconds, with photo URLs and item ids).
-    if (url && key) {
+    // Fast path: server-side read of the public store page (seconds, with photo URLs and item ids), through the
+    // provider chosen in /admin/settings; Zoodata falls back to Firecrawl, and both fall back to the agent's browser.
+    const useZoodata = cfg.provider === 'zoodata' && !!cfg.zoodata.key
+    if (url && (key || useZoodata)) {
       try {
         await note(jobId, 'Reading the store page…', { status: 'running' })
         const t0 = Date.now()
-        const menu = await readStorefront(key, job.platform, url)
+        let menu: Awaited<ReturnType<typeof readStorefront>>
+        if (useZoodata) {
+          try { menu = await readStorefrontViaZoodata({ url: cfg.zoodata.url, key: cfg.zoodata.key!, tool: cfg.zoodata.tool }, job.platform, url) }
+          catch (e) { console.warn('[menuPull] zoodata menu read failed, trying firecrawl:', (e as Error).message); if (!key) throw e; menu = await readStorefront(key, job.platform, url) }
+          if (menu.items.length < 3 && key) menu = await readStorefront(key, job.platform, url)
+        } else menu = await readStorefront(key!, job.platform, url)
         menu.ms = Date.now() - t0
         if (menu.items.length >= 3 && !sameStore(menu.storeName, conn0?.storeName)) {
           // A wrong id (e.g. a DoorDash business id) points at another restaurant's page: never ingest it.
@@ -334,7 +344,7 @@ export async function runMenuPull(jobId: string) {
           await db.update(schema.platformConnections).set({ storefrontUrl: url, storefrontCandidates: null, updatedAt: new Date() })
             .where(and(eq(schema.platformConnections.restaurantId, job.restaurantId), eq(schema.platformConnections.platform, job.platform)))
           const block = JSON.stringify({ favie_menu_version: 1, platform: job.platform, store_name: menu.storeName, storefront_url: url, truncated: false, items: menu.items })
-          await ingestMenu(jobId, '```favie-menu\n' + block + '\n```', { source: 'firecrawl', ms: menu.ms })
+          await ingestMenu(jobId, '```favie-menu\n' + block + '\n```', { source: useZoodata ? 'zoodata' : 'firecrawl', ms: menu.ms })
           return
         }
         console.warn('[menuPull] firecrawl read too small, using the agent', menu.items.length, url)
@@ -367,7 +377,7 @@ export async function runMenuPull(jobId: string) {
   }
 }
 
-export async function ingestMenu(jobId: string, text: string, meta: { source?: 'firecrawl' | 'agent'; ms?: number } = {}) {
+export async function ingestMenu(jobId: string, text: string, meta: { source?: 'firecrawl' | 'agent' | 'zoodata'; ms?: number } = {}) {
   const [job] = await db.select().from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
   if (!job) return
   try {

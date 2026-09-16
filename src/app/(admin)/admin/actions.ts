@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation'
 import { eq, isNotNull } from 'drizzle-orm'
 import { createZooworkClient } from '@zoowork-ai/sdk'
 import { SETTING_KEYS, setSetting, deleteSetting } from '@/server/settings'
+import { zoodataMenuTools } from '@/lib/menu/zoodata-menu'
+import { ZOODATA_MENU_MCP_DEFAULT, ZOODATA_MENU_TOOL_DEFAULT } from '@/lib/menu/provider'
 import { zoowork, resolveModel, logged } from '@/lib/zoowork/client'
 import { db, schema } from '@/lib/db/client'
 import { requireAdmin } from '@/server/admin'
@@ -185,6 +187,38 @@ export async function completeMenuOptimization(fd: FormData) {
   const note = String(fd.get('note') ?? '').trim() || null
   await db.update(schema.menuOptimizations).set({ status: 'done', completedAt: new Date(), note, updatedAt: new Date() }).where(eq(schema.menuOptimizations.id, id))
   revalidatePath('/admin')
+}
+
+// ---- Menu reads: provider + Zoodata platform key ----
+
+export async function saveMenuReadProvider(fd: FormData) {
+  const user = await requireAdmin()
+  const provider = String(fd.get('provider') ?? 'firecrawl') === 'zoodata' ? 'zoodata' : 'firecrawl'
+  await setSetting(SETTING_KEYS.menuReadProvider, provider, { userId: user.id })
+  revalidatePath('/admin/settings')
+}
+
+export async function saveZoodataPlatformKey(_prev: AdminState, fd: FormData): Promise<AdminState> {
+  const user = await requireAdmin()
+  const key = String(fd.get('key') ?? '').trim()
+  const url = String(fd.get('url') ?? '').trim() || ZOODATA_MENU_MCP_DEFAULT
+  const tool = String(fd.get('tool') ?? '').trim() || ZOODATA_MENU_TOOL_DEFAULT
+  if (key.length < 12) return { error: 'That key looks too short.' }
+  if (!/^https:\/\//.test(url)) return { error: 'The MCP endpoint must be an https URL.' }
+  let tools: string[]
+  try { tools = await zoodataMenuTools({ url, key }) } catch (e) { return { error: `Zoodata rejected the key or endpoint: ${(e as Error).message.slice(0, 160)}` } }
+  if (tools.length && !tools.includes(tool)) return { error: `Key verified, but this endpoint has no tool named "${tool}". Available: ${tools.slice(0, 12).join(', ')}` }
+  await setSetting(SETTING_KEYS.zoodataPlatformKey, key, { secret: true, userId: user.id })
+  await setSetting(SETTING_KEYS.zoodataMenuMcpUrl, url, { userId: user.id })
+  await setSetting(SETTING_KEYS.zoodataMenuTool, tool, { userId: user.id })
+  revalidatePath('/admin/settings')
+  return { ok: `Key verified (${tools.length} tools listed) and saved.` }
+}
+
+export async function clearZoodataPlatformKey() {
+  await requireAdmin()
+  await deleteSetting(SETTING_KEYS.zoodataPlatformKey)
+  revalidatePath('/admin/settings')
 }
 
 // ---- Ops browser: a live browser on the restaurant's saved login (menu work, support) ----

@@ -9,6 +9,10 @@ export const SETTING_KEYS = {
   menuImagePrompt: 'menu_image_prompt',
   menuImageModel: 'menu_image_model',
   firecrawlApiKey: 'firecrawl_api_key',
+  menuReadProvider: 'menu_read_provider',      // 'firecrawl' | 'zoodata'
+  zoodataPlatformKey: 'zoodata_platform_key',  // Zoodata PLATFORM key for the menu-scrape tool (not a restaurant's data key)
+  zoodataMenuMcpUrl: 'zoodata_menu_mcp_url',
+  zoodataMenuTool: 'zoodata_menu_tool',
 } as const
 type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS]
 

@@ -12,6 +12,8 @@ export default async function AdminSettings() {
     db.$count(schema.restaurantAgents, isNotNull(schema.restaurantAgents.zooworkAgentId)),
     getSetting(SETTING_KEYS.firecrawlApiKey),
   ])
+  const [provider, zKey, zUrl, zTool] = await Promise.all([getSetting(SETTING_KEYS.menuReadProvider), getSetting(SETTING_KEYS.zoodataPlatformKey), getSetting(SETTING_KEYS.zoodataMenuMcpUrl), getSetting(SETTING_KEYS.zoodataMenuTool)])
+  const menuRead = { provider: provider?.value === 'zoodata' ? 'zoodata' as const : 'firecrawl' as const, zoodata: { last4: zKey?.value ? zKey.value.slice(-4) : null, url: zUrl?.value ?? null, tool: zTool?.value ?? null, updatedAt: zKey?.updatedAt.toISOString() ?? null } }
   const fcEnv = process.env.FIRECRAWL_API_KEY ?? null
   const fcInUse = savedFc?.value ?? fcEnv
   const firecrawl = { source: savedFc ? ('database' as const) : fcEnv ? ('environment' as const) : ('none' as const), last4: fcInUse ? fcInUse.slice(-4) : null, updatedAt: savedFc?.updatedAt.toISOString() ?? null }
@@ -26,7 +28,7 @@ export default async function AdminSettings() {
       <h1 className="font-display text-2xl font-bold tracking-tight">Platform settings</h1>
       <p className="mt-1 text-sm text-ink-500">Credentials and defaults for the ZooWork organization that hosts every customer agent.</p>
       <div className="mt-5">
-        <PlatformSettings keyInfo={keyInfo} models={models.map((m) => ({ model: m.model, label: (m as { label?: string }).label }))} defaultModel={defaultModel?.value ?? null} agentCount={agentCount} firecrawl={firecrawl} />
+        <PlatformSettings keyInfo={keyInfo} models={models.map((m) => ({ model: m.model, label: (m as { label?: string }).label }))} defaultModel={defaultModel?.value ?? null} agentCount={agentCount} firecrawl={firecrawl} menuRead={menuRead} />
       </div>
     </section>
   )

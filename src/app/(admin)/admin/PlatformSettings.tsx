@@ -1,15 +1,17 @@
 'use client'
 import { useActionState } from 'react'
-import { saveZooworkKey, clearZooworkKey, saveDefaultModel, applyModelToAgents, saveFirecrawlKey, clearFirecrawlKey, type AdminState } from './actions'
+import { saveZooworkKey, clearZooworkKey, saveDefaultModel, applyModelToAgents, saveFirecrawlKey, clearFirecrawlKey, saveMenuReadProvider, saveZoodataPlatformKey, clearZoodataPlatformKey, type AdminState } from './actions'
 
-export function PlatformSettings({ keyInfo, models, defaultModel, agentCount, firecrawl }: {
+export function PlatformSettings({ keyInfo, models, defaultModel, agentCount, firecrawl, menuRead }: {
   keyInfo: { source: 'database' | 'environment' | 'none'; last4: string | null; updatedAt: string | null }
   models: { model: string; label?: string }[]
   defaultModel: string | null
   agentCount: number
   firecrawl: { source: 'database' | 'environment' | 'none'; last4: string | null; updatedAt: string | null }
+  menuRead: { provider: 'firecrawl' | 'zoodata'; zoodata: { last4: string | null; url: string | null; tool: string | null; updatedAt: string | null } }
 }) {
   const [fcState, fcAction, fcPending] = useActionState<AdminState, FormData>(saveFirecrawlKey, undefined)
+  const [zdState, zdAction, zdPending] = useActionState<AdminState, FormData>(saveZoodataPlatformKey, undefined)
   const [keyState, keyAction, keyPending] = useActionState<AdminState, FormData>(saveZooworkKey, undefined)
   const [modelState, modelAction, modelPending] = useActionState<AdminState, FormData>(saveDefaultModel, undefined)
   const [applyState, applyAction, applyPending] = useActionState<AdminState, FormData>(applyModelToAgents, undefined)
@@ -60,6 +62,43 @@ export function PlatformSettings({ keyInfo, models, defaultModel, agentCount, fi
           <p className="mt-1.5 text-xs text-ink-500">Switches every provisioned agent to the default model. Persona, skills and schedules are untouched; the agent's config version increments.</p>
           {applyState?.ok && <p className="mt-2 text-sm text-emerald-700">{applyState.ok}</p>}
           {applyState?.error && <p className="mt-2 text-sm text-red-700">{applyState.error}</p>}
+        </form>
+      </section>
+
+      <section className="card p-5">
+        <h2 className="font-display text-sm font-bold">Menu reads — which service reads the public store page</h2>
+        <p className="mt-1 text-xs text-ink-500">Menu Clinic reads a restaurant's public Uber Eats / DoorDash page server-side (seconds, with photos and item ids). Pick the service; each needs its own key below. Without any key the agent's browser reads the page (about 10 minutes, no photos).</p>
+        <form action={saveMenuReadProvider} className="mt-3 flex flex-wrap items-center gap-4 text-sm">
+          {(['firecrawl', 'zoodata'] as const).map((p) => (
+            <label key={p} className={`flex items-center gap-2 rounded-full border px-3 py-1.5 ${menuRead.provider === p ? 'border-ink-900 bg-ink-900 text-white' : 'border-ink-100 bg-white'}`}>
+              <input type="radio" name="provider" value={p} defaultChecked={menuRead.provider === p} className="accent-current" />{p === 'firecrawl' ? 'Firecrawl' : 'Zoodata menu tool'}
+            </label>
+          ))}
+          <button type="submit" className="pill !py-1.5 text-xs">Save choice</button>
+        </form>
+      </section>
+
+      <section className="card p-5">
+        <h2 className="font-display text-sm font-bold">Zoodata platform key (menu tool)</h2>
+        <p className="mt-1 text-xs text-ink-500">Favie's own <b>platform</b> key for Zoodata's menu-scrape MCP tool — not a restaurant's data key (those are saved per restaurant by the owner). Verified by listing the endpoint's tools before saving.</p>
+        <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+          <div className="flex gap-1.5"><dt className="text-ink-500">In use:</dt><dd className="font-mono">{menuRead.zoodata.last4 ? `…${menuRead.zoodata.last4}` : '—'}</dd></div>
+          <div className="flex gap-1.5"><dt className="text-ink-500">Endpoint:</dt><dd className="font-mono text-xs">{menuRead.zoodata.url ?? 'default'}</dd></div>
+          <div className="flex gap-1.5"><dt className="text-ink-500">Tool:</dt><dd className="font-mono text-xs">{menuRead.zoodata.tool ?? 'default'}</dd></div>
+          {menuRead.zoodata.updatedAt && <div className="flex gap-1.5"><dt className="text-ink-500">Saved:</dt><dd>{new Date(menuRead.zoodata.updatedAt).toLocaleString('en-US')}</dd></div>}
+        </dl>
+        <form action={zdAction} className="mt-4 space-y-2">
+          <input name="key" type="password" autoComplete="off" placeholder="Zoodata platform key" className="input font-mono text-sm" />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input name="url" type="url" autoComplete="off" defaultValue={menuRead.zoodata.url ?? ''} placeholder="MCP endpoint (default https://api.zoodata.ai/mcp-menu)" className="input font-mono text-sm" />
+            <input name="tool" autoComplete="off" defaultValue={menuRead.zoodata.tool ?? ''} placeholder="tool name (default menu_scrape)" className="input font-mono text-sm" />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="submit" disabled={zdPending} className="btn-primary !py-2 text-sm">{zdPending ? 'Verifying…' : 'Verify & save'}</button>
+            {menuRead.zoodata.last4 && <button formAction={clearZoodataPlatformKey} formNoValidate className="text-xs text-ink-500 hover:text-ink-900 hover:underline">Remove key</button>}
+          </div>
+          {zdState?.ok && <p className="text-sm text-emerald-700">{zdState.ok}</p>}
+          {zdState?.error && <p className="text-sm text-red-700">{zdState.error}</p>}
         </form>
       </section>
 
