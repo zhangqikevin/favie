@@ -157,18 +157,26 @@ export type PulledItem = { external_id?: string | null; category?: string | null
  * Public store page for a connection: confirmed URL → Uber Eats store uuid from the connection →
  * Zoodata binding (real key only). Null means the caller should search (or fall back to the agent).
  */
+/** The store's name on THIS platform (it can differ from the restaurant's canonical Uber Eats name). */
+async function storeNameFor(r: typeof schema.restaurants.$inferSelect, platform: Platform): Promise<string> {
+  const [conn] = await db.select({ name: schema.platformConnections.storeName }).from(schema.platformConnections)
+    .where(and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))).limit(1)
+  return conn?.name ?? r.name
+}
+
 async function storefrontUrl(r: typeof schema.restaurants.$inferSelect, platform: Platform): Promise<string | null> {
-  const [conn] = await db.select({ storeId: schema.platformConnections.storeExternalId, url: schema.platformConnections.storefrontUrl }).from(schema.platformConnections)
+  const [conn] = await db.select({ storeId: schema.platformConnections.storeExternalId, url: schema.platformConnections.storefrontUrl, name: schema.platformConnections.storeName }).from(schema.platformConnections)
     .where(and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))).limit(1)
   if (conn?.url) return conn.url
+  const name = conn?.name ?? r.name
   // Uber Eats store ids are uuids, so the saved one is safe to use. DoorDash's saved id may be the business id, not the store.
-  if (platform === 'uber_eats' && conn?.storeId && /^[0-9a-f-]{36}$/i.test(conn.storeId)) return canonicalStorefrontUrl('uber_eats', conn.storeId, r.name)
+  if (platform === 'uber_eats' && conn?.storeId && /^[0-9a-f-]{36}$/i.test(conn.storeId)) return canonicalStorefrontUrl('uber_eats', conn.storeId, name)
   try {
     const zd = zoodataFor(r)
     if (zd.source !== 'zoodata') return null // sample data must never point at another store
     const list = await zd.client.listRestaurants()
     const want = toZoodataPlatform(platform)
-    for (const z of list) for (const b of z.platformBindings) if (b.platform === want && b.platformStoreId) return canonicalStorefrontUrl(platform, b.platformStoreId, r.name)
+    for (const z of list) for (const b of z.platformBindings) if (b.platform === want && b.platformStoreId) return canonicalStorefrontUrl(platform, b.platformStoreId, name)
   } catch {}
   return null
 }
@@ -193,6 +201,7 @@ function sameStore(a: string | null | undefined, b: string | null | undefined) {
  */
 async function storeIdFromPortal(r: typeof schema.restaurants.$inferSelect, platform: Platform, jobId: string): Promise<string | null> {
   const label = await resolveLoginLabel(r.id)
+  const storeName = await storeNameFor(r, platform)
   const message = [
     `FAVIE_STORE_URL ${platform}. Read this store's id from the merchant portal URL. No context fetch, change nothing, type nothing.`,
     `1. browser action "session" op "restart" with loginLabel "${label}" and egressCountry "US".`,
@@ -200,14 +209,14 @@ async function storeIdFromPortal(r: typeof schema.restaurants.$inferSelect, plat
     platform === 'doordash'
       ? '3. The store id is the `store_id=` query parameter of the portal URL. If the current URL has none, click "Menu" (Menu Manager) or "Orders" in the sidebar once, wait 4 seconds, snapshot, and read it from that URL. Ignore the number in the store switcher (business id).'
       : '3. The store id is the UUID path segment of the portal URL, e.g. /manager/home/<uuid>. If the URL has no UUID, click "Home" once and read it again.',
-    r.name ? `4. The store should be "${r.name}"; if the portal shows a different store selected, switch to the right one first.` : '4. Use the store currently selected.',
+    storeName ? `4. The store should be "${storeName}" (its name on this platform); if the portal shows a different store selected, switch to the right one first.` : '4. Use the store currently selected.',
     '5. Close the browser session (action "session" op "close"). Reply with exactly one line: STORE <id> <current url>. If you cannot find it, reply: STORE none <current url>.',
   ].join('\n')
   await note(jobId, 'Reading the store id from your merchant portal…')
   const { text } = await runAgentTurn(r.id, message, jobId, { budgetMs: 4 * 60_000 })
   const m = /STORE\s+([A-Za-z0-9-]+)/.exec(text)
   const id = m && m[1] !== 'none' ? m[1] : null
-  return id && storefrontFromId(platform, id, r.name) ? id : null
+  return id && storefrontFromId(platform, id, storeName) ? id : null
 }
 
 /**
@@ -215,9 +224,9 @@ async function storeIdFromPortal(r: typeof schema.restaurants.$inferSelect, plat
  * is confirmed automatically; several are stored for the owner to pick in Menu Clinic.
  */
 async function discoverStorefront(r: typeof schema.restaurants.$inferSelect, platform: Platform, key: string): Promise<{ url: string } | { candidates: number }> {
-  const cands = await searchStorefront(key, platform, r.name, r.city)
   const [conn] = await db.select().from(schema.platformConnections)
     .where(and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))).limit(1)
+  const cands = await searchStorefront(key, platform, conn?.storeName ?? r.name, r.city)
   const known = conn?.storeExternalId?.toLowerCase()
   const pick = cands.length === 1 ? cands[0] : cands.find((c) => known && c.storeId.toLowerCase() === known)
   const where = and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))
@@ -314,7 +323,7 @@ export async function runMenuPull(jobId: string) {
       await waitForAgentBrowser(job.restaurantId, jobId)
       const id = await storeIdFromPortal(rr, job.platform, jobId).catch((e) => { console.warn('[menuPull] store id read failed:', (e as Error).message); return null })
       if (id) {
-        url = storefrontFromId(job.platform, id, rr.name)
+        url = storefrontFromId(job.platform, id, conn0?.storeName ?? rr.name)
         await db.update(schema.platformConnections).set({ storeExternalId: id, storefrontUrl: url, storefrontCandidates: null, updatedAt: new Date() }).where(connWhere)
       }
     }

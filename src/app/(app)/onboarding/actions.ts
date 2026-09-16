@@ -52,7 +52,7 @@ export async function selectStore(platform: 'uber_eats' | 'doordash', externalId
     status: 'connected', storeName: pick.name, storeExternalId: pick.external_id, storeAddress: pick.address,
     verifiedAt: new Date(), lastVerifiedAt: new Date(), lastError: null, brokenSince: null, updatedAt: new Date(),
   }).where(eq(schema.platformConnections.id, conn.id))
-  await adoptRestaurantName(r.id, pick)
+  await adoptRestaurantName(r.id, pick, platform)
   await enqueueReconcileSchedule(r.id).catch(() => {})
 }
 

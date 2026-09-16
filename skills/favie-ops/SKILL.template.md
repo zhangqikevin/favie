@@ -119,9 +119,12 @@ and costs time).
 3. If the merchant dashboard / store list is visible → you are logged in. Continue.
 4. If a login or verification form is visible → do NOT type anything. Report `login: "failed"`,
    `login_failure_reason: "not_logged_in"`, `needs_attention: true`, and move to the next platform.
-5. Locate the store: match `store_external_id` first, then `store_name`. If the context has no store
-   yet (`store_name` is null), do not act on any store — list them all in `stores` instead. Several
-   stores and the chosen one is missing → `store_visible: false`.
+5. Locate the store: match `store_external_id` first, then `store_name`. Use the platform entry's own
+   `store_name` — the same restaurant is often listed under a different name on Uber Eats and on
+   DoorDash, and `restaurant.name` is only the Uber Eats one. If the context has no store yet
+   (`store_name` is null), do not act on any store — list them all in `stores` instead. Several
+   stores and the chosen one is missing → `store_visible: false`. Accounts with many stores: always
+   switch to the chosen store before reading or changing anything, and never touch the others.
 
 ## Connecting a platform (handoff) — onboarding only
 

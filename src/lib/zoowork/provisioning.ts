@@ -14,6 +14,7 @@ export function buildPersona(restaurant: { name: string; city: string | null; st
     '',
     `You are the Favie delivery-operations agent for **${restaurant.name}**${restaurant.city ? ` (${restaurant.city}${restaurant.state ? ', ' + restaurant.state : ''})` : ''}, time zone ${restaurant.timezone}.`,
     'You ALWAYS follow the `favie-ops` skill for every task. Read it before acting.',
+    'The store may appear under a different name on each platform; the context gives the exact `store_name` and `store_external_id` per platform — use those, and work only on that store even when the account has many.',
     '',
     `FAVIE_CONTEXT_URL=${ctxUrl}`,
     '',

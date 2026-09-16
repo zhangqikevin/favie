@@ -38,7 +38,7 @@ export async function applyConnectionReport(restaurantId: string, p: PlatformRep
         storefrontUrl: conn.storefrontUrl ?? storefrontFromId(p.platform, sid, stores[0]!.name),
         roleSeen: p.role_seen ?? null, verifiedAt: now, lastVerifiedAt: now, lastVerifyRunId: runId, lastError: null, brokenSince: null, verifyAttempts: 0, updatedAt: now,
       }).where(eq(schema.platformConnections.id, conn.id))
-      await adoptRestaurantName(restaurantId, stores[0]!)
+      await adoptRestaurantName(restaurantId, stores[0]!, p.platform)
       await enqueueReconcileSchedule(restaurantId).catch(() => {})
       return
     }
@@ -78,12 +78,17 @@ export async function applyConnectionReport(restaurantId: string, p: PlatformRep
   if (conn.status === 'connected') await enqueueReconcileSchedule(restaurantId).catch(() => {})
 }
 
-/** The restaurant is named after the first store the owner connects (they never type it). */
-export async function adoptRestaurantName(restaurantId: string, store: { name: string; address: string | null }) {
+/**
+ * The restaurant is named after the store the owner connects (they never type it). The same store is
+ * often listed under different names on Uber Eats and DoorDash; the Uber Eats name is the canonical
+ * one, so it takes over even when DoorDash was connected first. Each platform keeps its own
+ * `store_name` on the connection, and every per-platform task uses that one.
+ */
+export async function adoptRestaurantName(restaurantId: string, store: { name: string; address: string | null }, platform: 'uber_eats' | 'doordash') {
   const [r] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1)
   if (!r) return
   const values: Partial<typeof schema.restaurants.$inferInsert> = { updatedAt: new Date() }
-  if (r.name === 'My restaurant') values.name = store.name
+  if (r.name === 'My restaurant' || (platform === 'uber_eats' && r.name !== store.name)) values.name = store.name
   if (!r.addressLine && store.address) {
     values.addressLine = store.address
     const m = /,\s*([A-Za-z .'-]+),\s*([A-Z]{2})\s*(\d{5})?/.exec(store.address)
