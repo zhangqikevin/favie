@@ -41,15 +41,21 @@ export async function zoodataSync(restaurantId?: string, daysBack = 3) {
         if (!platform || !h.date) continue
         seen.add(`${h.platform}:${h.date}`)
         const d = dailyBy.get(`${h.platform}:${h.date}`)
-        const orders = h.ordersCnt ?? h.platformOrderVolume ?? d?.orderCnt ?? null
-        const gmv = h.ordersGmvAmount ?? h.platformSalesAmount ?? d?.platformReportedSalesAmount ?? null
+        // Two counts per day: the order feed (ordersCnt / ordersGmvAmount — only the orders Zoodata ingested,
+        // e.g. Uber Eats showed 11 of 32) and the platform's own report (platformOrderVolume / platformSalesAmount —
+        // complete, but lags days on DoorDash and reads 0 until it lands). Neither can overcount, so take the
+        // richer one for the day and keep its sales figure with it.
+        const feedOrders = h.ordersCnt ?? null, platOrders = h.platformOrderVolume ?? null
+        const usePlatform = (platOrders ?? 0) > (feedOrders ?? 0)
+        const orders = usePlatform ? platOrders : (feedOrders ?? platOrders ?? d?.orderCnt ?? null)
+        const gmv = usePlatform ? (h.platformSalesAmount ?? d?.platformReportedSalesAmount ?? h.ordersGmvAmount ?? null) : (h.ordersGmvAmount ?? h.platformSalesAmount ?? d?.platformReportedSalesAmount ?? null)
         const adSpend = h.platformAdSpendAmount ?? d?.adSpendAmount ?? null
         const adSales = h.adAttributedGmvAmount ?? (adSpend != null && h.platformAdRoas != null && adSpend > 0 ? Math.round(adSpend * h.platformAdRoas) : d?.adAttributedSalesAmount ?? null)
         upserts.push({
           restaurantId: r.id, platform, date: h.date, orders, gmvCents: gmv, aovCents: orders && gmv ? Math.round(gmv / orders) : null,
           adSpendCents: adSpend, adAttributedOrders: h.adAttributedOrdersCnt ?? d?.adAttributedOrderCnt ?? null, adAttributedSalesCents: adSales,
           avgRating: d?.rating != null ? String(d.rating) : null, downtimeMinutes: d?.downtimeMinutes ?? null,
-          isMature: h.isMature !== false, source, raw: { health: h.raw, daily: d?.raw ?? null }, fetchedAt: new Date(), updatedAt: new Date(),
+          isMature: h.isMature !== false, source, raw: { health: h.raw, daily: d?.raw ?? null, orders_from: usePlatform ? 'platform_report' : 'order_feed' }, fetchedAt: new Date(), updatedAt: new Date(),
         })
       }
       // Days the order feed did not cover but the portal did (older history): fall back to the portal report.

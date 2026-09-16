@@ -77,8 +77,9 @@ export default async function MarketingPage({ params }: { params: Promise<{ rest
                 <Cell label={t('mkt.pace')} value={pace == null ? '—' : `${money(Math.round(pace))}/d`} />
                 <Cell label={t('mkt.orders')} value={hasData ? m.orders.toLocaleString(intl) : '—'} />
                 <Cell label={t('mkt.sales')} value={hasData ? money(m.gmvCents) : '—'} />
-                <Cell label={t('mkt.attributed')} value={hasData && (m.adAttributedOrders || m.adAttributedSalesCents == null) ? m.adAttributedOrders.toLocaleString(intl) : hasData ? '—' : '—'} sub={hasData && m.orders && m.adAttributedOrders ? `${Math.round((m.adAttributedOrders / m.orders) * 100)}%` : undefined} />
-                <Cell label={t('mkt.roas')} value={roas == null ? '—' : `${roas.toFixed(1)}×`} sub={adSales == null ? undefined : `${t('mkt.adSales')} ${money(adSales)}`} tone={roas == null ? undefined : roas >= 2.5 ? 'ok' : 'warn'} />
+                {/* Attribution only means something when ads actually ran: with $0 spend the feed's "ad-attributed" flags are noise (promotions, stale tags). */}
+                <Cell label={t('mkt.attributed')} value={hasData && adSpend > 0 && m.adAttributedOrders ? m.adAttributedOrders.toLocaleString(intl) : '—'} sub={hasData && adSpend > 0 && m.orders && m.adAttributedOrders ? `${Math.round((m.adAttributedOrders / m.orders) * 100)}%` : undefined} />
+                <Cell label={t('mkt.roas')} value={roas == null ? '—' : `${roas.toFixed(1)}×`} sub={adSales == null || adSpend <= 0 ? undefined : `${t('mkt.adSales')} ${money(adSales)}`} tone={roas == null ? undefined : roas >= 2.5 ? 'ok' : 'warn'} />
               </dl>
               {hasData && (
                 <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-ink-100/60 p-4">
@@ -86,7 +87,8 @@ export default async function MarketingPage({ params }: { params: Promise<{ rest
                     <p className="text-xs text-ink-500">{t('mkt.donut.title')}</p>
                     {share != null && <p className="mt-1 text-xs text-ink-500">{t('mkt.share')}: <span className="font-semibold text-ink-900">{share.toFixed(1)}%</span></p>}
                   </div>
-                  <Donut adCents={adSpend > 0 ? adSales : null} totalCents={m.gmvCents} labelAd={t('mkt.donut.ad')} labelOrganic={t('mkt.donut.organic')} none={t('mkt.donut.none')} />
+                  {/* Platform attribution uses a multi-day window, so it can exceed a short month-to-date total: never draw more than 100%. */}
+                  <Donut adCents={adSpend > 0 && adSales != null ? Math.min(adSales, m.gmvCents) : null} totalCents={m.gmvCents} labelAd={t('mkt.donut.ad')} labelOrganic={t('mkt.donut.organic')} none={t('mkt.donut.none')} />
                 </div>
               )}
               {!hasData && <p className="mt-3 text-xs text-ink-500">{t('mkt.noData')}</p>}
