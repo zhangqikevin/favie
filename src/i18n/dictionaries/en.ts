@@ -249,6 +249,7 @@ const en = {
   'ob.connect.skip': 'Skip for now',
   'ob.connect.backToDashboard': 'Back to dashboard',
   'ob.connect.skipHint': 'You can connect platforms later from Settings. Favie does nothing until at least one is connected.',
+  'ob.connect.waitHint': 'Finish connecting the platform above first (or cancel it) before continuing.',
   'ob.connect.portal.doordash': 'DoorDash Merchant Portal',
   'ob.connect.portal.uber_eats': 'Uber Eats Manager',
   'status.not_started': 'Not connected',

@@ -246,6 +246,7 @@ const es: Dictionary = {
   'ob.connect.skip': 'Omitir por ahora',
   'ob.connect.backToDashboard': 'Volver al panel',
   'ob.connect.skipHint': 'Puedes conectar plataformas más tarde desde Ajustes. Favie no hace nada hasta que al menos una esté conectada.',
+  'ob.connect.waitHint': 'Termina primero la conexión de la plataforma de arriba (o cancélala) antes de continuar.',
   'ob.connect.portal.doordash': 'el portal de comerciantes de DoorDash',
   'ob.connect.portal.uber_eats': 'Uber Eats Manager',
   'status.not_started': 'No conectado',

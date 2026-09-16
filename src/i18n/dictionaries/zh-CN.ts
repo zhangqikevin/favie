@@ -246,6 +246,7 @@ const zhCN: Dictionary = {
   'ob.connect.skip': '暂时跳过',
   'ob.connect.backToDashboard': '返回控制台',
   'ob.connect.skipHint': '你可以稍后在设置中连接平台。至少连接一个平台后 Favie 才会开始工作。',
+  'ob.connect.waitHint': '请先完成上面平台的连接（或取消），再继续。',
   'ob.connect.portal.doordash': 'DoorDash 商家后台',
   'ob.connect.portal.uber_eats': 'Uber Eats Manager',
   'status.not_started': '未连接',

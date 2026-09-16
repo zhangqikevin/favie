@@ -246,6 +246,7 @@ const ja: Dictionary = {
   'ob.connect.skip': '今はスキップ',
   'ob.connect.backToDashboard': 'ダッシュボードに戻る',
   'ob.connect.skipHint': 'プラットフォームは後から設定画面で連携できます。少なくとも1つ連携するまで Favie は何もしません。',
+  'ob.connect.waitHint': '先に上のプラットフォームの接続を完了（またはキャンセル）してから続けてください。',
   'ob.connect.portal.doordash': 'DoorDash 店舗ポータル',
   'ob.connect.portal.uber_eats': 'Uber Eats Manager',
   'status.not_started': '未連携',

@@ -41,9 +41,13 @@ export const FavieDispute = z.object({
 })
 export type FavieDispute = z.infer<typeof FavieDispute>
 
+/** Agents sometimes put narrative strings where objects belong ("actions": ["saved login"]). Keep the objects, drop the rest. */
+const objectsOnly = (v: unknown) => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object' && !Array.isArray(x)) : v)
+const stringsOnly = (v: unknown) => (Array.isArray(v) ? v.filter((x) => x != null).map((x) => (typeof x === 'string' ? x : JSON.stringify(x))) : v)
+
 export const FaviePlatformReport = z.object({
   platform: z.enum(['uber_eats', 'doordash']),
-  stores: z.array(FavieStore).default([]), // every store visible in the account (verify / confirm-login)
+  stores: z.preprocess(objectsOnly, z.array(FavieStore).default([])), // every store visible in the account (verify / confirm-login)
   login: z.enum(['ok', 'failed', 'skipped']),
   login_failure_reason: z.string().nullable().optional(),
   store_visible: z.boolean().nullable().optional(),
@@ -54,11 +58,11 @@ export const FaviePlatformReport = z.object({
   promo_spend_mtd_cents: z.number().int().nullable().optional(), // discounts + marketing fees the portal shows for this month
   new_customer_share: z.number().min(0).max(1).nullable().optional(), // share of recent orders from new customers, when the portal shows it
   campaigns_seen: z.number().int().nullable().optional(),
-  actions: z.array(FavieAction).default([]),
-  disputes: z.array(FavieDispute).default([]), // every error charge / refund claim seen today and what happened to it
+  actions: z.preprocess(objectsOnly, z.array(FavieAction).default([])),
+  disputes: z.preprocess(objectsOnly, z.array(FavieDispute).default([])), // every error charge / refund claim seen today and what happened to it
   disputes_found: z.number().int().nullable().optional(), // FAVIE_DISPUTES: charged-issue orders visible in the 30-day list
-  observations: z.array(z.string()).default([]),
-  errors: z.array(z.string()).default([]),
+  observations: z.preprocess(stringsOnly, z.array(z.string()).default([])),
+  errors: z.preprocess(stringsOnly, z.array(z.string()).default([])),
 })
 
 export const FavieSummary = z.object({

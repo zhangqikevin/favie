@@ -192,10 +192,10 @@ export function ConnectPanel({ restaurantId, initial, agentStatus, onboardingDon
       })}
 
       {mode === 'onboarding' && <form action={continueToPreferences} className="pt-2">
-        <SubmitButton className={anyConnected ? 'btn-primary !px-8 !py-3.5' : 'btn-secondary !px-8 !py-3.5'}>
+        <SubmitButton disabled={!!inProgress} title={inProgress ? t('ob.connect.waitHint') : undefined} className={anyConnected ? 'btn-primary !px-8 !py-3.5' : 'btn-secondary !px-8 !py-3.5'}>
           {onboardingDone ? t('ob.connect.backToDashboard') : anyConnected ? t('common.continue') : t('ob.connect.skip')}
         </SubmitButton>
-        {!anyConnected && !onboardingDone && <p className="mt-2 text-sm text-ink-500">{t('ob.connect.skipHint')}</p>}
+        {inProgress ? <p className="mt-2 text-sm text-ink-500">{t('ob.connect.waitHint')}</p> : !anyConnected && !onboardingDone && <p className="mt-2 text-sm text-ink-500">{t('ob.connect.skipHint')}</p>}
       </form>}
     </div>
   )

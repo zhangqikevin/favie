@@ -63,6 +63,14 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
     .where(and(eq(schema.restaurantAgents.restaurantId, restaurantId), eq(schema.restaurantAgents.kind, 'delivery-ops'))).limit(1)
   if (!agent?.zooworkAgentId || agent.agentStatus !== 'ready') { await record({ ...base, status: 'failed', error: `agent not ready (${agent?.agentStatus ?? 'missing'})` }); return null }
 
+  // A live onboarding handoff (the owner is logging in right now) or a verification owns the browser:
+  // releasing it would kill the owner's login. Scheduled runs record a retryable failure; manual ones bail.
+  const busy = await db.select({ platform: schema.platformConnections.platform, status: schema.platformConnections.status }).from(schema.platformConnections)
+    .where(and(eq(schema.platformConnections.restaurantId, restaurantId), inArray(schema.platformConnections.status, ['awaiting_login', 'verifying', 'select_store'])))
+  if (busy.length) {
+    if (manual) throw new InflightError('a platform connection is in progress')
+    await upsertCheck({ ...base, status: 'failed', error: 'connection_in_progress' }); return null
+  }
   // One browser per agent: if the daily run or a Menu Clinic job is using it, leave the row alone; the next tick retries.
   const inflight = await db.select({ id: schema.agentRuns.id }).from(schema.agentRuns)
     .where(and(eq(schema.agentRuns.restaurantAgentId, agent.id), eq(schema.agentRuns.status, 'running'))).limit(1)
@@ -171,11 +179,15 @@ export async function disputesTick(now = new Date()) {
     const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: r.timezone, hour: 'numeric', hour12: false }).format(now)) % 24
     if (hour < DISPUTE_CHECK_HOUR || hour >= DISPUTE_CHECK_LAST_HOUR) continue
     const today = localDate(now, r.timezone)
-    const conns = await db.select().from(schema.platformConnections)
-      .where(and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.status, 'connected'), inArray(schema.platformConnections.platform, DISPUTE_PLATFORMS)))
+    const allConns = await db.select().from(schema.platformConnections).where(eq(schema.platformConnections.restaurantId, r.id))
+    // Someone is connecting a platform right now: the browser is theirs. Try again next hour.
+    if (allConns.some((c) => ['awaiting_login', 'verifying', 'select_store'].includes(c.status))) continue
+    const conns = allConns.filter((c) => c.status === 'connected' && DISPUTE_PLATFORMS.includes(c.platform))
     for (const c of conns) {
       const [chk] = await db.select().from(schema.disputeChecks)
         .where(and(eq(schema.disputeChecks.restaurantId, r.id), eq(schema.disputeChecks.platform, c.platform), eq(schema.disputeChecks.date, today))).limit(1)
+      // The day's first attempt happens in the 08:00 hour only (a store connected at 4 pm waits for tomorrow); later hours only retry failures.
+      if (!chk && hour !== DISPUTE_CHECK_HOUR) continue
       if (chk && (chk.status !== 'failed' || chk.attempts >= MAX_ATTEMPTS_PER_DAY)) continue
       if (chk?.error === 'running' && Date.now() - chk.updatedAt.getTime() < RUN_BUDGET_MS) continue
       await enqueueDisputesCheck(r.id, c.platform, today)

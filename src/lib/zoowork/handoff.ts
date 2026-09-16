@@ -7,7 +7,7 @@ import { collectRun, localDate } from './collect'
 import type { Platform } from '@/lib/db/schema'
 
 export const PORTAL_URL: Record<Platform, string> = {
-  doordash: 'https://www.doordash.com/merchant/login/',
+  doordash: 'https://merchant-portal.doordash.com/merchant/summary',
   uber_eats: 'https://merchants.ubereats.com/manager/home',
 }
 const PLATFORM_NAME: Record<Platform, string> = { doordash: 'DoorDash Merchant Portal', uber_eats: 'Uber Eats Manager' }
@@ -181,7 +181,7 @@ export async function startHandoff(restaurantId: string, platform: Platform) {
     await zc.postEvents(agent.zooworkAgentId, session.session_id, [{ type: 'user.message', content, idempotency_key: `handoff-${session.session_id}-${Date.now()}` }])
     return afterSeq
   }
-  const host = platform === 'doordash' ? 'doordash.com' : 'uber.com|ubereats.com'
+  const host = platform === 'doordash' ? 'merchant-portal.doordash.com|identity.doordash.com|doordash.com/merchant|doordash.com/consumer/login|doordash.com/accounts' : 'uber.com|ubereats.com'
   const onPortal = (text: string) => new RegExp(`(${host})`, 'i').test(text)
   let res
   try {

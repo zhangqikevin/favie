@@ -52,6 +52,9 @@ export async function applyConnectionReport(restaurantId: string, p: PlatformRep
     return
   }
 
+  // "browser_locked" means another Favie session held the browser profile (an onboarding handoff, a menu
+  // pull, an ops browser). The login itself is fine; never mark the connection broken for it.
+  if (p.login === 'failed' && p.login_failure_reason === 'browser_locked') return
   const ok = p.login === 'ok' && p.store_visible === true
   const failed = p.login === 'failed' || p.store_visible === false
   const error = p.login === 'failed'
