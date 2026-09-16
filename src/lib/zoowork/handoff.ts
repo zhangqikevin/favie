@@ -62,10 +62,28 @@ export async function releaseBrowser(zooworkAgentId: string, sessionId: string, 
   try {
     const prior = await zc.listAllEvents(zooworkAgentId, sessionId)
     const afterSeq = prior.reduce((m, e) => Math.max(m, e.seq), -1)
+    // Already closed? The last browser call in this session tells. Skip the 20 s release turn then
+    // (a session that was released once keeps getting asked otherwise — seen 5 closes on one session).
+    let lastBrowserOp: string | null = null
+    for (const ev of prior) {
+      const t = toolCall(ev)
+      if (t?.phase === 'start' && t.toolName === 'browser') {
+        const a = (t.args ?? {}) as { action?: string; op?: string }
+        lastBrowserOp = a.action === 'session' ? `session:${a.op ?? ''}` : a.action ?? 'other'
+      }
+    }
+    if (lastBrowserOp === 'session:close') return
     await logged('postEvents.releaseBrowser', restaurantAgentId, { sessionId }, () =>
       zc.postEvents(zooworkAgentId, sessionId, [{ type: 'user.message', content: 'Release the browser now: call the browser tool with action "session" op "close". Do nothing else and reply with exactly: CLOSED', idempotency_key: `release-${sessionId}-${Date.now()}` }]))
-    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 90_000)
-    try { await streamTurn(zc, zooworkAgentId, sessionId, { afterSeq, signal: ctl.signal }) } finally { clearTimeout(t) }
+    // Hard cap: the SDK stream has been seen to ignore its abort signal on an idle connection, which
+    // hung a worker job for good. Promise.race returns no matter what the stream does.
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 60_000)
+    try {
+      await Promise.race([
+        streamTurn(zc, zooworkAgentId, sessionId, { afterSeq, signal: ctl.signal }),
+        new Promise<void>((resolve) => setTimeout(resolve, 75_000)),
+      ])
+    } finally { clearTimeout(t) }
   } catch (e) {
     console.warn('[handoff] releaseBrowser failed', sessionId, (e as Error).message)
   }
