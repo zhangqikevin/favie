@@ -202,21 +202,29 @@ function sameStore(a: string | null | undefined, b: string | null | undefined) {
 async function storeIdFromPortal(r: typeof schema.restaurants.$inferSelect, platform: Platform, jobId: string): Promise<string | null> {
   const label = await resolveLoginLabel(r.id)
   const storeName = await storeNameFor(r, platform)
+  // Accounts with several stores: the portal opens on whichever store was used last, and on Uber Eats the
+  // home URL can keep the previous store's uuid after a switch. So: switch first, then read the id from a
+  // page that is per-store, and report the store name shown next to it so the backend can verify.
   const message = [
-    `FAVIE_STORE_URL ${platform}. Read this store's id from the merchant portal URL. No context fetch, change nothing, type nothing.`,
+    `FAVIE_STORE_URL ${platform}. Read the id of ONE store from the merchant portal URL. No context fetch, change nothing, type nothing except in the store switcher's search box.`,
     `1. browser action "session" op "restart" with loginLabel "${label}" and egressCountry "US".`,
-    `2. browser action "navigate" to ${PORTAL_URL[platform]}; act kind "wait" 4 seconds; snapshot (mode "efficient") and note the current URL.`,
+    `2. browser action "navigate" to ${PORTAL_URL[platform]}; act kind "wait" 4 seconds; snapshot (mode "efficient").`,
+    `3. Open the store / location switcher and select exactly "${storeName}". If the account has a single store, skip this. Wait 3 seconds after selecting.`,
     platform === 'doordash'
-      ? '3. The store id is the `store_id=` query parameter of the portal URL. If the current URL has none, click "Menu" (Menu Manager) or "Orders" in the sidebar once, wait 4 seconds, snapshot, and read it from that URL. Ignore the number in the store switcher (business id).'
-      : '3. The store id is the UUID path segment of the portal URL, e.g. /manager/home/<uuid>. If the URL has no UUID, click "Home" once and read it again.',
-    storeName ? `4. The store should be "${storeName}" (its name on this platform); if the portal shows a different store selected, switch to the right one first.` : '4. Use the store currently selected.',
-    '5. Close the browser session (action "session" op "close"). Reply with exactly one line: STORE <id> <current url>. If you cannot find it, reply: STORE none <current url>.',
+      ? '4. Click "Menu" (Menu Manager) or "Orders" in the sidebar, wait 4 seconds, snapshot. The store id is the `store_id=` query parameter of THAT URL. Ignore the number in the store switcher (business id).'
+      : '4. browser action "navigate" to https://merchants.ubereats.com/manager/menumaker, wait 4 seconds, snapshot. The store id is the UUID path segment of THAT URL (/manager/menumaker/<uuid>); if the URL has no uuid, select the store again in the switcher on this page and re-read.',
+    '5. Read the store name shown as selected on that page (header or switcher).',
+    '6. Close the browser session (action "session" op "close"). Reply with exactly one line: STORE <id> | <store name shown> | <current url>. If you cannot find it, reply: STORE none | <store name shown> | <current url>.',
   ].join('\n')
   await note(jobId, 'Reading the store id from your merchant portal…')
-  const { text } = await runAgentTurn(r.id, message, jobId, { budgetMs: 4 * 60_000 })
-  const m = /STORE\s+([A-Za-z0-9-]+)/.exec(text)
+  const { text } = await runAgentTurn(r.id, message, jobId, { budgetMs: 5 * 60_000 })
+  const m = /STORE\s+([A-Za-z0-9-]+)\s*\|\s*([^|\n]*)\|/.exec(text) ?? /STORE\s+([A-Za-z0-9-]+)/.exec(text)
   const id = m && m[1] !== 'none' ? m[1] : null
-  return id && storefrontFromId(platform, id, storeName) ? id : null
+  const shown = m?.[2]?.trim() || null
+  if (!id || !storefrontFromId(platform, id, storeName)) return null
+  // A different store's id is worse than none: the daily run and Menu Clinic would act on that store.
+  if (shown && !sameStore(shown, storeName)) { console.warn('[menuPull] portal showed another store selected; ignoring id', shown, 'wanted', storeName); return null }
+  return id
 }
 
 /**
@@ -310,6 +318,7 @@ export async function runMenuPull(jobId: string) {
     const connWhere = and(eq(schema.platformConnections.restaurantId, job.restaurantId), eq(schema.platformConnections.platform, job.platform))
     const [conn0] = await db.select().from(schema.platformConnections).where(connWhere).limit(1)
     let url = await storefrontUrl(rr, job.platform)
+    let pendingStoreId: string | null = null
     let candidates = 0
     if (!url && key) {
       await note(jobId, 'Finding the store page…', { status: 'running' })
@@ -324,7 +333,7 @@ export async function runMenuPull(jobId: string) {
       const id = await storeIdFromPortal(rr, job.platform, jobId).catch((e) => { console.warn('[menuPull] store id read failed:', (e as Error).message); return null })
       if (id) {
         url = storefrontFromId(job.platform, id, conn0?.storeName ?? rr.name)
-        await db.update(schema.platformConnections).set({ storeExternalId: id, storefrontUrl: url, storefrontCandidates: null, updatedAt: new Date() }).where(connWhere)
+        pendingStoreId = id // saved only once the store page's title matches (below)
       }
     }
     if (!url && candidates > 0) { await fail(jobId, 'Several stores match this name — pick yours in Menu Clinic, then read again.'); return }
@@ -343,14 +352,16 @@ export async function runMenuPull(jobId: string) {
         } else menu = await readStorefront(key!, job.platform, url)
         menu.ms = Date.now() - t0
         if (menu.items.length >= 3 && !sameStore(menu.storeName, conn0?.storeName)) {
-          // A wrong id (e.g. a DoorDash business id) points at another restaurant's page: never ingest it.
+          // A wrong id (a DoorDash business id, the uuid of another store in a multi-store Uber Eats account)
+          // points at another restaurant's page: never ingest it, and stop trusting the id it came from.
           console.warn('[menuPull] storefront title does not match the connected store; discarding url', url, menu.storeName, conn0?.storeName)
-          await db.update(schema.platformConnections).set({ storefrontUrl: null, updatedAt: new Date() }).where(connWhere)
+          const fromStoredId = !!conn0?.storeExternalId && url === storefrontFromId(job.platform, conn0.storeExternalId, conn0.storeName ?? rr.name)
+          await db.update(schema.platformConnections).set({ storefrontUrl: null, ...(fromStoredId ? { storeExternalId: null } : {}), updatedAt: new Date() }).where(connWhere)
           await fail(jobId, `The store page found (${menu.storeName ?? url}) does not look like ${conn0?.storeName ?? 'your store'}. Please read again — Favie will look it up from your merchant portal.`)
           return
         }
         if (menu.items.length >= 3) {
-          await db.update(schema.platformConnections).set({ storefrontUrl: url, storefrontCandidates: null, updatedAt: new Date() })
+          await db.update(schema.platformConnections).set({ storefrontUrl: url, storefrontCandidates: null, ...(pendingStoreId ? { storeExternalId: pendingStoreId } : {}), updatedAt: new Date() })
             .where(and(eq(schema.platformConnections.restaurantId, job.restaurantId), eq(schema.platformConnections.platform, job.platform)))
           const block = JSON.stringify({ favie_menu_version: 1, platform: job.platform, store_name: menu.storeName, storefront_url: url, truncated: false, items: menu.items })
           await ingestMenu(jobId, '```favie-menu\n' + block + '\n```', { source: useZoodata ? 'zoodata' : 'firecrawl', ms: menu.ms })
