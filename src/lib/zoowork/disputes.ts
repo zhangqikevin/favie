@@ -17,6 +17,10 @@ const RUN_BUDGET_MS = 30 * 60_000
 
 export class InflightError extends Error {}
 
+/** Literal reply contract — the model drifts into prose/YAML or the `message` tool without it (seen 2026-09-16). */
+export const DISPUTES_REPLY_FORMAT = 'REPLY FORMAT (mandatory): write the report as your final reply text — never through the `message` or `sessions_yield` tools — and END it with exactly one fenced JSON block like this, filled in (JSON, not YAML; keys exactly as shown; one entry per order you looked at):\n```favie-summary\n{"favie_summary_version":1,"mode":"disputes","run_date":"YYYY-MM-DD","aborted_early":false,"platforms":[{"platform":"uber_eats","login":"ok","store_visible":true,"store_name":"<store name>","store_external_id":"<uuid or null>","stores":[],"disputes_found":1,"disputes":[{"order_id":"51D86","order_date":"2026-09-02","kind":"missing_item","amount_cents":1102,"recovered_cents":null,"status":"filed","reason":"<one sentence for the owner>","evidence":null,"deadline":null,"reason_category":"Customer made a mistake","submitted_text":"<exact text you submitted, or null>","customer_note":"<what the customer reported>","customer_photo":false,"items_total":3,"items_disputed":"1 customization missing","customer_type":"returning","filed_by":"favie","decision_text":null}],"actions":[],"observations":["History page URL: <the URL of the filtered order list, with its query string>"],"errors":[]}]}\n```'
+const NUDGE = 'You stopped without the report. Reply NOW with the favie-summary fenced JSON block described in the task (mode "disputes", one entry per order you looked at) — as plain reply text, not via the message tool. If the browser is still open, close it first with one browser call.'
+
 type CheckRow = typeof schema.disputeChecks.$inferInsert
 
 async function upsertCheck(values: CheckRow) {
@@ -96,6 +100,7 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
       ? '3. Every other charged order issue in the last 30 days: open it, dispute it (≤ 400 characters, English, assertive, one hard fact from the order itself), confirm the submission, and report it as "filed" with the exact submitted_text. Report a charged issue that was already disputed before you saw it as "filed" with filed_by "owner".'
       : '3. READ-ONLY RUN: do NOT click 争议 / Dispute and do NOT submit anything on any order. For every other charged order issue in the last 30 days open the detail page, read the archive fields (items, customer note, photo, amount, date) and report it as status "open" with `reason` = the argument you WOULD make (one sentence, owner\'s language). A charged issue that is already under dispute → "filed" with filed_by "owner".',
     'Change nothing else on the platform. Close the browser. End with the favie-summary block, mode "disputes", one entry per order you looked at in `disputes`, and `disputes_found` = the number of charged order issues visible in the 30-day list.',
+    DISPUTES_REPLY_FORMAT,
   ].join('\n')
 
   const zc = zoowork()
@@ -120,6 +125,18 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
       signal: ctl.signal,
       onEvent: (ev) => { if (ev.cursor) void db.update(schema.agentRuns).set({ lastCursor: ev.cursor }).where(eq(schema.agentRuns.id, run!.id)).catch(() => {}) },
     })
+    // The model sometimes ends the turn with the findings in prose or in a `message` tool call and no
+    // fenced block. The session is still alive: ask for the block, up to twice, before giving up.
+    for (let nudge = 0; res.outcome && !/```favie-summary/.test(res.text) && nudge < 2; nudge++) {
+      const prior = await zc.listAllEvents(agent.zooworkAgentId, session.session_id)
+      const afterSeq = prior.reduce((m, e) => Math.max(m, e.seq), -1)
+      await zc.postEvents(agent.zooworkAgentId, session.session_id, [{ type: 'user.message', content: NUDGE, idempotency_key: `disputes-nudge-${run!.id}-${nudge}` }])
+      const nctl = new AbortController(); const nt = setTimeout(() => nctl.abort(), 4 * 60_000)
+      try {
+        const more = await streamTurn(zc, agent.zooworkAgentId, session.session_id, { afterSeq, signal: nctl.signal })
+        res = { ...more, text: `${res.text}\n${more.text}` }
+      } finally { clearTimeout(nt) }
+    }
   } catch (e) {
     await db.update(schema.agentRuns).set({ status: 'interrupted', updatedAt: new Date() }).where(eq(schema.agentRuns.id, run!.id))
     await record({ ...base, status: 'failed', error: (e as Error).message.slice(0, 500), runId: run!.id })
