@@ -619,6 +619,7 @@ const en = {
   'disp.manual.err.agent_not_ready': 'Your Favie AI is still starting up. Try again in a minute.',
   'disp.manual.err.inflight': 'The agent is busy with another task right now. Try again in a few minutes.',
   'disp.manual.err.not_found': 'Not found.',
+  'disp.manual.err.queue': 'Could not queue the run. Please try again.',
   'disp.manual.st.running': 'Running…',
   'disp.manual.st.finishing': 'Reading the report…',
   'disp.manual.st.done': 'Done',

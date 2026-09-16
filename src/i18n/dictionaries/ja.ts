@@ -614,6 +614,7 @@ const ja: Dictionary = {
   'disp.manual.err.agent_not_ready': 'Favie AI はまだ起動中です。しばらくしてからお試しください。',
   'disp.manual.err.inflight': 'エージェントは別のタスクを実行中です。数分後にお試しください。',
   'disp.manual.err.not_found': '見つかりません。',
+  'disp.manual.err.queue': 'キューに入れられませんでした。もう一度お試しください。',
   'disp.manual.st.running': '実行中…',
   'disp.manual.st.finishing': 'レポートを読み込み中…',
   'disp.manual.st.done': '完了',

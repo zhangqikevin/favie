@@ -36,6 +36,9 @@ export async function boss() {
   if (!url) throw new Error('DATABASE_URL is not set')
   const b = new PgBoss({ connectionString: url, schema: 'pgboss', max: 2, supervise: false, schedule: false })
   await b.start()
+  // pg-boss 12 refuses to send to a queue that was never created. The worker creates them at boot, but a
+  // freshly added queue must also exist for a web process whose worker has not restarted yet.
+  for (const name of Object.values(JOBS)) await b.createQueue(name).catch(() => {})
   globalThis.__favieBoss = b
   return b
 }

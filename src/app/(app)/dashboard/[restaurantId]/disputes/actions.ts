@@ -44,7 +44,7 @@ export async function runDisputesManual(_prev: ManualState, fd: FormData): Promi
     .where(and(eq(schema.agentRuns.restaurantAgentId, agent.id), eq(schema.agentRuns.status, 'running'))).limit(1)
   if (inflight) return { error: 'inflight' }
   const { enqueueDisputesManual } = await import('@/server/jobs/enqueue')
-  await enqueueDisputesManual(r.id, 'uber_eats', mode)
+  try { await enqueueDisputesManual(r.id, 'uber_eats', mode) } catch (e) { console.error('[disputes] enqueue failed', e); return { error: 'queue' } }
   revalidatePath(`/dashboard/${r.id}/disputes`)
   return { ok: mode }
 }

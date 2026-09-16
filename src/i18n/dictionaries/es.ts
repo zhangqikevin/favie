@@ -614,6 +614,7 @@ const es: Dictionary = {
   'disp.manual.err.agent_not_ready': 'Tu Favie AI aún está arrancando. Inténtalo en un minuto.',
   'disp.manual.err.inflight': 'El agente está ocupado con otra tarea. Inténtalo en unos minutos.',
   'disp.manual.err.not_found': 'No encontrado.',
+  'disp.manual.err.queue': 'No se pudo poner en cola. Inténtalo de nuevo.',
   'disp.manual.st.running': 'En curso…',
   'disp.manual.st.finishing': 'Leyendo el informe…',
   'disp.manual.st.done': 'Listo',
