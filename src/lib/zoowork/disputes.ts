@@ -33,24 +33,35 @@ async function upsertCheck(values: CheckRow) {
  * One `dispute_checks` row per local day records what happened — including failures, which the
  * hourly tick retries.
  */
-export async function runDisputesCheck(restaurantId: string, platform: Platform, date?: string) {
+export type DisputesRunOpts = {
+  /** `check` = read-only: list charged issues and record decisions, file nothing. `process` = file every new one. */
+  mode?: 'check' | 'process'
+  /** Owner/admin-triggered: recorded as an agent run only, never as the day's `dispute_checks` row. */
+  manual?: boolean
+}
+
+export async function runDisputesCheck(restaurantId: string, platform: Platform, date?: string, opts: DisputesRunOpts = {}) {
+  const mode = opts.mode ?? 'process'
+  const manual = opts.manual ?? false
   const [restaurant] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1)
   if (!restaurant) throw new Error('restaurant not found')
   const today = date ?? localDate(new Date(), restaurant.timezone)
-  const [existing] = await db.select().from(schema.disputeChecks)
+  const [existing] = manual ? [] : await db.select().from(schema.disputeChecks)
     .where(and(eq(schema.disputeChecks.restaurantId, restaurantId), eq(schema.disputeChecks.platform, platform), eq(schema.disputeChecks.date, today))).limit(1)
   if (existing?.status === 'done') return existing
   const attempts = (existing?.attempts ?? 0) + (existing ? 1 : 0)
   const base: CheckRow = { restaurantId, platform, date: today, attempts: Math.max(1, attempts) }
+  // Manual runs leave the daily ledger alone; a precondition failure becomes a thrown error instead of a row.
+  const record = manual ? async (v: CheckRow) => { if (v.status === 'skipped' || (v.status === 'failed' && v.error !== 'running' && !v.runId)) throw new Error(v.error ?? v.status) } : upsertCheck
 
-  if (!restaurant.disputesEnabled) { await upsertCheck({ ...base, status: 'skipped', error: 'disputes_disabled' }); return null }
-  if (!DISPUTE_PLATFORMS.includes(platform)) { await upsertCheck({ ...base, status: 'skipped', error: 'platform_not_supported' }); return null }
+  if (!restaurant.disputesEnabled && !manual) { await record({ ...base, status: 'skipped', error: 'disputes_disabled' }); return null }
+  if (!DISPUTE_PLATFORMS.includes(platform)) { await record({ ...base, status: 'skipped', error: 'platform_not_supported' }); return null }
   const [conn] = await db.select().from(schema.platformConnections)
     .where(and(eq(schema.platformConnections.restaurantId, restaurantId), eq(schema.platformConnections.platform, platform))).limit(1)
-  if (!conn || conn.status !== 'connected') { await upsertCheck({ ...base, status: 'skipped', error: 'not_connected' }); return null }
+  if (!conn || conn.status !== 'connected') { await record({ ...base, status: 'skipped', error: 'not_connected' }); return null }
   const [agent] = await db.select().from(schema.restaurantAgents)
     .where(and(eq(schema.restaurantAgents.restaurantId, restaurantId), eq(schema.restaurantAgents.kind, 'delivery-ops'))).limit(1)
-  if (!agent?.zooworkAgentId || agent.agentStatus !== 'ready') { await upsertCheck({ ...base, status: 'failed', error: `agent not ready (${agent?.agentStatus ?? 'missing'})` }); return null }
+  if (!agent?.zooworkAgentId || agent.agentStatus !== 'ready') { await record({ ...base, status: 'failed', error: `agent not ready (${agent?.agentStatus ?? 'missing'})` }); return null }
 
   // One browser per agent: if the daily run or a Menu Clinic job is using it, leave the row alone; the next tick retries.
   const inflight = await db.select({ id: schema.agentRuns.id }).from(schema.agentRuns)
@@ -73,7 +84,9 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
     list(awaiting),
     '2. Orders already settled — do not open them again unless they show a new decision:',
     list(settled),
-    '3. Every other charged order issue in the last 30 days: open it, dispute it (≤ 400 characters, English, assertive, one hard fact from the order itself), confirm the submission, and report it as "filed" with the exact submitted_text. Report a charged issue that was already disputed before you saw it as "filed" with filed_by "owner".',
+    mode === 'process'
+      ? '3. Every other charged order issue in the last 30 days: open it, dispute it (≤ 400 characters, English, assertive, one hard fact from the order itself), confirm the submission, and report it as "filed" with the exact submitted_text. Report a charged issue that was already disputed before you saw it as "filed" with filed_by "owner".'
+      : '3. READ-ONLY RUN: do NOT click 争议 / Dispute and do NOT submit anything on any order. For every other charged order issue in the last 30 days open the detail page, read the archive fields (items, customer note, photo, amount, date) and report it as status "open" with `reason` = the argument you WOULD make (one sentence, owner\'s language). A charged issue that is already under dispute → "filed" with filed_by "owner".',
     'Change nothing else on the platform. Close the browser. End with the favie-summary block, mode "disputes", one entry per order you looked at in `disputes`, and `disputes_found` = the number of charged order issues visible in the 30-day list.',
   ].join('\n')
 
@@ -82,13 +95,13 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
   const session = await logged('createSession.disputes', agent.id, { platform, date: today, attempts: base.attempts }, () =>
     zc.createSession(agent.zooworkAgentId!, {
       initial_events: [{ type: 'user.message', content: message }],
-      metadata: { kind: 'disputes', restaurant_id: restaurantId, platform, date: today },
-    }, `disputes-${restaurantId}-${platform}-${today}-${base.attempts}`))
+      metadata: { kind: 'disputes', restaurant_id: restaurantId, platform, date: today, mode, manual },
+    }, `disputes-${restaurantId}-${platform}-${today}-${manual ? `m${Date.now()}` : base.attempts}`))
   const [run] = await db.insert(schema.agentRuns).values({
     restaurantId, restaurantAgentId: agent.id, zooworkAgentId: agent.zooworkAgentId, zooworkSessionId: session.session_id,
     sessionKey: session.session_key ?? null, channel: 'api', kind: 'disputes', status: 'running', runDate: today, startedAt: new Date(),
   }).returning()
-  await upsertCheck({ ...base, status: 'failed', error: 'running', runId: run!.id })
+  await record({ ...base, status: 'failed', error: 'running', runId: run!.id })
 
   const before = new Map(known.map((d) => [d.orderExternalId, d.status]))
   const ctl = new AbortController()
@@ -101,13 +114,13 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
     })
   } catch (e) {
     await db.update(schema.agentRuns).set({ status: 'interrupted', updatedAt: new Date() }).where(eq(schema.agentRuns.id, run!.id))
-    await upsertCheck({ ...base, status: 'failed', error: (e as Error).message.slice(0, 500), runId: run!.id })
+    await record({ ...base, status: 'failed', error: (e as Error).message.slice(0, 500), runId: run!.id })
     throw e
   } finally { clearTimeout(timer) }
   if (!res.outcome) {
     await zc.postEvents(agent.zooworkAgentId, session.session_id, [{ type: 'user.interrupt' }]).catch(() => {})
     await db.update(schema.agentRuns).set({ status: 'timed_out', updatedAt: new Date() }).where(eq(schema.agentRuns.id, run!.id))
-    await upsertCheck({ ...base, status: 'failed', error: 'timed_out', runId: run!.id })
+    await record({ ...base, status: 'failed', error: 'timed_out', runId: run!.id })
     return null
   }
   await db.update(schema.agentRuns).set({ status: 'finished', updatedAt: new Date() }).where(eq(schema.agentRuns.id, run!.id))
@@ -115,13 +128,13 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
   await collectRun(fresh!, restaurant.timezone)
   const [done] = await db.select().from(schema.agentRuns).where(eq(schema.agentRuns.id, run!.id)).limit(1)
   if (done?.status !== 'collected') {
-    await upsertCheck({ ...base, status: 'failed', error: done?.status === 'parse_failed' ? 'The agent did not return a readable report.' : (done?.status ?? 'unknown'), runId: run!.id })
+    await record({ ...base, status: 'failed', error: done?.status === 'parse_failed' ? 'The agent did not return a readable report.' : (done?.status ?? 'unknown'), runId: run!.id })
     return null
   }
   const summary = done.summaryJson as { platforms?: { platform: string; login?: string; login_failure_reason?: string | null; disputes_found?: number | null; disputes?: { status: string }[] }[]; aborted_early?: boolean; abort_reason?: string | null } | null
   const p = summary?.platforms?.find((x) => x.platform === platform)
   if (summary?.aborted_early || !p || p.login !== 'ok') {
-    await upsertCheck({ ...base, status: 'failed', error: summary?.abort_reason ?? p?.login_failure_reason ?? (p ? `login ${p.login}` : 'no report for this platform'), runId: run!.id })
+    await record({ ...base, status: 'failed', error: summary?.abort_reason ?? p?.login_failure_reason ?? (p ? `login ${p.login}` : 'no report for this platform'), runId: run!.id })
     return null
   }
   // Compare the archive before and after: only state changes count, re-reports of the same state do not.
@@ -136,7 +149,7 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
   }
   const found = p.disputes_found ?? after.filter((d) => before.get(d.orderExternalId) !== 'filed').length
   const row: CheckRow = { ...base, status: 'done', found, filed, skipped, won, lost, recoveredCents: recovered, error: null, runId: run!.id }
-  await upsertCheck(row)
+  await record(row)
   return row
 }
 

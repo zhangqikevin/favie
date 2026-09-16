@@ -231,9 +231,11 @@ async function materializeDisputes(run: typeof schema.agentRuns.$inferSelect, da
   const existing = await db.select().from(schema.disputes)
     .where(and(eq(schema.disputes.restaurantId, run.restaurantId), eq(schema.disputes.platform, p.platform), inArray(schema.disputes.orderExternalId, p.disputes.map((d) => d.order_id))))
   const money = (c: number | null | undefined) => c == null ? '' : `$${(c / 100).toFixed(2)}`
-  for (const d of p.disputes) {
+  for (let d of p.disputes) {
     const prev = existing.find((e) => e.orderExternalId === d.order_id)
     const now = new Date()
+    // A read-only pass (or a confused re-report) must never undo a filed appeal or a decision.
+    if (prev && ['filed', 'won', 'lost'].includes(prev.status) && (d.status === 'open' || d.status === 'skipped')) d = { ...d, status: prev.status as typeof d.status }
     const values = {
       restaurantId: run.restaurantId, platform: p.platform, orderExternalId: d.order_id, orderDate: d.order_date ?? prev?.orderDate ?? null,
       kind: d.kind, amountCents: d.amount_cents ?? prev?.amountCents ?? null, recoveredCents: d.recovered_cents ?? prev?.recoveredCents ?? null,

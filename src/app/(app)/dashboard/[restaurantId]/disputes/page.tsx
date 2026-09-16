@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, notInArray } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import { db, schema } from '@/lib/db/client'
 import { requireUser } from '@/server/auth'
@@ -9,6 +9,7 @@ import { INTL_TAG } from '@/i18n/config'
 import type { DictKey } from '@/i18n'
 import { isoDaysAgo } from '@/server/metrics'
 import { setDisputesEnabled, dismissDisputesIntro } from './actions'
+import { ManualRun } from './ManualRun'
 
 const money = (c: number | null | undefined) => (c == null ? '—' : `$${(c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
 type Dispute = typeof schema.disputes.$inferSelect
@@ -31,7 +32,13 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
       .where(and(eq(schema.disputeChecks.restaurantId, r.id), gte(schema.disputeChecks.date, isoDaysAgo(60, r.timezone))))
       .orderBy(desc(schema.disputeChecks.date), desc(schema.disputeChecks.platform)),
   ])
-  const runIds = checks.map((c) => c.runId).filter((x): x is string => !!x)
+  const checkRunIds = checks.map((c) => c.runId).filter((x): x is string => !!x)
+  // Manual test runs (the two buttons) are agent runs of kind `disputes` that no daily ledger row points to.
+  const manualRuns = await db.select().from(schema.agentRuns)
+    .where(and(eq(schema.agentRuns.restaurantId, r.id), eq(schema.agentRuns.kind, 'disputes'), ...(checkRunIds.length ? [notInArray(schema.agentRuns.id, checkRunIds)] : [])))
+    .orderBy(desc(schema.agentRuns.createdAt)).limit(8)
+  const running = manualRuns.some((x) => x.status === 'running')
+  const runIds = [...checkRunIds, ...manualRuns.map((x) => x.id)]
   const details = runIds.length ? await db.select().from(schema.disputes).where(and(eq(schema.disputes.restaurantId, r.id), inArray(schema.disputes.runId, runIds))).orderBy(desc(schema.disputes.orderDate)) : []
   const byRun = new Map<string, Dispute[]>()
   for (const d of details) if (d.runId) byRun.set(d.runId, [...(byRun.get(d.runId) ?? []), d])
@@ -77,6 +84,42 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
             <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform ${r.disputesEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
           </button>
         </form>
+      </section>
+
+      <section className="card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="font-display text-lg font-semibold">{t('disp.manual.title')}</h2>
+            <p className="mt-1 text-sm text-ink-500">{t('disp.manual.desc')}</p>
+          </div>
+          <ManualRun restaurantId={r.id} running={running} />
+        </div>
+        {manualRuns.length > 0 && (
+          <ul className="mt-5 divide-y divide-ink-200/60 border-t border-ink-200/60">
+            {manualRuns.map((run) => {
+              const ds = byRun.get(run.id) ?? []
+              const startedAt = run.startedAt ?? run.createdAt
+              const statusKey = (run.status === 'running' ? 'disp.manual.st.running' : run.status === 'collected' ? 'disp.manual.st.done' : run.status === 'parse_failed' ? 'disp.manual.st.unparsed' : run.status === 'timed_out' ? 'disp.manual.st.timedOut' : run.status === 'finished' ? 'disp.manual.st.finishing' : 'disp.manual.st.failed') as DictKey
+              const head = (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
+                  <span className="text-sm tabular-nums text-ink-500">{startedAt.toLocaleString(intl, { timeZone: r.timezone, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className={`text-sm ${run.status === 'running' ? 'text-amber-700' : run.status === 'collected' ? 'text-ink-700' : 'text-red-700'}`}>{t(statusKey)}</span>
+                  {run.status === 'collected' && <span className="text-sm text-ink-500">· {t('disp.manual.found', { n: ds.length, filed: ds.filter((d) => d.status === 'filed' && d.filedBy !== 'owner').length })}</span>}
+                  {ds.length > 0 && <span className="ml-auto text-xs text-ink-400">{t('disp.row.details', { n: ds.length })}</span>}
+                </div>
+              )
+              if (!ds.length) return <li key={run.id}>{head}</li>
+              return (
+                <li key={run.id}>
+                  <details>
+                    <summary className="cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden">{head}</summary>
+                    <ul className="space-y-3 pb-4 pt-1">{ds.map((d) => <DisputeCard key={d.id} d={d} t={t} />)}</ul>
+                  </details>
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

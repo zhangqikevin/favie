@@ -19,6 +19,7 @@ export const JOBS = {
   opsHandoffSweep: 'ops-handoff-sweep',
   disputesTick: 'disputes-tick',
   disputesCheck: 'disputes-check',
+  disputesManual: 'disputes-manual',
 } as const
 
 declare global {
@@ -98,4 +99,9 @@ export async function enqueueOpsHandoff(opsId: string, op: 'start' | 'release') 
 export async function enqueueDisputesCheck(restaurantId: string, platform: 'uber_eats' | 'doordash', date: string) {
   const b = await boss()
   await b.send(JOBS.disputesCheck, { restaurantId, platform, date }, { singletonKey: `disputes:${restaurantId}:${platform}:${date}`, singletonSeconds: 3600, retryLimit: 0, expireInSeconds: 40 * 60 })
+}
+/** Disputes: owner/admin-triggered run right now — `check` reads only, `process` files appeals. Not part of the daily ledger. */
+export async function enqueueDisputesManual(restaurantId: string, platform: 'uber_eats' | 'doordash', mode: 'check' | 'process') {
+  const b = await boss()
+  await b.send(JOBS.disputesManual, { restaurantId, platform, mode }, { singletonKey: `disputes-manual:${restaurantId}:${platform}`, singletonSeconds: 60, retryLimit: 0, expireInSeconds: 40 * 60 })
 }
