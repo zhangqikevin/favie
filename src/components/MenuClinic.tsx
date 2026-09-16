@@ -32,6 +32,10 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false, auto
   const [platform, setPlatform] = useState<Platform>(connected.uber_eats || !connected.doordash ? 'uber_eats' : 'doordash')
   const [state, setState] = useState(initial)
   const [filter, setFilter] = useState<Filter>('all')
+  // The item whose editor drawer is open. A filter like "missing photo" must not drop it the moment a photo
+  // arrives — that unmounted the row and closed the drawer mid-edit.
+  const [openId, setOpenId] = useState<string | null>(null)
+  const onOpenChange = (id: string, open: boolean) => setOpenId((cur) => (open ? id : cur === id ? null : cur))
   const [pending, start] = useTransition()
   const s = state[platform]
   const busy = s.active.length > 0 || s.items.some((i) => i.status === 'saving')
@@ -63,6 +67,7 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false, auto
   }, [autoPull]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const visible = s.items.filter((i) => {
+    if (i.id === openId) return true
     if (filter === 'all') return true
     if (filter === 'queued') return i.status === 'queued' || i.status === 'saving'
     if (filter === 'photoMissing') return i.photoMissing && !i.draftImageUrl
@@ -233,7 +238,7 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false, auto
               <span className="text-xs text-ink-500">{rows.length}</span>
             </div>
             <ul className="grid gap-4 border-t border-ink-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
-              {rows.map((i) => <Row key={i.id} item={i} platform={p} jobs={state[p].active.filter((j) => j.menuItemId === i.id)} onChange={refresh} locked={locked} />)}
+              {rows.map((i) => <Row key={i.id} item={i} platform={p} jobs={state[p].active.filter((j) => j.menuItemId === i.id)} onChange={refresh} locked={locked} onOpenChange={onOpenChange} />)}
             </ul>
           </section>
         )
@@ -245,7 +250,7 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false, auto
             <span className="text-xs text-ink-500">{items.length}</span>
           </div>
           <ul className="grid gap-4 border-t border-ink-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((i) => <Row key={i.id} item={i} platform={platform} jobs={s.active.filter((j) => j.menuItemId === i.id)} onChange={refresh} locked={locked} />)}
+            {items.map((i) => <Row key={i.id} item={i} platform={platform} jobs={s.active.filter((j) => j.menuItemId === i.id)} onChange={refresh} locked={locked} onOpenChange={onOpenChange} />)}
           </ul>
         </section>
       ))}
@@ -255,10 +260,11 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false, auto
   )
 }
 
-function Row({ item, platform, jobs, onChange, locked }: { item: Item; platform: Platform; jobs: MenuState['active']; onChange: () => Promise<void>; locked: boolean }) {
+function Row({ item, platform, jobs, onChange, locked, onOpenChange }: { item: Item; platform: Platform; jobs: MenuState['active']; onChange: () => Promise<void>; locked: boolean; onOpenChange?: (id: string, open: boolean) => void }) {
   const t = useT()
   const intl = INTL_TAG[useLocale()]
-  const [open, setOpen] = useState(false)
+  const [open, setOpenState] = useState(false)
+  const setOpen = (v: boolean) => { setOpenState(v); onOpenChange?.(item.id, v) }
   // The editor starts from the draft when there is one, else from what the platform currently shows.
   const base = item.draftDescription ?? item.description ?? ''
   const [text, setText] = useState(base)
