@@ -68,6 +68,13 @@ async function runAgentTurn(restaurantId: string, message: string, jobId: string
     throw new Error('the agent did not finish in time')
   }
   await db.update(schema.agentRuns).set({ status: 'finished', finalText: res.text.slice(-50_000), outcome: res.outcome, finishedAt: new Date(), updatedAt: new Date() }).where(eq(schema.agentRuns.id, run!.id))
+  if (res.outcome === 'failed' && !res.text.trim()) {
+    // The run died before the model answered (e.g. ZooWork "402 insufficient credits"): surface the
+    // platform's message instead of a generic "did not return …" downstream.
+    const evs = await zc.listAllEvents(agent.zooworkAgentId, session.session_id).catch(() => [])
+    const err = (evs.find((e) => e.eventType === 'agent.error')?.payload as { errorMessage?: string } | undefined)?.errorMessage
+    throw new Error(`Favie's AI service failed: ${(err ?? 'unknown error').slice(0, 300)}`)
+  }
   if (opts.collect) {
     const [fresh] = await db.select().from(schema.agentRuns).where(eq(schema.agentRuns.id, run!.id)).limit(1)
     await collectRun(fresh!, r.timezone).catch(() => {})

@@ -54,7 +54,14 @@ class ImageSession {
       const mine = events.find((e) => e.seq > msgSeq && e.runId && !before.has(e.runId))?.runId
       if (!mine) continue
       const run = events.filter((e) => e.runId === mine)
-      if (!run.some((e) => e.eventType === 'run.finished')) continue
+      const finished = run.find((e) => e.eventType === 'run.finished')
+      if (!finished) continue
+      // A run that died before the model answered (e.g. ZooWork 402 insufficient credits) never produces an
+      // attachment: fail now with the platform's message instead of waiting out the whole budget.
+      if ((finished.payload as { status?: string } | undefined)?.status === 'failed') {
+        const err = run.find((e) => e.eventType === 'agent.error')?.payload as { errorMessage?: string } | undefined
+        throw new Error(`agent run failed (${key}): ${(err?.errorMessage ?? (finished.payload as { errorClass?: string } | undefined)?.errorClass ?? 'unknown').slice(0, 300)}`)
+      }
       const texts: string[] = []
       for (const e of run) if (e.eventType === 'agent.assistant') for (const c of ((e.payload?.message as { content?: { type: string; text?: string }[] } | undefined)?.content ?? [])) if (c.type === 'text' && c.text) texts.push(c.text)
       return texts.join('\n')
