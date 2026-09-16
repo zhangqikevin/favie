@@ -99,6 +99,8 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
             {manualRuns.map((run) => {
               const ds = byRun.get(run.id) ?? []
               const startedAt = run.startedAt ?? run.createdAt
+              const summary = run.summaryJson as { notes?: string | null; platforms?: { observations?: string[]; errors?: string[]; login?: string; login_failure_reason?: string | null }[] } | null
+              const notes = [...(summary?.platforms?.flatMap((p) => [...(p.observations ?? []), ...(p.errors ?? []), p.login && p.login !== 'ok' ? `login ${p.login}: ${p.login_failure_reason ?? ''}` : '']) ?? []), summary?.notes ?? ''].filter(Boolean)
               const statusKey = (run.status === 'running' ? 'disp.manual.st.running' : run.status === 'collected' ? 'disp.manual.st.done' : run.status === 'parse_failed' ? 'disp.manual.st.unparsed' : run.status === 'timed_out' ? 'disp.manual.st.timedOut' : run.status === 'finished' ? 'disp.manual.st.finishing' : 'disp.manual.st.failed') as DictKey
               const head = (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
@@ -108,11 +110,15 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
                   {ds.length > 0 && <span className="ml-auto text-xs text-ink-400">{t('disp.row.details', { n: ds.length })}</span>}
                 </div>
               )
-              if (!ds.length) return <li key={run.id}>{head}</li>
+              const notesEl = notes.length > 0 && (
+                <ul className="mb-3 space-y-1 text-sm text-ink-600">{notes.map((n, i) => <li key={i} className="rounded-xl bg-ink-50 px-3 py-2">{n}</li>)}</ul>
+              )
+              if (!ds.length) return <li key={run.id}>{head}{notesEl}</li>
               return (
                 <li key={run.id}>
                   <details>
                     <summary className="cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden">{head}</summary>
+                    {notesEl}
                     <ul className="space-y-3 pb-4 pt-1">{ds.map((d) => <DisputeCard key={d.id} d={d} t={t} />)}</ul>
                   </details>
                 </li>
