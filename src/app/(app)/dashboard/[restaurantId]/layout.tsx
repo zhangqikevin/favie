@@ -8,6 +8,7 @@ import { PageTitle } from './PageTitle'
 import Link from 'next/link'
 
 export default async function DashboardLayout({ children, params }: { children: React.ReactNode; params: Promise<{ restaurantId: string }> }) {
+  const t0 = Date.now()
   const { restaurantId } = await params
   const user = await requireUser()
   const r = await getRestaurantForUser(restaurantId, user.id)
@@ -24,6 +25,8 @@ export default async function DashboardLayout({ children, params }: { children: 
     { href: `${base}/settings`, key: 'dash.nav.settings' },
   ]
 
+  const layoutMs = Date.now() - t0
+  if (layoutMs > 1500) console.warn(`[dashboard] slow layout data ${layoutMs}ms`)
   return (
     <div id="app-shell" className="app-shell min-h-screen">
       <AppHeader base={base} items={items} user={{ name: user.name, email: user.email }} restaurant={restaurant} logOut={logOut} />

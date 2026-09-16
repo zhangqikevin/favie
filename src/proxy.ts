@@ -5,6 +5,7 @@ import { LOCALE_COOKIE, detectLocale, isLocale } from '@/i18n/config'
 
 // Refreshes the Supabase session cookie on every request and gates the app routes.
 export async function proxy(request: NextRequest) {
+  const t0 = Date.now()
   let response = NextResponse.next({ request })
   const supabase = createServerClient(supabaseUrl(), supabaseKey(), {
       cookies: {
@@ -17,6 +18,10 @@ export async function proxy(request: NextRequest) {
       },
   })
   const { data: { user } } = await supabase.auth.getUser()
+  const authMs = Date.now() - t0
+  // Slow-request breadcrumb for the deployment logs: the auth round trip is the only network hop here.
+  if (authMs > 1500) console.warn(`[proxy] slow auth getUser ${authMs}ms ${request.method} ${request.nextUrl.pathname}`)
+  response.headers.set('x-favie-auth-ms', String(authMs))
   // Language: remember the browser's preference on first visit so server components can read one cookie.
   if (!isLocale(request.cookies.get(LOCALE_COOKIE)?.value)) {
     response.cookies.set(LOCALE_COOKIE, detectLocale(request.headers.get('accept-language')), { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' })
