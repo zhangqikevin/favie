@@ -236,7 +236,12 @@ async function discoverStorefront(r: typeof schema.restaurants.$inferSelect, pla
     .where(and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))).limit(1)
   const cands = await searchStorefront(key, platform, conn?.storeName ?? r.name, r.city)
   const known = conn?.storeExternalId?.toLowerCase()
-  const pick = cands.length === 1 ? cands[0] : cands.find((c) => known && c.storeId.toLowerCase() === known)
+  // Chains list one page per location ("Tigawok Mini Bowls (Irvine)" / "(Burbank)"): the connection's store
+  // name includes the location, so a title that contains the whole name — location kept — is a safe pick.
+  const strict = (s: string) => s.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
+  const want = conn?.storeName ? strict(conn.storeName) : ''
+  const byName = want.length >= 6 ? cands.filter((c) => strict(c.title ?? '').includes(want)) : []
+  const pick = cands.length === 1 ? cands[0] : cands.find((c) => known && c.storeId.toLowerCase() === known) ?? (byName.length === 1 ? byName[0] : undefined)
   const where = and(eq(schema.platformConnections.restaurantId, r.id), eq(schema.platformConnections.platform, platform))
   if (pick) {
     await db.update(schema.platformConnections).set({ storefrontUrl: pick.url, storefrontCandidates: null, updatedAt: new Date() }).where(where)

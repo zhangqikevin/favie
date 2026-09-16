@@ -151,7 +151,10 @@ no bearing here — this platform is being connected right now, that is the whol
    Budget: at most 8 tool calls for this step. Put the stores in the summary's `stores` array; the
    owner picks one. Record `role_seen` only if it is already on screen. Change nothing.
    **Store id** — Favie builds the public store page from it, so it must be the *store* id:
-   Uber Eats = the UUID in the portal URL path (`/manager/home/<uuid>`, `/manager/menumaker/<uuid>`);
+   Uber Eats = the UUID in the portal URL path (`/manager/home/<uuid>`, `/manager/menumaker/<uuid>`) —
+   but in an account with several stores the `restaurantUUID=` query parameter and the home-page uuid can
+   belong to the account's default store, not the one selected in the sidebar. Report a uuid only when the
+   page it comes from is clearly this store's (the menu maker after selecting it), otherwise leave it null;
    DoorDash = the `store_id=` query parameter of the portal URL (open Menu Manager or Orders once if
    the current URL has none). The number in DoorDash's store switcher is usually the *business* id —
    never report it as `store_external_id`. Put the id in `store_external_id` and in the selected
@@ -278,11 +281,20 @@ Portal labels below are given as Chinese / English because the account may show 
 1. Step 0 + restore the login. If the account shows several stores, switch to the store named in the
    message (match `store_external_id`, then the name) **before** opening any list, and work on that
    store only.
-2. Go to **订单 / Orders** → tab **历史记录 / History**. Set the date range to the **last 30 days**.
-   Open the filter **订单问题 / Order issues** and keep only **已收费问题 / Charged issues**. Ignore
-   **优步已退款 / Refunded by Uber** (Uber paid, the store was not charged). Rows marked
-   **异议已通过审核 / Dispute accepted** or **被拒绝 / Rejected** are *results* of earlier appeals —
-   record them (step 3), never re-dispute them. Count the charged-issue rows → `disputes_found`.
+2. Open the filtered list directly — do not build the filters by clicking. After the store is selected,
+   navigate to
+   `https://merchants.ubereats.com/manager/orders?dateRange=last_30_days&orderIssuesV2=ORDER_ACCURACY_ISSUE%2CMISSING_CUSTOMIZATIONS%2CWRONG_CUSTOMIZATIONS%2CMISSING_ITEMS%2CWRONG_ORDER%2CWRONG_ITEMS%2CORDER_WITH_FTQ%2CTASTE_QUALITY_ISSUES%2CINADEQUATE_QUANTITY`
+   (if the current URL carries a `restaurantUUID=` parameter, keep it in the new URL). Wait 4 seconds, then ONE
+   snapshot with `mode: "efficient"` (never `full` with more than 15000 chars — big snapshots make every step
+   slow). Check the sidebar still shows this store and the chips read **最近 30 天 / Last 30 days** and
+   **订单问题 / Order issue (9)**; if the filters did not apply, open the **订单问题** chip once and tick every
+   box, then Apply. The **问题 / Issue** column tells the state of each row: **已收费问题 / Charged issue**
+   (a red `-US$x.xx` under the subtotal is the charge) = to dispute; **优步已退款 / Refunded by Uber** = not
+   charged, skip; **异议已通过审核 / Dispute accepted** and **异议被拒绝 / Dispute rejected** = results of
+   earlier appeals — record them (step 3), never re-dispute. Count the charged rows → `disputes_found`.
+   Element refs go stale whenever a panel opens or the list re-renders: after any click that changes the
+   page, snapshot again before the next click, and prefer text selectors (`label:has-text("…")`,
+   `button:has-text("提交")`) over old refs. A click that errors is not retried blindly — snapshot first.
 3. For every order in the message's "awaiting a decision" list, find it in the list (search by order
    id) and record the outcome: accepted → `status: "won"`, `recovered_cents` = the reversed amount,
    `decision_text` = the wording shown; rejected → `"lost"`; still under review → `"filed"` again.
