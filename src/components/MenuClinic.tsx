@@ -320,6 +320,18 @@ function Row({ item, platform, jobs, onChange, locked }: { item: Item; platform:
     item.descThin && !item.draftDescription && ['menu.diag.descThin', 'bg-amber-50 text-amber-700'],
   ].filter(Boolean) as [DictKey, string][]
 
+  // AI buttons live next to the thing they produce: the photo button under the picture, the text button under the textarea.
+  const canAi = !locked && !saving && !queued
+  const aiPhotoButton = canAi ? (
+    <button type="button" disabled={pending || generatingImage} onClick={() => start(async () => { await aiPhoto(item.id); await onChange() })} className="pill !py-1.5 text-xs disabled:opacity-60">
+      {generatingImage ? <><Spinner small /> {t('menu.genPhotoing')}</> : <><Sparkle className="h-3 w-3" /> {t('menu.genPhoto')}</>}
+    </button>
+  ) : null
+  const aiDescribeButton = canAi ? (
+    <button type="button" disabled={pending || generatingText} onClick={() => start(async () => { await aiDescribe(item.id); await onChange() })} className="pill !py-1.5 text-xs disabled:opacity-60">
+      {generatingText ? <><Spinner small /> {t('menu.describing')}</> : <><Sparkle className="h-3 w-3" /> {t('menu.describe')}</>}
+    </button>
+  ) : null
   const actions = locked ? null : saving ? (
     <span className="pill !py-1.5 text-xs"><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</span>
   ) : queued ? (
@@ -331,12 +343,6 @@ function Row({ item, platform, jobs, onChange, locked }: { item: Item; platform:
     </>
   ) : (
     <>
-      <button type="button" disabled={pending || generatingText} onClick={() => start(async () => { await aiDescribe(item.id); await onChange() })} className="pill !py-1.5 text-xs disabled:opacity-60">
-        {generatingText ? <><Spinner small /> {t('menu.describing')}</> : <><Sparkle className="h-3 w-3" /> {t('menu.describe')}</>}
-      </button>
-      <button type="button" disabled={pending || generatingImage} onClick={() => start(async () => { await aiPhoto(item.id); await onChange() })} className="pill !py-1.5 text-xs disabled:opacity-60">
-        {generatingImage ? <><Spinner small /> {t('menu.genPhotoing')}</> : <><Sparkle className="h-3 w-3" /> {t('menu.genPhoto')}</>}
-      </button>
       <button type="button" disabled={pending || generating || !hasChanges || !!acting} onMouseDown={(e) => e.preventDefault()} onClick={queueNow} className="pill pill-active !py-1.5 text-xs disabled:opacity-60">
         {acting === 'queue' ? <><Spinner small /> {t('menu.working')}</> : t('menu.queue')}
       </button>
@@ -419,18 +425,23 @@ function Row({ item, platform, jobs, onChange, locked }: { item: Item; platform:
                   start(async () => { await uploadPhoto(fd); await onChange() })
                   e.target.value = ''
                 }} />
-                <button type="button" disabled={pending || frozen} onClick={() => fileRef.current?.click()} className="pill mt-2 !py-1.5 text-xs disabled:opacity-60">{t('menu.upload')}</button>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button type="button" disabled={pending || frozen} onClick={() => fileRef.current?.click()} className="pill !py-1.5 text-xs disabled:opacity-60">{t('menu.upload')}</button>
+                  {aiPhotoButton}
+                </div>
+                {generatingImage && <p className="mt-2 text-xs text-ink-500">{progress}</p>}
               </section>
               <section>
                 <label className="text-xs font-medium text-ink-700">{t('menu.draftDesc')}</label>
                 <textarea value={text} disabled={frozen} onChange={(e) => setText(e.target.value)} onBlur={commitText}
                   rows={7} className="input mt-2 !rounded-2xl text-sm leading-relaxed disabled:opacity-60" placeholder={t('menu.noDesc')} />
                 {item.lastError && item.status === 'failed' && <p className="mt-2 text-xs text-red-700">{item.lastError}</p>}
+                {aiDescribeButton && <div className="mt-2">{aiDescribeButton}</div>}
+                {generatingText && !generatingImage && <p className="mt-2 text-xs text-ink-500">{progress}</p>}
               </section>
             </div>
             {actions && (
               <div className="border-t border-ink-100 px-6 py-4">
-                {generating && <p className="mb-2 text-xs text-ink-500">{progress}</p>}
                 <div className="flex flex-wrap items-center gap-2">{actions}</div>
               </div>
             )}
