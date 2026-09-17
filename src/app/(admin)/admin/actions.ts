@@ -24,7 +24,7 @@ export async function publishPrompt(_prev: AdminState, fd: FormData): Promise<Ad
   try {
     const r = await publishOperatingPrompt(body, user.id, note)
     revalidatePath('/admin/prompt')
-    return { ok: `Published as prompt v${r.version} (skill version ${r.skillVersion}). Every agent uses it from its next run.` }
+    return { ok: `Published as prompt v${r.version} (skill version ${r.skillVersion}); ${r.updated ?? 0}/${r.total ?? 0} agents re-attached and now serve it.` }
   } catch (e) {
     return { error: (e as Error).message }
   }

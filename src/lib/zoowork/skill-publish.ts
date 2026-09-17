@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import JSZip from 'jszip'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { zoowork, logged } from './client'
 
@@ -55,7 +55,35 @@ export async function publishOperatingPrompt(body: string, userId: string | null
       version, body: body.trim(), note: note ?? null, skillVersion: String((published as { version?: string | number }).version ?? ''), isActive: true, createdByUserId: userId,
     })
   })
-  return { version, skillVersion: (published as { version?: string | number }).version }
+  const synced = await syncSkillToAgents(skillId).catch((e) => { console.warn('[skill] sync failed', (e as Error).message); return { updated: 0, total: 0 } })
+  return { version, skillVersion: (published as { version?: string | number }).version, ...synced }
+}
+
+/**
+ * Make every provisioned agent serve the latest favie-ops version. The SDK says unpinned agents follow
+ * new versions on their own, but on 2026-09-16 three of four agents were still on v9 / v25 / v31 after
+ * v35 was published (they were created with `skills[]` on createAgent). Re-attaching without a pin
+ * re-resolves the version; verified by reading the version back.
+ */
+export async function syncSkillToAgents(skillId = process.env.FAVIE_OPS_SKILL_ID) {
+  if (!skillId) return { updated: 0, total: 0 }
+  const zc = zoowork()
+  const agents = await db.select().from(schema.restaurantAgents).where(and(isNotNull(schema.restaurantAgents.zooworkAgentId), inArray(schema.restaurantAgents.agentStatus, ['ready', 'running', 'created'])))
+  let updated = 0
+  const versions: Record<string, string> = {}
+  for (const a of agents) {
+    try {
+      await logged('putAgentSkill.sync', a.id, { skillId }, () => zc.putAgentSkill(a.zooworkAgentId!, skillId, { enabled: true, versionPin: null }))
+      const skills = await zc.listAgentSkills(a.zooworkAgentId!) as { name: string; version?: string }[]
+      const v = skills.find((s) => s.name === SKILL_NAME)?.version ?? '?'
+      versions[a.zooworkAgentId!] = String(v)
+      updated++
+    } catch (e) {
+      console.warn('[skill] sync', a.zooworkAgentId, (e as Error).message)
+    }
+  }
+  console.log('[skill] agents now on favie-ops versions:', JSON.stringify(versions))
+  return { updated, total: agents.length, versions }
 }
 
 /** Re-publish an older version's body as a new version (rollback = forward publish of old text). */
