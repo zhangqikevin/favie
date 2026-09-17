@@ -17,7 +17,11 @@ export async function proxy(request: NextRequest) {
         },
       },
   })
-  const { data: { user } } = await supabase.auth.getUser()
+  // getClaims verifies the access token locally against the project's public signing keys (cached in
+  // process) and still refreshes an expiring session; only projects on the legacy shared secret fall
+  // back to a network call. getUser() cost a ~150 ms round trip to the Auth server on EVERY request.
+  const { data } = await supabase.auth.getClaims()
+  const user = data?.claims?.sub ? { id: data.claims.sub } : null
   const authMs = Date.now() - t0
   // Slow-request breadcrumb for the deployment logs: the auth round trip is the only network hop here.
   if (authMs > 1500) console.warn(`[proxy] slow auth getUser ${authMs}ms ${request.method} ${request.nextUrl.pathname}`)

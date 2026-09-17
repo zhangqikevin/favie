@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, notInArray } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import { db, schema } from '@/lib/db/client'
 import { requireUser } from '@/server/auth'
@@ -22,7 +22,11 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
   if (!r) notFound()
   const { t, locale } = await getT()
   const intl = INTL_TAG[locale]
-  const conns = await getConnections(r.id)
+  const connsP = getConnections(r.id)
+  const manualP = db.select().from(schema.agentRuns)
+    .where(and(eq(schema.agentRuns.restaurantId, r.id), eq(schema.agentRuns.kind, 'disputes')))
+    .orderBy(desc(schema.agentRuns.createdAt)).limit(24)
+  const conns = await connsP
   const connected = conns.filter((c) => c.status === 'connected').map((c) => c.platform)
   const supported = connected.filter((p) => DISPUTE_PLATFORMS.includes(p))
   const comingSoon = connected.filter((p) => !DISPUTE_PLATFORMS.includes(p))
@@ -34,9 +38,7 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
   ])
   const checkRunIds = checks.map((c) => c.runId).filter((x): x is string => !!x)
   // Manual test runs (the two buttons) are agent runs of kind `disputes` that no daily ledger row points to.
-  const manualRuns = await db.select().from(schema.agentRuns)
-    .where(and(eq(schema.agentRuns.restaurantId, r.id), eq(schema.agentRuns.kind, 'disputes'), ...(checkRunIds.length ? [notInArray(schema.agentRuns.id, checkRunIds)] : [])))
-    .orderBy(desc(schema.agentRuns.createdAt)).limit(8)
+  const manualRuns = (await manualP).filter((x) => !checkRunIds.includes(x.id)).slice(0, 8)
   const running = manualRuns.some((x) => x.status === 'running')
   const runIds = [...checkRunIds, ...manualRuns.map((x) => x.id)]
   const details = runIds.length ? await db.select().from(schema.disputes).where(and(eq(schema.disputes.restaurantId, r.id), inArray(schema.disputes.runId, runIds))).orderBy(desc(schema.disputes.orderDate)) : []

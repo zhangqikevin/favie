@@ -7,12 +7,20 @@ import { getLocale } from '@/i18n/server'
 
 export const getAuthUser = cache(async () => {
   const supabase = await createSupabaseServer()
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
+  // Local JWT verification (see proxy.ts) — no Auth-server round trip per render.
+  const { data } = await supabase.auth.getClaims()
+  const c = data?.claims
+  if (!c?.sub) return null
+  return { id: c.sub, email: (c.email as string | undefined) ?? null, user_metadata: (c.user_metadata ?? {}) as Record<string, unknown> }
 })
 
-/** Returns the signed-in user's `users` row, creating it on first sight. Redirects to /login when signed out. */
-export async function requireUser() {
+/**
+ * Returns the signed-in user's `users` row, creating it on first sight. Redirects to /login when signed out.
+ * Cached per request: the layout and the page both call it, and that used to be two identical queries.
+ */
+export const requireUser = cache(async () => requireUserUncached())
+
+async function requireUserUncached() {
   const authUser = await getAuthUser()
   if (!authUser) redirect('/login')
   const [row] = await db.select().from(schema.users).where(eq(schema.users.id, authUser.id)).limit(1)

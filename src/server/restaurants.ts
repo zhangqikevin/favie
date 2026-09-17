@@ -1,4 +1,5 @@
 import { isAdminEmail } from '@/server/admin'
+import { cache } from 'react'
 import { and, eq } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import type { Platform } from '@/lib/db/schema'
@@ -32,24 +33,25 @@ export async function getRestaurantForUserOrAdmin(restaurantId: string, user: { 
   return r ?? null
 }
 
-export async function getRestaurantForUser(restaurantId: string, userId: string) {
+// cache(): the dashboard layout and the page under it ask for the same rows in one render.
+export const getRestaurantForUser = cache(async (restaurantId: string, userId: string) => {
   const [r] = await db
     .select()
     .from(schema.restaurants)
     .where(and(eq(schema.restaurants.id, restaurantId), eq(schema.restaurants.ownerUserId, userId)))
     .limit(1)
   return r ?? null
-}
+})
 
-export async function getConnections(restaurantId: string) {
+export const getConnections = cache(async (restaurantId: string) => {
   const rows = await db.select().from(schema.platformConnections).where(eq(schema.platformConnections.restaurantId, restaurantId))
   return PLATFORMS.map((p) => rows.find((r) => r.platform === p)!).filter(Boolean)
-}
+})
 
-export async function getSubscription(restaurantId: string) {
+export const getSubscription = cache(async (restaurantId: string) => {
   const [s] = await db.select().from(schema.subscriptions).where(eq(schema.subscriptions.restaurantId, restaurantId)).limit(1)
   return s ?? null
-}
+})
 
 export async function getPrimaryAgent(restaurantId: string) {
   const [a] = await db

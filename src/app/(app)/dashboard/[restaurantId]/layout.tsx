@@ -11,10 +11,9 @@ export default async function DashboardLayout({ children, params }: { children: 
   const t0 = Date.now()
   const { restaurantId } = await params
   const user = await requireUser()
-  const r = await getRestaurantForUser(restaurantId, user.id)
+  const [r, sub] = await Promise.all([getRestaurantForUser(restaurantId, user.id), getSubscription(restaurantId)])
   if (!r) notFound()
   const base = `/dashboard/${r.id}`
-  const sub = await getSubscription(r.id)
   const restaurant = { name: r.name, place: [r.city, r.state].filter(Boolean).join(', ') || null }
   const { t } = await getT()
   const items: NavItem[] = [
