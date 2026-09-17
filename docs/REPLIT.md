@@ -75,3 +75,8 @@ database drops every connection it exits with code 75 and the loop restarts it. 
   restaurants start observe-only; keep it that way on a test deployment.
 - Do not commit `.env`, `supabase/email-templates/*.html` previews are fine.
 - Do not change `FAVIE_ENCRYPTION_KEY` on an existing database.
+
+## Performance notes (2026-09-17)
+- The deployment VM is in GCP us-east1 (South Carolina). Keep the Supabase project in **us-east-1**; from us-west-2 every query cost 75–100 ms and a page needs about ten.
+- `scripts/start-all.sh` must run `next start` in deployments. `.replit`'s `[env] FAVIE_DEV=1` is also injected into deployments, and Replit's flag is `REPLIT_DEPLOYMENT` (not `REPL_DEPLOYMENT`); the script now checks both plus the absence of `REPLIT_DEV_DOMAIN`. If the login page HTML contains `hmr-client`, production is on `next dev`.
+- `GET /api/health` returns three database round-trip times; `?where=1` adds the server's city.
