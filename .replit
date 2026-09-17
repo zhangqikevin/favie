@@ -14,7 +14,7 @@ externalPort = 80
 [deployment]
 deploymentTarget = "vm"
 build = ["sh", "-c", "npm ci && npm run build"]
-run = ["sh", "-c", "npm run start:all"]
+run = ["sh", "-c", "REPLIT_DEPLOYMENT=1 FAVIE_DEV=0 npm run start:all"]
 
 [nix]
 channel = "stable-24_05"
