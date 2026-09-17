@@ -295,6 +295,11 @@ Portal labels below are given as Chinese / English because the account may show 
    Element refs go stale whenever a panel opens or the list re-renders: after any click that changes the
    page, snapshot again before the next click, and prefer text selectors (`label:has-text("…")`,
    `button:has-text("提交")`) over old refs. A click that errors is not retried blindly — snapshot first.
+   **Speed rules for this task** (a failed click costs 30 s by default, a screenshot costs a model turn):
+   pass `timeoutMs: 8000` on every `act` click so a miss fails fast; use `snapshot` (efficient) to see the
+   page — take a `screenshot` only once, right before pressing Submit; never take both for the same state;
+   count the 400 characters yourself while writing (one `exec` with python is fine, two is not); after
+   typing the text do not re-read the whole page — snapshot the panel, verify, submit.
 3. For every order in the message's "awaiting a decision" list, find it in the list (search by order
    id) and record the outcome: accepted → `status: "won"`, `recovered_cents` = the reversed amount,
    `decision_text` = the wording shown; rejected → `"lost"`; still under review → `"filed"` again.
