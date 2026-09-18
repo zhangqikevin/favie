@@ -88,7 +88,11 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
   // One browser per agent: if the daily run or a Menu Clinic job is using it, leave the row alone; the next tick retries.
   const inflight = await db.select({ id: schema.agentRuns.id }).from(schema.agentRuns)
     .where(and(eq(schema.agentRuns.restaurantAgentId, agent.id), eq(schema.agentRuns.status, 'running'))).limit(1)
-  if (inflight.length) throw new InflightError('another run is in flight for this agent')
+  if (inflight.length) {
+    if (manual) throw new InflightError('another run is in flight for this agent')
+    // No attempt consumed; the hourly tick retries while the row says failed.
+    await upsertCheck({ ...base, attempts: existing?.attempts ?? 0, status: 'failed', error: 'agent_busy' }); return null
+  }
 
   // What we already know, so the agent checks decisions instead of re-filing and skips what it settled before.
   const known = await db.select().from(schema.disputes)
@@ -213,8 +217,13 @@ export async function disputesTick(now = new Date()) {
     for (const c of conns) {
       const [chk] = await db.select().from(schema.disputeChecks)
         .where(and(eq(schema.disputeChecks.restaurantId, r.id), eq(schema.disputeChecks.platform, c.platform), eq(schema.disputeChecks.date, today))).limit(1)
-      // The day's first attempt happens in the 08:00 hour only (a store connected at 4 pm waits for tomorrow); later hours only retry failures.
-      if (!chk && hour !== DISPUTE_CHECK_HOUR) continue
+      // The day's first attempt is due from 08:00 on. If the 08:00 tick was missed (deploy, worker down) a later
+      // hour picks it up — but a store connected after 08:00 today waits for tomorrow, as the page promises.
+      if (!chk && hour !== DISPUTE_CHECK_HOUR) {
+        const minute = Number(new Intl.DateTimeFormat('en-US', { timeZone: r.timezone, minute: 'numeric' }).format(now))
+        const eightToday = now.getTime() - ((hour - DISPUTE_CHECK_HOUR) * 60 + minute) * 60_000
+        if (!c.verifiedAt || c.verifiedAt.getTime() > eightToday) continue
+      }
       if (chk && (chk.status !== 'failed' || chk.attempts >= MAX_ATTEMPTS_PER_DAY)) continue
       if (chk?.error === 'running' && Date.now() - chk.updatedAt.getTime() < RUN_BUDGET_MS) continue
       await enqueueDisputesCheck(r.id, c.platform, today)

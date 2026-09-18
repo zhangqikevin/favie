@@ -1,4 +1,4 @@
-import { and, eq, inArray, lt } from 'drizzle-orm'
+import { and, eq, inArray, lt, sql } from 'drizzle-orm'
 import { assistantText, isRunFinished, runOutcome, toolCall, type SessionEvent } from '@zoowork-ai/sdk'
 import { db, schema } from '@/lib/db/client'
 import { dictionaryFor, makeT } from '@/i18n'
@@ -62,6 +62,10 @@ async function discoverCronSessions(agent: typeof schema.restaurantAgents.$infer
 }
 
 async function collectPending(agent: typeof schema.restaurantAgents.$inferSelect, timezone: string) {
+  // Nudged runs that the first version of the nudge parked as running / timed_out: their answer is sitting in the session.
+  await db.update(schema.agentRuns).set({ status: 'finished', updatedAt: new Date() })
+    .where(and(eq(schema.agentRuns.restaurantAgentId, agent.id), inArray(schema.agentRuns.status, ['running', 'timed_out']),
+      sql`${schema.agentRuns.summaryParseError} like 'nudged%'`, sql`${schema.agentRuns.createdAt} > now() - interval '48 hours'`))
   const pending = await db.select().from(schema.agentRuns)
     .where(and(eq(schema.agentRuns.restaurantAgentId, agent.id), eq(schema.agentRuns.status, 'finished')))
   for (const run of pending) await collectRun(run, timezone)
@@ -80,6 +84,14 @@ async function ownerT(restaurantId: string) {
 export async function collectRun(run: typeof schema.agentRuns.$inferSelect, timezone: string) {
   const zc = zoowork()
   const events = await zc.listAllEvents(run.zooworkAgentId, run.zooworkSessionId) // never listEvents (500-row silent cap)
+  // A summary nudge (see below) is answered in a second run of the same session. Until that run finishes,
+  // the newest `run.finished` still belongs to the run that had no report: wait instead of failing it again.
+  if (run.summaryParseError?.startsWith('nudged')) {
+    const nudgeAt = events.map((e, i) => (e.eventType === 'user.message' && JSON.stringify(e.payload).includes('ended without the favie-summary') ? i : -1)).filter((i) => i >= 0).at(-1) ?? -1
+    const answered = nudgeAt >= 0 && events.slice(nudgeAt).some((e) => isRunFinished(e))
+    const ageMs = Date.now() - (run.collectedAt ?? run.updatedAt).getTime()
+    if (!answered && ageMs < 20 * 60_000) return
+  }
   const finished = [...events].reverse().find((e) => isRunFinished(e))
   const outcome = finished ? runOutcome(finished) : undefined
   const lastRunId = finished?.runId
@@ -136,7 +148,10 @@ export async function collectRun(run: typeof schema.agentRuns.$inferSelect, time
         await logged('postEvents.nudgeSummary', run.restaurantAgentId, { sessionId: run.zooworkSessionId }, () =>
           zc.postEvents(run.zooworkAgentId, run.zooworkSessionId, [{ type: 'user.message', idempotency_key: `nudge-${run.id}`, content:
             'Your run ended without the favie-summary block, so Favie could not record anything you did. Reply NOW with the report for the run you just completed: your findings in text, ending with exactly one ```favie-summary``` fenced JSON block (mode "daily", one platform entry per platform you worked on, every change as an action with a reason, `disputes` empty). Reply as plain text — never via the message tool — and do not open the browser again.' }]))
-        await db.update(schema.agentRuns).set({ ...base, status: 'running', summaryParseError: `nudged: ${parsed.error}` }).where(eq(schema.agentRuns.id, run.id))
+        // Stays `finished`, never `running`: the nudge turn uses no browser, so it must not block the
+        // disputes check or a verify (on 2026-09-18 it did, and the nudged cron session also changes its
+        // channel to `api`, so cron discovery never flipped it back — the rows sat until they timed out).
+        await db.update(schema.agentRuns).set({ ...base, status: 'finished', summaryParseError: `nudged: ${parsed.error}` }).where(eq(schema.agentRuns.id, run.id))
         return
       } catch (e) {
         console.warn('[collect] nudge failed', run.id, (e as Error).message)
