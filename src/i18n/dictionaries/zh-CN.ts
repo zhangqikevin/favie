@@ -616,6 +616,7 @@ const zhCN: Dictionary = {
   'disp.manual.err.inflight': 'Agent 正在执行其他任务，请几分钟后再试。',
   'disp.manual.err.not_found': '未找到。',
   'disp.manual.err.queue': '排队失败，请重试。',
+  'disp.manual.err.connecting': '正在连接平台（登录浏览器还开着）。请先完成连接或稍等片刻再试。',
   'disp.manual.st.running': '运行中…',
   'disp.manual.st.finishing': '正在读取报告…',
   'disp.manual.st.done': '已完成',

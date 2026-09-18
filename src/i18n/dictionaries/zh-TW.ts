@@ -616,6 +616,7 @@ const zhTW: Dictionary = {
   'disp.manual.err.inflight': 'Agent 正在執行其他任務，請幾分鐘後再試。',
   'disp.manual.err.not_found': '未找到。',
   'disp.manual.err.queue': '排隊失敗，請重試。',
+  'disp.manual.err.connecting': '正在連接平台（登入瀏覽器還開著）。請先完成連接或稍等片刻再試。',
   'disp.manual.st.running': '執行中…',
   'disp.manual.st.finishing': '正在讀取報告…',
   'disp.manual.st.done': '已完成',

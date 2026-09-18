@@ -621,6 +621,7 @@ const en = {
   'disp.manual.err.inflight': 'The agent is busy with another task right now. Try again in a few minutes.',
   'disp.manual.err.not_found': 'Not found.',
   'disp.manual.err.queue': 'Could not queue the run. Please try again.',
+  'disp.manual.err.connecting': 'A platform is being connected right now (the login browser is open). Finish or wait a moment, then try again.',
   'disp.manual.st.running': 'Running…',
   'disp.manual.st.finishing': 'Reading the report…',
   'disp.manual.st.done': 'Done',

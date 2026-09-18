@@ -39,6 +39,8 @@ export async function runDisputesManual(_prev: ManualState, fd: FormData): Promi
   if (!conns.some((c) => c.platform === 'uber_eats' && c.status === 'connected')) return { error: 'not_connected' }
   const agent = await getPrimaryAgent(r.id)
   if (!agent || agent.agentStatus !== 'ready') return { error: 'agent_not_ready' }
+  const { connectionInProgress } = await import('@/lib/zoowork/disputes')
+  if (connectionInProgress(conns)) return { error: 'connecting' }
   const { and, eq } = await import('drizzle-orm')
   const [inflight] = await db.select({ id: schema.agentRuns.id }).from(schema.agentRuns)
     .where(and(eq(schema.agentRuns.restaurantAgentId, agent.id), eq(schema.agentRuns.status, 'running'))).limit(1)

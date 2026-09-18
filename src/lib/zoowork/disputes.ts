@@ -17,6 +17,17 @@ const RUN_BUDGET_MS = 30 * 60_000
 
 export class InflightError extends Error {}
 
+/**
+ * Is the owner connecting a platform right now (their live login browser holds the profile)? Only a
+ * RECENT handoff counts: an `awaiting_login` left behind two days ago (owner closed the tab) must not
+ * block every disputes run forever — seen on Jun Bistro 2026-09-17.
+ */
+const IN_PROGRESS_WINDOW_MS = 2 * 3600_000
+export function connectionInProgress(conns: { status: string; handoffStartedAt: Date | null; updatedAt: Date }[]) {
+  const now = Date.now()
+  return conns.some((c) => ['awaiting_login', 'verifying', 'select_store'].includes(c.status) && now - (c.handoffStartedAt ?? c.updatedAt).getTime() < IN_PROGRESS_WINDOW_MS)
+}
+
 /** Literal reply contract — the model drifts into prose/YAML or the `message` tool without it (seen 2026-09-16). */
 export const DISPUTES_REPLY_FORMAT = 'REPLY FORMAT (mandatory): write the report as your final reply text — never through the `message` or `sessions_yield` tools — and END it with exactly one fenced JSON block like this, filled in (JSON, not YAML; keys exactly as shown; one entry per order you looked at):\n```favie-summary\n{"favie_summary_version":1,"mode":"disputes","run_date":"YYYY-MM-DD","aborted_early":false,"platforms":[{"platform":"uber_eats","login":"ok","store_visible":true,"store_name":"<store name>","store_external_id":"<uuid or null>","stores":[],"disputes_found":1,"disputes":[{"order_id":"51D86","order_date":"2026-09-02","kind":"missing_item","amount_cents":1102,"recovered_cents":null,"status":"filed","reason":"<one sentence for the owner>","evidence":null,"deadline":null,"reason_category":"Customer made a mistake","submitted_text":"<exact text you submitted, or null>","customer_note":"<what the customer reported>","customer_photo":false,"items_total":3,"items_disputed":"1 customization missing","customer_type":"returning","filed_by":"favie","decision_text":null}],"actions":[],"observations":["History page URL: <the URL of the filtered order list, with its query string>"],"errors":[]}]}\n```'
 const NUDGE = 'You stopped without the report. Reply NOW with the favie-summary fenced JSON block described in the task (mode "disputes", one entry per order you looked at) — as plain reply text, not via the message tool. If the browser is still open, close it first with one browser call.'
@@ -69,9 +80,8 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
 
   // A live onboarding handoff (the owner is logging in right now) or a verification owns the browser:
   // releasing it would kill the owner's login. Scheduled runs record a retryable failure; manual ones bail.
-  const busy = await db.select({ platform: schema.platformConnections.platform, status: schema.platformConnections.status }).from(schema.platformConnections)
-    .where(and(eq(schema.platformConnections.restaurantId, restaurantId), inArray(schema.platformConnections.status, ['awaiting_login', 'verifying', 'select_store'])))
-  if (busy.length) {
+  const allConns = await db.select().from(schema.platformConnections).where(eq(schema.platformConnections.restaurantId, restaurantId))
+  if (connectionInProgress(allConns)) {
     if (manual) throw new InflightError('a platform connection is in progress')
     await upsertCheck({ ...base, status: 'failed', error: 'connection_in_progress' }); return null
   }
@@ -198,7 +208,7 @@ export async function disputesTick(now = new Date()) {
     const today = localDate(now, r.timezone)
     const allConns = await db.select().from(schema.platformConnections).where(eq(schema.platformConnections.restaurantId, r.id))
     // Someone is connecting a platform right now: the browser is theirs. Try again next hour.
-    if (allConns.some((c) => ['awaiting_login', 'verifying', 'select_store'].includes(c.status))) continue
+    if (connectionInProgress(allConns)) continue
     const conns = allConns.filter((c) => c.status === 'connected' && DISPUTE_PLATFORMS.includes(c.platform))
     for (const c of conns) {
       const [chk] = await db.select().from(schema.disputeChecks)

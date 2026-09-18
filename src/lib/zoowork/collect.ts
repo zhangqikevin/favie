@@ -128,6 +128,20 @@ export async function collectRun(run: typeof schema.agentRuns.$inferSelect, time
     return
   }
   if ('error' in parsed) {
+    // A daily run that succeeded but ended with no report (the model sometimes closes the browser and stops
+    // with zero output — Jun Bistro 2026-09-17): ask once, in the same session, for the block. The session
+    // goes back to `running`; the next collect pass reads the nudge turn's text.
+    if (run.kind === 'daily' && outcome === 'succeeded' && !run.summaryParseError?.startsWith('nudged')) {
+      try {
+        await logged('postEvents.nudgeSummary', run.restaurantAgentId, { sessionId: run.zooworkSessionId }, () =>
+          zc.postEvents(run.zooworkAgentId, run.zooworkSessionId, [{ type: 'user.message', idempotency_key: `nudge-${run.id}`, content:
+            'Your run ended without the favie-summary block, so Favie could not record anything you did. Reply NOW with the report for the run you just completed: your findings in text, ending with exactly one ```favie-summary``` fenced JSON block (mode "daily", one platform entry per platform you worked on, every change as an action with a reason, `disputes` empty). Reply as plain text — never via the message tool — and do not open the browser again.' }]))
+        await db.update(schema.agentRuns).set({ ...base, status: 'running', summaryParseError: `nudged: ${parsed.error}` }).where(eq(schema.agentRuns.id, run.id))
+        return
+      } catch (e) {
+        console.warn('[collect] nudge failed', run.id, (e as Error).message)
+      }
+    }
     await db.update(schema.agentRuns).set({ ...base, status: 'parse_failed', summaryParseError: parsed.error }).where(eq(schema.agentRuns.id, run.id))
     await insertAction(run, runDate, 'none', 'run_unparsed', t('sys.run_unparsed.t'), t('sys.run_unparsed.r', { error: parsed.error }), true, { sysKey: 'run_unparsed', sysVars: { error: parsed.error } })
     if (run.kind === 'verify') await recoverUnparsedVerify(run.restaurantId)

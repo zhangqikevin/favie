@@ -616,6 +616,7 @@ const es: Dictionary = {
   'disp.manual.err.inflight': 'El agente está ocupado con otra tarea. Inténtalo en unos minutos.',
   'disp.manual.err.not_found': 'No encontrado.',
   'disp.manual.err.queue': 'No se pudo poner en cola. Inténtalo de nuevo.',
+  'disp.manual.err.connecting': 'Se está conectando una plataforma (el navegador de inicio de sesión está abierto). Termina la conexión o espera un momento e inténtalo de nuevo.',
   'disp.manual.st.running': 'En curso…',
   'disp.manual.st.finishing': 'Leyendo el informe…',
   'disp.manual.st.done': 'Listo',
