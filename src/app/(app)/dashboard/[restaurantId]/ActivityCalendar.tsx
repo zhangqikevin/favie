@@ -28,7 +28,11 @@ export function ActivityCalendar({ restaurantId, timezone, ym, prev, next, today
     for (const a of actions) { const arr = map.get(a.date) ?? []; arr.push(a); map.set(a.date, arr) }
     return map
   }, [actions])
-  const defaultDay = initialDay && byDay.has(initialDay) ? initialDay : (byDay.has(today) ? today : [...byDay.keys()].sort().at(-1) ?? today)
+  // Today is selected whenever the current month is shown (even with nothing on it yet); an explicit ?day=
+  // wins; another month opens on its latest day with activity.
+  const defaultDay = initialDay && initialDay.startsWith(ym) ? initialDay
+    : today.startsWith(ym) ? today
+    : [...byDay.keys()].sort().at(-1) ?? `${ym}-01`
   const [selected, setSelected] = useState(defaultDay)
   const dayActions = byDay.get(selected) ?? []
   const dayRuns = runs.filter((r) => r.date === selected)
