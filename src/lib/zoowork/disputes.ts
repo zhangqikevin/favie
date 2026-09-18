@@ -195,14 +195,14 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
  */
 export async function disputesTick(now = new Date()) {
   const rows = await db.select({
-    id: schema.restaurants.id, timezone: schema.restaurants.timezone, agentStatus: schema.restaurantAgents.agentStatus, subStatus: schema.subscriptions.status,
+    id: schema.restaurants.id, timezone: schema.restaurants.timezone, billingExempt: schema.restaurants.billingExempt, agentStatus: schema.restaurantAgents.agentStatus, subStatus: schema.subscriptions.status,
   }).from(schema.restaurants)
     .innerJoin(schema.restaurantAgents, and(eq(schema.restaurantAgents.restaurantId, schema.restaurants.id), eq(schema.restaurantAgents.kind, 'delivery-ops')))
     .leftJoin(schema.subscriptions, eq(schema.subscriptions.restaurantId, schema.restaurants.id))
     .where(and(eq(schema.restaurants.disputesEnabled, true), eq(schema.restaurants.serviceDisabled, false), eq(schema.restaurantAgents.agentStatus, 'ready')))
   let queued = 0
   for (const r of rows) {
-    if (!billingOk(r.subStatus)) continue
+    if (!billingOk(r.subStatus, r.billingExempt)) continue
     const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: r.timezone, hour: 'numeric', hour12: false }).format(now)) % 24
     if (hour < DISPUTE_CHECK_HOUR || hour >= DISPUTE_CHECK_LAST_HOUR) continue
     const today = localDate(now, r.timezone)

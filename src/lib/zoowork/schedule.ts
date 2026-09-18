@@ -49,6 +49,7 @@ export async function reconcileSchedule(restaurantId: string, reason = 'reconcil
     if (!agent.zooworkAgentId || agent.agentStatus !== 'ready') continue
     const desired = computeDesiredEnabled({
       subscriptionStatus: sub?.status,
+      billingExempt: restaurant.billingExempt,
       serviceDisabled: restaurant.serviceDisabled,
       dailySchedulePaused: restaurant.dailySchedulePaused,
       agentStatus: agent.agentStatus,

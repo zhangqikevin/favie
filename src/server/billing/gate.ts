@@ -2,16 +2,20 @@ import type { SubscriptionStatus, ConnectionStatus } from '@/lib/db/schema'
 
 export interface GateInput {
   subscriptionStatus: SubscriptionStatus | null | undefined
+  billingExempt?: boolean
   serviceDisabled: boolean
   dailySchedulePaused?: boolean
   agentStatus: string
   connectionStatuses: ConnectionStatus[]
 }
 
-/** Billing is OK only while the subscription is active. There is no trial in V1. */
-export function billingOk(status: SubscriptionStatus | null | undefined) {
+/**
+ * Billing is OK while the subscription is active, or when a sysadmin marked the restaurant exempt
+ * (beta testers, partners). There is no trial in V1.
+ */
+export function billingOk(status: SubscriptionStatus | null | undefined, exempt = false) {
   if (process.env.FAVIE_SKIP_BILLING === '1') return true // dev only: Stripe webhooks cannot reach localhost
-  return status === 'active'
+  return exempt || status === 'active'
 }
 
 /**
@@ -19,7 +23,7 @@ export function billingOk(status: SubscriptionStatus | null | undefined) {
  * The only inputs are our own database state; the caller reconciles ZooWork to match.
  */
 export function computeDesiredEnabled(i: GateInput): boolean {
-  if (!billingOk(i.subscriptionStatus)) return false
+  if (!billingOk(i.subscriptionStatus, i.billingExempt)) return false
   if (i.serviceDisabled) return false
   if (i.dailySchedulePaused) return false
   if (i.agentStatus !== 'ready') return false

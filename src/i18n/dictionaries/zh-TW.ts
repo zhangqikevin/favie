@@ -338,6 +338,7 @@ const zhTW: Dictionary = {
   'settings.planValue': '$299 / 月 · 1 間餐廳',
   'settings.status': '狀態',
   'settings.notStarted': '未開始',
+  'settings.billingExempt': '內測期免費',
   'settings.ends': '結束於',
   'settings.nextCharge': '下次扣款',
   'settings.refundWindow': '退款期限',

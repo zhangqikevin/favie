@@ -338,6 +338,7 @@ const zhCN: Dictionary = {
   'settings.planValue': '$299 / 月 · 1 家餐厅',
   'settings.status': '状态',
   'settings.notStarted': '未开始',
+  'settings.billingExempt': '内测期免费',
   'settings.ends': '结束于',
   'settings.nextCharge': '下次扣款',
   'settings.refundWindow': '退款窗口',

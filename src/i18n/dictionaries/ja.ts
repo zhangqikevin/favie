@@ -338,6 +338,7 @@ const ja: Dictionary = {
   'settings.planValue': '$299 / 月 · 1店舗',
   'settings.status': 'ステータス',
   'settings.notStarted': '未開始',
+  'settings.billingExempt': '無料（ベータ）',
   'settings.ends': '終了日',
   'settings.nextCharge': '次回請求',
   'settings.refundWindow': '返金期間',

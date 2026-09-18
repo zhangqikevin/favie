@@ -129,6 +129,16 @@ export async function applyModelToAgents(_prev: AdminState, _fd: FormData): Prom
 }
 
 /** Per-restaurant kill switch: off = the agent observes and recommends only; on = it may change ads/promotions within the cap. */
+/** Beta / partner restaurants run without a Stripe subscription. Flipping it re-evaluates the daily schedule. */
+export async function setBillingExempt(fd: FormData) {
+  await requireAdmin()
+  const restaurantId = String(fd.get('restaurantId') ?? '')
+  const exempt = String(fd.get('exempt')) === 'true'
+  await db.update(schema.restaurants).set({ billingExempt: exempt, updatedAt: new Date() }).where(eq(schema.restaurants.id, restaurantId))
+  await enqueueReconcileSchedule(restaurantId).catch(() => {})
+  revalidatePath(`/admin/${restaurantId}`)
+}
+
 export async function setAgentActionsEnabled(fd: FormData) {
   await requireAdmin()
   const restaurantId = String(fd.get('restaurantId') ?? '')

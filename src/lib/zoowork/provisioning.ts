@@ -96,7 +96,7 @@ export async function provisionAgent(restaurantAgentId: string) {
     const [sub] = await db.select().from(schema.subscriptions).where(eq(schema.subscriptions.restaurantId, restaurant.id)).limit(1)
     const conns = await db.select().from(schema.platformConnections).where(eq(schema.platformConnections.restaurantId, restaurant.id))
     const enabled = computeDesiredEnabled({
-      subscriptionStatus: sub?.status, serviceDisabled: restaurant.serviceDisabled, dailySchedulePaused: restaurant.dailySchedulePaused, agentStatus: 'ready', connectionStatuses: conns.map((c) => c.status),
+      subscriptionStatus: sub?.status, billingExempt: restaurant.billingExempt, serviceDisabled: restaurant.serviceDisabled, dailySchedulePaused: restaurant.dailySchedulePaused, agentStatus: 'ready', connectionStatuses: conns.map((c) => c.status),
     })
     await ensureDailySchedule({ ...agent, zooworkAgentId }, restaurant.timezone, enabled)
     await set({ agentStatus: 'ready', agentError: null })

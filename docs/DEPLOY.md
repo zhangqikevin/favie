@@ -217,7 +217,9 @@ Worker 日志里应出现一行 `[worker] up; queues: ...`，其中包含 `dispu
 6. 验证（test mode）：新注册一个账号 → 付款页用测试卡 `4242 4242 4242 4242` → 回到连接平台页；库里 `subscriptions.status = 'active'` 且 `first_paid_at` 有值；`stripe_events` 表有对应事件；设置页的"管理账单"能打开 portal。
 7. 换成 live key、live 价格和 live webhook 后再验证一次真实小额流程，或由财务同事确认。
 
-**去掉 `FAVIE_SKIP_BILLING` 的连带影响，务必提前和 Kevin 确认处理方式**：计费闸门是"订阅状态为 active 才运营"。现有 4 家内测餐厅都没有订阅，一旦去掉旁路：它们的每日定时任务会被自动关闭，agent 上下文会返回 `service_disabled`，争议订单检查也会跳过它们。可选做法：让这几家走一遍真实付款；或在公司 Stripe 里给它们建 100% 折扣的订阅；或保留旁路直到正式对外收费那天再切。
+**现有内测餐厅不受影响。** 计费闸门是"订阅 active 或餐厅被标记为免计费（`restaurants.billing_exempt`）才运营"。迁移 0022 会把执行时库里已存在的所有餐厅自动标记为免计费，所以去掉 `FAVIE_SKIP_BILLING` 后，现有 4 家内测餐厅的每日运营、争议检查照常，设置页的账单状态显示"内测期免费"。之后新注册的餐厅默认需要付款。要单独豁免或取消豁免某家餐厅，在 `/admin/<餐厅id>` 的 Settings 区块里拨"Billing"开关。
+
+顺序要求：**先跑 `npm run db:migrate`（含 0022），再去掉 `FAVIE_SKIP_BILLING`。** 反过来的话，在迁移执行前的那段时间里内测餐厅会被判为未付款，每日定时任务会被关掉（迁移后下一次对账会自动恢复）。
 
 退款政策是"首次付款 30 天内全额退款"，在 Stripe Dashboard 手动操作，webhook 会把 `refunded_at` 写回并取消订阅。
 
@@ -231,6 +233,7 @@ Worker 日志里应出现一行 `[worker] up; queues: ...`，其中包含 `dispu
 - [ ] 用已有账号能登录，后台各页面跳转 < 0.5 秒
 - [ ] 新注册收到确认邮件，链接指向正式域名（不是 localhost）
 - [ ] Stripe 测试付款走通，`subscriptions` 有 active 行
+- [ ] 现有内测餐厅 `billing_exempt = true`，设置页账单状态显示"内测期免费"，每日任务仍为开启
 - [ ] `/admin`（管理员邮箱）能打开，Platform settings 里 ZooWork key 显示已配置
 - [ ] 在一家测试餐厅的"争议订单"页点"现在检查"，几秒内出现"运行中"，几分钟后有结果
 - [ ] 从外网 `curl https://<域名>/api/agent/ctx/x` 返回 404/401 而不是被网关拦截成登录页

@@ -4,7 +4,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { getConnections, getPrimaryAgent, getAdCaps } from '@/server/restaurants'
 import { RunNow, RunDisputesNow } from './RunNow'
-import { setDailyPaused, setAgentActionsEnabled } from '../actions'
+import { setDailyPaused, setAgentActionsEnabled, setBillingExempt } from '../actions'
 
 const money = (c: number | null) => (c == null ? 'not set' : `$${(c / 100).toLocaleString('en-US')}`)
 
@@ -71,6 +71,14 @@ export default async function AdminRestaurant({ params }: { params: Promise<{ re
           <p className="mt-1">Goal: <b>{r.goal}</b></p>
           <p>Ad caps: UE {money(caps.uber_eats)} · DD {money(caps.doordash)}</p>
           <p className="text-ink-500">Owner accepted terms: {r.termsAcceptedAt ? 'yes' : 'no'}</p>
+          <form action={setBillingExempt} className="mt-2 flex items-center gap-2">
+            <input type="hidden" name="restaurantId" value={r.id} />
+            <input type="hidden" name="exempt" value={r.billingExempt ? 'false' : 'true'} />
+            <button type="submit" role="switch" aria-checked={r.billingExempt} title="Exempt = runs without a Stripe subscription (beta testers, partners)" className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${r.billingExempt ? 'bg-emerald-500' : 'bg-ink-300'}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${r.billingExempt ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
+            <span>Billing: <b>{r.billingExempt ? 'exempt (no subscription needed)' : 'subscription required'}</b></span>
+          </form>
         </div>
       </div>
 

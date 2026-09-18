@@ -52,7 +52,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ resta
           <h2 className="font-semibold text-ink-700">{t('settings.billing')}</h2>
           <dl className="flex flex-wrap gap-x-6 gap-y-1">
             <div className="flex gap-1.5"><dt>{t('settings.plan')}:</dt><dd className="text-ink-700">{t('settings.planValue')}</dd></div>
-            <div className="flex gap-1.5"><dt>{t('settings.status')}:</dt><dd className="capitalize text-ink-700">{sub?.status.replace('_', ' ') ?? t('settings.notStarted')}</dd></div>
+            <div className="flex gap-1.5"><dt>{t('settings.status')}:</dt><dd className="capitalize text-ink-700">{sub?.status.replace('_', ' ') ?? (r.billingExempt ? t('settings.billingExempt') : t('settings.notStarted'))}</dd></div>
             {sub?.currentPeriodEnd && <div className="flex gap-1.5"><dt>{sub.cancelAtPeriodEnd ? t('settings.ends') : t('settings.nextCharge')}:</dt><dd className="text-ink-700">{sub.currentPeriodEnd.toLocaleDateString(intl, { timeZone: r.timezone })}</dd></div>}
             {sub?.firstPaidAt && (
               <div className="flex gap-1.5"><dt>{t('settings.refundWindow')}:</dt>

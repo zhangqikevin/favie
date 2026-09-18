@@ -338,6 +338,7 @@ const es: Dictionary = {
   'settings.planValue': '$299 / mes · 1 restaurante',
   'settings.status': 'Estado',
   'settings.notStarted': 'no iniciado',
+  'settings.billingExempt': 'gratis (beta)',
   'settings.ends': 'Termina',
   'settings.nextCharge': 'Próximo cobro',
   'settings.refundWindow': 'Plazo de devolución',

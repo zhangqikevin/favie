@@ -95,7 +95,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
     weekday: cal.weekday,
     is_review_day: cal.isReviewDay,
     days_remaining_in_month: cal.daysRemaining,
-    service_disabled: r.serviceDisabled || !billingOk(sub?.status),
+    service_disabled: r.serviceDisabled || !billingOk(sub?.status, r.billingExempt),
     platforms: conns.map((c) => {
       const cap = caps.find((x) => x.platform === c.platform)?.monthlyCapCents ?? null
       const adsFromFeed = mtdAds.find((x) => x.platform === c.platform)?.spend

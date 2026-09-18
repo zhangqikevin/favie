@@ -73,6 +73,9 @@ export const restaurants = pgTable('restaurants', {
   dailySchedulePaused: boolean('daily_schedule_paused').notNull().default(false),
   // Sysadmin kill switch per restaurant: false = the agent may only observe and recommend, never change anything on a platform.
   agentActionsEnabled: boolean('agent_actions_enabled').notNull().default(false),
+  // Beta / partner restaurants that run without a Stripe subscription. Set by a sysadmin only; every
+  // restaurant that existed when billing went live was grandfathered in (migration 0022).
+  billingExempt: boolean('billing_exempt').notNull().default(false),
   // Disputes: owner-controlled, on by default, independent of the observe-only kill switch above.
   disputesEnabled: boolean('disputes_enabled').notNull().default(true),
   disputesIntroSeenAt: timestamp('disputes_intro_seen_at', { withTimezone: true }),

@@ -342,6 +342,7 @@ const en = {
   'settings.planValue': '$299 / month · 1 restaurant',
   'settings.status': 'Status',
   'settings.notStarted': 'not started',
+  'settings.billingExempt': 'complimentary (beta)',
   'settings.ends': 'Ends',
   'settings.nextCharge': 'Next charge',
   'settings.refundWindow': 'Money-back window',
