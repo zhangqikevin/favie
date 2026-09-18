@@ -124,7 +124,10 @@ await boss.work<{ restaurantAgentId: string }>(JOBS.decommissionAgent, { batchSi
 await boss.schedule(JOBS.collectRuns, '*/5 * * * *', {}, { tz: 'UTC' })
 await boss.schedule(JOBS.staleRuns, '17 * * * *', {}, { tz: 'UTC' })
 await boss.schedule(JOBS.opsHandoffSweep, '*/5 * * * *', {}, { tz: 'UTC' })
-await boss.schedule(JOBS.zoodataSync, '30 5 * * *', {}, { tz: 'UTC' })
+// 05:30 UTC was 22:30 Pacific the evening BEFORE, so "yesterday" resolved to the day before that and the
+// orders chart lagged two days. 10:30 UTC is 03:30 Pacific / 06:30 Eastern — after midnight everywhere in
+// the US; the 17:30 UTC pass picks up late corrections (the sync always re-fetches the last 3 days).
+await boss.schedule(JOBS.zoodataSync, '30 10,17 * * *', {}, { tz: 'UTC' })
 await boss.schedule(JOBS.disputesTick, '5 * * * *', {}, { tz: 'UTC' })
 // weeklyDigest intentionally NOT scheduled in V1 (placeholder job only).
 
