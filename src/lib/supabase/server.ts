@@ -17,9 +17,16 @@ export function supabaseUrl() {
   return u
 }
 
+/** Auth cookies: 400 days (the browser maximum), Secure on https. iOS web apps are stricter about what survives a restart. */
+export const AUTH_COOKIE_OPTIONS = {
+  path: '/', sameSite: 'lax' as const, maxAge: 60 * 60 * 24 * 400,
+  secure: (process.env.NEXT_PUBLIC_APP_URL ?? '').startsWith('https://'),
+}
+
 export async function createSupabaseServer() {
   const cookieStore = await cookies()
   return createServerClient(supabaseUrl(), supabaseKey(), {
+    cookieOptions: AUTH_COOKIE_OPTIONS,
     cookies: {
       getAll: () => cookieStore.getAll(),
       setAll: (toSet) => {

@@ -35,10 +35,20 @@
 
 html {
   scroll-behavior: smooth;
+  /* No sideways drift and no rubber-band bounce (iOS shows whatever is behind the page while it bounces). */
+  overflow-x: clip;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
+/* Signed-in pages sit on a grey ground; paint the root the same so nothing white can ever show around them. */
+html:has(.app-shell), html:has(.app-shell) body { background: #f3f4f6; }
 
 body {
   @apply bg-white text-ink-900 antialiased;
+  overflow-x: clip;
+  overscroll-behavior: none;
+  /* Full-screen web app on a notched phone: keep content out of the home-indicator area. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   font-feature-settings: 'cv11', 'ss01';
 }
 
