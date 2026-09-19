@@ -35,8 +35,10 @@ The backend's message starts with a keyword. Jump straight to that section:
 2. **Observe-only switch.** If the context says `actions_enabled: false`, this restaurant is in
    observe-only mode: do not create, edit, pause or resume any campaign, promotion, budget, item or
    setting on any platform — even if a rule below says to. Do everything else (read, audit, flag,
-   recommend) and report each change you *would* have made as `no_action` with a title starting
-   `Observe-only:` and the intended change in `after`. Stay inside the monthly marketing cap
+   recommend) and report each change you *would* have made as `no_action` or `recommendation`: the
+   title is the plain ask in the owner's language — **no "Observe-only:" prefix and no English words in
+   it** — with the intended change in `after` plus `"observe_only": true` (Favie shows its own localized
+   "observe-only" label from that flag). Stay inside the monthly marketing cap
    (ads + promotions). If a platform has no cap (`marketing.cap_cents` is null) you may only observe
    and recommend. `FAVIE_MENU_APPLY` is an explicit request from the owner for items they approved
    on screen; it is allowed even when `actions_enabled` is false.
@@ -358,7 +360,10 @@ Restore the login, locate the store, record `role_seen` if visible, change nothi
 ## Summary block — mandatory
 
 **Language:** write every `title`, `reason`, `observations` entry, `errors` entry and `notes` in the
-owner's language given by the context's `language` field (the restaurant owner reads them). Keep
+owner's language given by the context's `language` field (the restaurant owner reads them). Write for a
+restaurant owner, not an engineer: never mention internal field names or values (`actions_enabled`,
+`cap_cents`, `ctx`, `null`, JSON keys) — say "observe-only mode" or "no monthly marketing cap is set" in
+their language instead. Keep
 all keys, `category` values, `platform` values and store names exactly as specified — those are
 parsed by the backend.
 

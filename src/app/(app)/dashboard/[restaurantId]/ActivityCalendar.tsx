@@ -1,5 +1,6 @@
 'use client'
 import { useMemo, useState } from 'react'
+import { displayTitle, isObserveOnly, visibleEntries } from '@/lib/activity-display'
 import Link from 'next/link'
 import { useT, useLocale } from '@/i18n/client'
 import type { DictKey } from '@/i18n'
@@ -100,11 +101,14 @@ export function ActivityCalendar({ restaurantId, timezone, ym, prev, next, today
               <li key={a.id} className={`card p-5 ${a.needsAttention ? 'ring-1 ring-amber-300/70' : ''}`}>
                 <div className="flex items-center justify-between gap-3 text-xs text-ink-500">
                   <span className="flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${PLATFORM[a.platform].dot}`} />{PLATFORM[a.platform].label} · {t(`cat.${a.category}` as DictKey)}</span>
-                  {a.needsAttention && <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">{t('cal.needsAttention')}</span>}
+                  <span className="flex items-center gap-1.5">
+                    {!a.sysKey && isObserveOnly(a.title, a.after) && <span className="rounded-full bg-ink-100 px-2 py-0.5 font-medium text-ink-600">{t('cal.observeOnly')}</span>}
+                    {a.needsAttention && <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">{t('cal.needsAttention')}</span>}
+                  </span>
                 </div>
-                <p className="mt-2 font-semibold">{a.sysKey ? t(`sys.${a.sysKey}.t` as DictKey, a.sysVars ?? undefined) : a.title}</p>
+                <p className="mt-2 font-semibold">{a.sysKey ? t(`sys.${a.sysKey}.t` as DictKey, a.sysVars ?? undefined) : displayTitle(a.title)}</p>
                 <p className="mt-2 text-sm leading-relaxed text-ink-700"><span className="font-medium text-ink-900">{t('cal.why')}</span>{a.sysKey ? t(`sys.${a.sysKey}.r` as DictKey, a.sysVars ?? undefined) : a.reason}</p>
-                {(a.before || a.after) && (
+                {(visibleEntries(a.before).length > 0 || visibleEntries(a.after).length > 0) && (
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <Kv label={t('cal.before')} v={a.before} />
                     <Kv label={t('cal.after')} v={a.after} />
@@ -112,7 +116,7 @@ export function ActivityCalendar({ restaurantId, timezone, ym, prev, next, today
                 )}
                 <div className="mt-3 flex items-center justify-between text-xs text-ink-500">
                   <span>{new Date(a.at).toLocaleTimeString(intl, { hour: 'numeric', minute: '2-digit', timeZone: timezone })}</span>
-                  <Link href={`/dashboard/${restaurantId}/runs/${a.runId}`} className="hover:text-ink-900">{t('cal.viewRun')}</Link>
+                  <Link href={`/dashboard/${restaurantId}/runs/${a.runId}?action=${a.id}`} className="hover:text-ink-900">{t('cal.viewRun')}</Link>
                 </div>
               </li>
             ))}
@@ -127,7 +131,7 @@ function Kv({ label, v }: { label: string; v: Record<string, unknown> | null }) 
   return (
     <div className="rounded-lg bg-ink-100/70 p-2.5">
       <p className="font-medium text-ink-500">{label}</p>
-      {v ? Object.entries(v).map(([k, val]) => (
+      {visibleEntries(v).length ? visibleEntries(v).map(([k, val]) => (
         <p key={k} className="mt-0.5 text-ink-800">{k.replace(/_cents$/, '').replace(/_/g, ' ')}: <b>{/_cents$/.test(k) && typeof val === 'number' ? money(val) : String(val)}</b></p>
       )) : <p className="mt-0.5 text-ink-400">—</p>}
     </div>

@@ -36,6 +36,13 @@ export async function getRunsForMonth(restaurantId: string, ym: string) {
     ))
 }
 
+/** Owner-visible entries one run produced, newest first. */
+export async function getActionsForRun(restaurantId: string, runId: string) {
+  return db.select().from(schema.agentActions)
+    .where(and(eq(schema.agentActions.restaurantId, restaurantId), eq(schema.agentActions.runId, runId), eq(schema.agentActions.internal, false)))
+    .orderBy(desc(schema.agentActions.occurredAt), schema.agentActions.createdAt)
+}
+
 export async function getRun(restaurantId: string, runId: string) {
   const [run] = await db.select().from(schema.agentRuns).where(and(eq(schema.agentRuns.id, runId), eq(schema.agentRuns.restaurantId, restaurantId))).limit(1)
   return run ?? null
