@@ -57,6 +57,21 @@ export async function aiOptimize(menuItemId: string, scope: 'text' | 'image' | '
   await enqueueMenuGenerate(job!.id, item.id, scope)
   return { ok: true as const, jobId: job!.id }
 }
+/**
+ * × on a running "AI write description" / "AI generate photo": stop waiting and go back to editing by hand.
+ * The job is marked cancelled; the worker drops whatever the agent returns later instead of overwriting the draft.
+ */
+export async function cancelGenerate(menuItemId: string, scope: 'text' | 'image') {
+  const { r, item } = await ownItem(menuItemId)
+  const jobs = await db.select().from(schema.menuJobs)
+    .where(and(eq(schema.menuJobs.restaurantId, r.id), eq(schema.menuJobs.menuItemId, item.id), eq(schema.menuJobs.kind, 'generate'), inArray(schema.menuJobs.status, ['queued', 'running'])))
+  // A legacy "both" job (scope null) covers either button.
+  const ids = jobs.filter((j) => j.scope == null || j.scope === scope).map((j) => j.id)
+  if (ids.length) await db.update(schema.menuJobs).set({ status: 'failed', error: 'cancelled', note: 'Cancelled', updatedAt: new Date() }).where(inArray(schema.menuJobs.id, ids))
+  revalidatePath(`/dashboard/${r.id}/menu`)
+  return { ok: true as const, cancelled: ids.length }
+}
+
 /** "AI write description" — text only. */
 export async function aiDescribe(menuItemId: string) { return aiOptimize(menuItemId, 'text') }
 /** "AI generate photo" — photo only, styled after the restaurant's existing photos. */

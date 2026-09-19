@@ -23,11 +23,18 @@ type MenuItem = typeof schema.menuItems.$inferSelect
 
 const PLATFORM_LABEL: Record<Platform, string> = { uber_eats: 'Uber Eats', doordash: 'DoorDash' }
 
+// A job the owner cancelled (error = 'cancelled') stays cancelled: late progress notes and failures never revive it.
+const notCancelled = sql`${schema.menuJobs.error} is distinct from 'cancelled'`
 async function note(jobId: string, text: string, patch: Partial<typeof schema.menuJobs.$inferInsert> = {}) {
-  await db.update(schema.menuJobs).set({ note: text.slice(0, 300), updatedAt: new Date(), ...patch }).where(eq(schema.menuJobs.id, jobId)).catch(() => {})
+  await db.update(schema.menuJobs).set({ note: text.slice(0, 300), updatedAt: new Date(), ...patch }).where(and(eq(schema.menuJobs.id, jobId), notCancelled)).catch(() => {})
 }
 async function fail(jobId: string, error: string) {
-  await db.update(schema.menuJobs).set({ status: 'failed', error: error.slice(0, 1000), updatedAt: new Date() }).where(eq(schema.menuJobs.id, jobId))
+  await db.update(schema.menuJobs).set({ status: 'failed', error: error.slice(0, 1000), updatedAt: new Date() }).where(and(eq(schema.menuJobs.id, jobId), notCancelled))
+}
+/** The owner pressed × while the AI was working: whatever comes back must not overwrite what they typed meanwhile. */
+async function wasCancelled(jobId: string) {
+  const [j] = await db.select({ error: schema.menuJobs.error }).from(schema.menuJobs).where(eq(schema.menuJobs.id, jobId)).limit(1)
+  return j?.error === 'cancelled'
 }
 
 /** One agent turn recorded as a `menu` run; returns the assistant text. Mirrors runManualPrompt without the daily-summary collection. */
@@ -535,6 +542,7 @@ export async function runMenuGenerate(jobId: string) {
     const bi = splitBilingual(got)
     if (!bi.en) throw new Error('the agent did not return a description')
     en = bi.en
+    if (await wasCancelled(jobId)) return
     await db.update(schema.menuItems).set({ aiDescriptionEn: en, aiDescriptionZh: bi.zh || null, draftDescription: bi.zh ? `${en}\n${bi.zh}` : en, status: 'draft', updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
     if (scope === 'text') { await note(jobId, 'Description ready', { status: 'done' }); return }
     }
@@ -551,6 +559,7 @@ export async function runMenuGenerate(jobId: string) {
         const stepNote: Record<string, string> = { analyze: 'Studying your existing photos…', generate: 'Generating the photo…', check: 'Checking the photo against your menu style…', retry: 'Adjusting and generating again…' }
         img = await generateDishImageViaAgent(job.restaurantId, { renderPrompt, model: await menuImageModel(), filename: `${item.id}.jpg`, references, jobId, onProgress: (step) => note(jobId, stepNote[step] ?? 'Generating the photo…') })
       }
+      if (await wasCancelled(jobId)) return
       const url = await putImage(job.restaurantId, `${item.id}-ai-${Date.now()}.jpg`, img.bytes, img.contentType)
       await db.update(schema.menuItems).set({ aiImageUrl: url, draftImageUrl: url, status: 'draft', raw: { ...(item.raw as Record<string, unknown> ?? {}), aiImage: { model: img.model, r2Key: img.r2Key, artifactUrl: img.artifactUrl, prompt: img.prompt, references, styleText: img.styleText ?? null, ms: img.ms, check: img.check ?? null, attempts: img.attempts ?? 1 } }, updatedAt: new Date() }).where(eq(schema.menuItems.id, item.id))
       await note(jobId, scope === 'image' ? 'Photo ready' : 'Description and photo ready', { status: 'done' })

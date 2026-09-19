@@ -513,6 +513,7 @@ const ja: Dictionary = {
   'menu.optimizing': "最適化中…約2分",
   'menu.describe': 'AI で説明文を書く',
   'menu.describing': '作成中…約1分',
+  'menu.cancelGen': '中止して自分で書く',
   'menu.genPhoto': 'AI で写真を生成',
   'menu.genPhotoing': '生成中…約2分',
   'menu.opt.hint': 'Favie が説明文を書き直し、写真のスタイルを統一します。24時間以内に完了。',

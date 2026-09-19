@@ -513,6 +513,7 @@ const zhCN: Dictionary = {
   'menu.optimizing': "优化中……约 2 分钟",
   'menu.describe': 'AI 写描述',
   'menu.describing': '撰写中……约 1 分钟',
+  'menu.cancelGen': '取消，自己写',
   'menu.genPhoto': 'AI 生成图片',
   'menu.genPhotoing': '生成中……约 2 分钟',
   'menu.opt.hint': 'Favie 替你重写描述、统一图片风格，24 小时内完成。',

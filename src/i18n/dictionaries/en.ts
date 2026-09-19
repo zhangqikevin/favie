@@ -517,6 +517,7 @@ const en = {
   'menu.optimizing': "Optimizing… about 2 min",
   'menu.describe': 'AI write description',
   'menu.describing': 'Writing… about 1 min',
+  'menu.cancelGen': 'Stop and write it myself',
   'menu.genPhoto': 'AI generate photo',
   'menu.genPhotoing': 'Generating… about 2 min',
   'menu.opt.hint': 'Favie rewrites descriptions and unifies photos in your style, done within 24 hours.',

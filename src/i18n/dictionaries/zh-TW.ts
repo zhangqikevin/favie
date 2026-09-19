@@ -513,6 +513,7 @@ const zhTW: Dictionary = {
   'menu.optimizing': "優化中……約 2 分鐘",
   'menu.describe': 'AI 寫描述',
   'menu.describing': '撰寫中……約 1 分鐘',
+  'menu.cancelGen': '取消，自己寫',
   'menu.genPhoto': 'AI 生成圖片',
   'menu.genPhotoing': '生成中……約 2 分鐘',
   'menu.opt.hint': 'Favie 替你重寫描述、統一圖片風格，24 小時內完成。',

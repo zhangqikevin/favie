@@ -5,7 +5,7 @@ import { INTL_TAG } from '@/i18n/config'
 import type { DictKey } from '@/i18n'
 import { PlatformIcon } from '@/components/PlatformIcon'
 import { Food, type FoodItem } from '@/components/marketing/Food'
-import { pullMenu, pickStorefront, publishAllQueued, aiDescribe, aiPhoto, updateDraft, uploadPhoto, queueItem, unqueueItem, discardDraft, requestMenuOptimization, cancelMenuOptimization } from '@/app/(app)/dashboard/[restaurantId]/menu/actions'
+import { pullMenu, pickStorefront, publishAllQueued, aiDescribe, cancelGenerate, aiPhoto, updateDraft, uploadPhoto, queueItem, unqueueItem, discardDraft, requestMenuOptimization, cancelMenuOptimization } from '@/app/(app)/dashboard/[restaurantId]/menu/actions'
 import type { MenuState } from '@/lib/zoowork/menu'
 
 type Platform = 'uber_eats' | 'doordash'
@@ -328,16 +328,27 @@ function Row({ item, platform, jobs, onChange, locked, onOpenChange }: { item: I
 
   // AI buttons live next to the thing they produce: the photo button under the picture, the text button under the textarea.
   const canAi = !locked && !saving && !queued
-  const aiPhotoButton = canAi ? (
-    <button type="button" disabled={pending || generatingImage} onClick={() => start(async () => { await aiPhoto(item.id); await onChange() })} className="pill !py-1.5 text-xs disabled:opacity-60">
-      {generatingImage ? <><Spinner small /> {t('menu.genPhotoing')}</> : <><Sparkle className="h-3 w-3" /> {t('menu.genPhoto')}</>}
+  // While the AI works the pill shows progress plus a × that gives the item back to the owner right away.
+  const working = (label: string, scope: 'text' | 'image') => (
+    <span className="pill !cursor-default !py-1.5 !pr-1.5 text-xs text-ink-500">
+      <Spinner small /> {label}
+      <button type="button" disabled={pending} aria-label={t('menu.cancelGen')} title={t('menu.cancelGen')}
+        onClick={() => start(async () => { await cancelGenerate(item.id, scope); await onChange() })}
+        className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-ink-500 hover:bg-ink-100 hover:text-ink-900 disabled:opacity-50">
+        <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" /></svg>
+      </button>
+    </span>
+  )
+  const aiPhotoButton = !canAi ? null : generatingImage ? working(t('menu.genPhotoing'), 'image') : (
+    <button type="button" disabled={pending} onClick={() => start(async () => { await aiPhoto(item.id); await onChange() })} className="pill !py-1.5 text-xs disabled:opacity-60">
+      <Sparkle className="h-3 w-3" /> {t('menu.genPhoto')}
     </button>
-  ) : null
-  const aiDescribeButton = canAi ? (
-    <button type="button" disabled={pending || generatingText} onClick={() => start(async () => { await aiDescribe(item.id); await onChange() })} className="pill !py-1.5 text-xs disabled:opacity-60">
-      {generatingText ? <><Spinner small /> {t('menu.describing')}</> : <><Sparkle className="h-3 w-3" /> {t('menu.describe')}</>}
+  )
+  const aiDescribeButton = !canAi ? null : generatingText ? working(t('menu.describing'), 'text') : (
+    <button type="button" disabled={pending} onClick={() => start(async () => { await aiDescribe(item.id); await onChange() })} className="pill !py-1.5 text-xs disabled:opacity-60">
+      <Sparkle className="h-3 w-3" /> {t('menu.describe')}
     </button>
-  ) : null
+  )
   const actions = locked ? null : saving ? (
     <span className="pill !py-1.5 text-xs"><Spinner small /> {t('menu.saving', { platform: LABEL[platform] })}</span>
   ) : queued ? (

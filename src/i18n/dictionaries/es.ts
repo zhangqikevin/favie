@@ -513,6 +513,7 @@ const es: Dictionary = {
   'menu.optimizing': "Optimizando… unos 2 min",
   'menu.describe': 'Escribir descripción con IA',
   'menu.describing': 'Escribiendo… ~1 min',
+  'menu.cancelGen': 'Cancelar y escribirlo yo',
   'menu.genPhoto': 'Generar foto con IA',
   'menu.genPhotoing': 'Generando… ~2 min',
   'menu.opt.hint': 'Favie reescribe las descripciones y unifica las fotos con tu estilo, listo en 24 horas.',
