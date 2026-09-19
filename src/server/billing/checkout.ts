@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
-import { stripe, STRIPE_PRICE_ID } from '@/lib/stripe'
+import { stripe, STRIPE_PRICE_ID, STRIPE_PRICE_ID_YEARLY } from '@/lib/stripe'
 
 const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
@@ -18,13 +18,15 @@ export async function ensureStripeCustomer(restaurantId: string, email: string, 
 }
 
 /** Pay-now subscription Checkout (no trial). Refunds are handled manually in Stripe within 30 days. */
-export async function createCheckoutSession(restaurantId: string, customerId: string) {
+export async function createCheckoutSession(restaurantId: string, customerId: string, plan: 'monthly' | 'yearly' = 'monthly') {
+  // Yearly falls back to monthly when no yearly price is configured (the picker hides it then anyway).
+  const yearly = plan === 'yearly' ? STRIPE_PRICE_ID_YEARLY() : null
   const session = await stripe().checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
-    line_items: [{ price: STRIPE_PRICE_ID(), quantity: 1 }],
+    line_items: [{ price: yearly ?? STRIPE_PRICE_ID(), quantity: 1 }],
     client_reference_id: restaurantId,
-    subscription_data: { metadata: { restaurant_id: restaurantId } },
+    subscription_data: { metadata: { restaurant_id: restaurantId, plan: yearly ? 'yearly' : 'monthly' } },
     allow_promotion_codes: true,
     success_url: `${appUrl()}/onboarding/connect?checkout=success`,
     cancel_url: `${appUrl()}/onboarding/billing?checkout=cancelled`,

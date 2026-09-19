@@ -81,7 +81,7 @@ Favie 用 Supabase 的两样东西：**Auth**（邮箱密码登录、邮件确�
 | `ZOOWORK_API_KEY` | ZooWork 组织级 token，仅服务端。管理后台 `/admin` 里保存的 key 优先于它 |
 | `FAVIE_OPS_SKILL_ID` | 组织级 skill `favie-ops` 的 id，所有环境共用同一个 |
 | `ZOODATA_MCP_URL` | 默认 `https://api.zoodata.ai/mcp-restaurant`。和 Zoodata 同云后可以换成内网地址，先确认内网入口支持同样的 Bearer 鉴权 |
-| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_PRICE_ID` / `STRIPE_PORTAL_CONFIG_ID` | 见第 7 节，**本次要换成公司账号的** |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_PRICE_ID` / `STRIPE_PRICE_ID_YEARLY` / `STRIPE_PORTAL_CONFIG_ID` | 见第 7 节，**本次要换成公司账号的** |
 | `RESEND_API_KEY` / `SUPABASE_SEND_EMAIL_HOOK_SECRET` / `AUTH_EMAIL_FROM` | 注册、重置密码邮件（见 `docs/EMAIL.md`） |
 | `FIRECRAWL_API_KEY` | 可选。没有它菜单读取会退回用 agent 浏览器，慢很多 |
 | `ADMIN_EMAILS` | 逗号分隔的管理员邮箱，可进 `/admin` |
@@ -206,7 +206,10 @@ Worker 日志里应出现一行 `[worker] up; queues: ...`，其中包含 `dispu
 
 在**公司 Stripe 账号**里操作（先 test mode 走通，再换 live）：
 
-1. **产品与价格**：新建产品 "Favie"，价格 **$299.00 USD / 月，recurring**。记下 `price_...` → `STRIPE_PRICE_ID`。
+1. **产品与价格**：新建产品 "Favie"，在同一个产品下建两个价格：
+   - 月付 **$299.00 USD / 月，recurring** → `STRIPE_PRICE_ID`
+   - 年付 **$3,289.00 USD / 年，recurring**（11 个月的价格，送 1 个月）→ `STRIPE_PRICE_ID_YEARLY`。这个变量可选：不配的话付款页只显示月付，不会报错。
+   - 在 Customer Portal 配置里把这两个价格都加进"可切换的方案"，用户才能自己在月付和年付之间切换。
 2. **Customer Portal**：Settings → Billing → Customer portal，开启"更新付款方式""取消订阅"，保存后用 API 或 Dashboard 拿到配置 id `bpc_...` → `STRIPE_PORTAL_CONFIG_ID`（不设也能用，走账号默认配置）。
 3. **API key**：建议建一个 Restricted key，权限：Customers、Checkout Sessions、Subscriptions、Invoices、Billing Portal 写权限，Charges / Events 读权限 → `STRIPE_SECRET_KEY`。
 4. **Webhook**：Developers → Webhooks → Add endpoint

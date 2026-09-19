@@ -5,6 +5,8 @@ import { getSubscription } from '@/server/restaurants'
 import { OnboardingShell } from '../OnboardingShell'
 import { startCheckout, devSkipBilling } from '../actions'
 import { getT } from '@/i18n/server'
+import { PlanPicker } from './PlanPicker'
+import { STRIPE_PRICE_ID_YEARLY } from '@/lib/stripe'
 
 export default async function BillingStep({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
   const user = await requireUser()
@@ -36,14 +38,7 @@ export default async function BillingStep({ searchParams }: { searchParams: Prom
           )}
         </div>
         <div className="card p-7 md:col-span-2">
-          <p className="text-sm text-ink-500">{t('common.perRestaurant')}</p>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="font-display text-5xl font-bold tracking-tight">$299</span>
-            <span className="text-ink-500">{t('common.month')}</span>
-          </div>
-          <form action={startCheckout} className="mt-6">
-            <SubmitButton className="btn-primary w-full !py-3.5">{t('ob.billing.pay')}</SubmitButton>
-          </form>
+          <PlanPicker action={startCheckout} yearlyAvailable={!!STRIPE_PRICE_ID_YEARLY()} />
           <p className="mt-3 text-center text-xs text-ink-500">{t('ob.billing.guarantee')}</p>
           {process.env.FAVIE_SKIP_BILLING === '1' && (
             <form action={devSkipBilling} className="mt-4 border-t border-dashed border-ink-100 pt-4">

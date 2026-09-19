@@ -25,10 +25,11 @@ export async function devSkipBilling() {
   redirect('/onboarding/connect')
 }
 
-export async function startCheckout() {
+export async function startCheckout(fd?: FormData) {
   const { user, r } = await ownRestaurant()
+  const plan = String(fd?.get('plan') ?? 'monthly') === 'yearly' ? 'yearly' : 'monthly'
   const customerId = await ensureStripeCustomer(r.id, user.email, user.name)
-  const url = await createCheckoutSession(r.id, customerId)
+  const url = await createCheckoutSession(r.id, customerId, plan)
   redirect(url)
 }
 

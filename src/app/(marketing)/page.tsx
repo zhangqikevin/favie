@@ -155,6 +155,7 @@ export default async function LandingPage() {
               <span className="text-ink-500">{t('common.month')}</span>
             </div>
             <p className="mt-3 text-sm text-ink-500">{t('pricing.billed')}</p>
+            <p className="mt-1 text-sm text-ink-500">{t('pricing.yearly')}</p>
             <Link href="/signup" className="btn-primary mt-8 w-full !py-4 !text-base">{t('common.getStarted')}</Link>
             <p className="mt-4 text-center text-sm text-ink-500">
               <span className="font-semibold text-ink-900">{t('pricing.guarantee.b')}</span> {t('pricing.guarantee')}

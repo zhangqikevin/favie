@@ -16,4 +16,7 @@ export const STRIPE_PRICE_ID = () => {
   return id
 }
 
+/** Yearly price ($3,289 = 11 × $299, recurring yearly). Optional: without it the yearly option is not offered. */
+export const STRIPE_PRICE_ID_YEARLY = () => process.env.STRIPE_PRICE_ID_YEARLY || null
+
 export const REFUND_WINDOW_DAYS = 30
