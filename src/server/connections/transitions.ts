@@ -64,9 +64,15 @@ export async function applyConnectionReport(restaurantId: string, p: PlatformRep
     : p.store_visible === false ? 'Logged in, but the store was not found in this account.' : null
 
   if (ok) {
+    // Store id: an id we already hold is never overwritten by a later report, and in an Uber Eats account
+    // with several stores the uuid the agent reads from the portal URL is not trusted at all — it is the
+    // account's default / last-used store (production Kirin ended up with Tigawok's uuid this way). Those
+    // connections get their id from the public store page once its title matches (menu pull).
+    const multiStoreUber = p.platform === 'uber_eats' && (conn.storeCandidates?.length ?? 0) > 1
+    const storeExternalId = conn.storeExternalId ?? (multiStoreUber ? null : p.store_external_id ?? null)
     await db.update(schema.platformConnections).set({
-      status: 'connected', storeName: p.store_name ?? conn.storeName, storeExternalId: p.store_external_id ?? conn.storeExternalId,
-      storefrontUrl: conn.storefrontUrl ?? storefrontFromId(p.platform, p.store_external_id, p.store_name ?? conn.storeName),
+      status: 'connected', storeName: conn.storeName ?? p.store_name ?? null, storeExternalId,
+      storefrontUrl: conn.storefrontUrl ?? storefrontFromId(p.platform, storeExternalId, conn.storeName ?? p.store_name),
       roleSeen: p.role_seen ?? conn.roleSeen, verifiedAt: conn.verifiedAt ?? now, lastVerifiedAt: now, lastVerifyRunId: runId,
       lastError: null, brokenSince: null, verifyAttempts: 0, updatedAt: now,
     }).where(eq(schema.platformConnections.id, conn.id))
