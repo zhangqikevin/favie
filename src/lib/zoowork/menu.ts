@@ -467,7 +467,15 @@ export async function ingestMenu(jobId: string, text: string, meta: { source?: '
     }
     // Items that vanished from the platform menu are removed unless Favie has a pending draft on them.
     const stale = await db.select().from(schema.menuItems).where(and(eq(schema.menuItems.restaurantId, job.restaurantId), eq(schema.menuItems.platform, job.platform)))
-    for (const row of stale) if (!seen.has(row.itemKey) && row.status !== 'draft' && row.status !== 'saving') await db.delete(schema.menuItems).where(eq(schema.menuItems.id, row.id))
+    for (const row of stale) {
+      if (seen.has(row.itemKey) || row.status === 'draft' || row.status === 'saving' || row.status === 'queued') continue
+      // Old generate/apply jobs still point at the item (foreign key): detach them first. One stubborn row must
+      // never fail the whole read — the menu itself was ingested fine (seen: "Rose Milk" left the menu with 2 jobs).
+      try {
+        await db.update(schema.menuJobs).set({ menuItemId: null }).where(eq(schema.menuJobs.menuItemId, row.id))
+        await db.delete(schema.menuItems).where(eq(schema.menuItems.id, row.id))
+      } catch (e) { console.warn('[menuPull] could not remove vanished item', row.id, (e as Error).message.slice(0, 120)) }
+    }
     const withPhoto = await db.$count(schema.menuItems, and(eq(schema.menuItems.restaurantId, job.restaurantId), eq(schema.menuItems.platform, job.platform), isNotNull(schema.menuItems.imageUrl)))
     const tail = meta.source === 'firecrawl' ? ` · photos for ${withPhoto} of ${seen.size} · ${Math.round((meta.ms ?? 0) / 1000)}s` : ''
     await note(jobId, parsed.truncated ? `Read ${seen.size} items (menu longer than the agent could finish)` : `Read ${seen.size} items${tail}`, { status: 'done' })
