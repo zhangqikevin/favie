@@ -486,6 +486,7 @@ const ja: Dictionary = {
   'menu.notConnected': 'メニューを読み取るにはまず {platform} を接続してください。',
   'menu.pull': '{platform} からメニューを読み取る',
   'menu.repull': 'メニューを再読み込み',
+  'menu.retryPull': '再読み込み',
   'menu.pulling': 'Favie がブラウザでメニューを読み取り中… フルメニューは数分かかります。',
   'menu.reading.kicker': '読み込み中',
   'menu.reading.title': '{platform} のメニューを読み込んでいます',

@@ -188,7 +188,16 @@ export function MenuClinic({ restaurantId, connected, initial, ops = false, auto
           </ul>
         </section>
       )}
-      {s.pull?.status === 'failed' && !activePull && !(s.storefront.candidates?.length) && <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{t('menu.jobError', { error: s.pull.error ?? '' })}</div>}
+      {s.pull?.status === 'failed' && !activePull && !(s.storefront.candidates?.length) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="min-w-0 flex-1">{t('menu.jobError', { error: s.pull.error ?? '' })}</p>
+          {/* The message stays until the next read; give the way out right here. */}
+          <button type="button" disabled={pending || locked} onClick={() => start(async () => { await pullMenu(restaurantId, platform); await refresh() })}
+            className="shrink-0 rounded-full bg-amber-800 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-900 disabled:opacity-60">
+            {pending ? t('menu.working') : t('menu.retryPull')}
+          </button>
+        </div>
+      )}
 
       {optimization && ops && (
         <div className="rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-700">{t('menu.opt.opsNote', { when: new Date(optimization.requestedAt).toLocaleString(intl, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) })}</div>

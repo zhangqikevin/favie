@@ -486,6 +486,7 @@ const es: Dictionary = {
   'menu.notConnected': 'Conecta {platform} primero para leer su menú.',
   'menu.pull': 'Leer el menú de {platform}',
   'menu.repull': 'Volver a leer el menú',
+  'menu.retryPull': 'Leer de nuevo',
   'menu.pulling': 'Favie está leyendo el menú en su navegador… un menú completo suele tardar unos minutos.',
   'menu.reading.kicker': 'Leyendo',
   'menu.reading.title': 'Leyendo tu menú de {platform}',

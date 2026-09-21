@@ -486,6 +486,7 @@ const zhTW: Dictionary = {
   'menu.notConnected': '先連接 {platform} 才能讀取菜單。',
   'menu.pull': '從 {platform} 讀取菜單',
   'menu.repull': '重新讀取菜單',
+  'menu.retryPull': '重新讀取',
   'menu.pulling': 'Favie 正在瀏覽器裡讀取菜單……完整菜單通常需要幾分鐘。',
   'menu.reading.kicker': '讀取中',
   'menu.reading.title': '正在讀取你的 {platform} 菜單',

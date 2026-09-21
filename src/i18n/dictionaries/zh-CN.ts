@@ -486,6 +486,7 @@ const zhCN: Dictionary = {
   'menu.notConnected': '先连接 {platform} 才能读取菜单。',
   'menu.pull': '从 {platform} 读取菜单',
   'menu.repull': '重新读取菜单',
+  'menu.retryPull': '重新读取',
   'menu.pulling': 'Favie 正在浏览器里读取菜单……完整菜单通常需要几分钟。',
   'menu.reading.kicker': '读取中',
   'menu.reading.title': '正在读取你的 {platform} 菜单',

@@ -490,6 +490,7 @@ const en = {
   'menu.notConnected': 'Connect {platform} first to read its menu.',
   'menu.pull': 'Read menu from {platform}',
   'menu.repull': 'Re-read menu',
+  'menu.retryPull': 'Read again',
   'menu.pulling': 'Favie is reading the menu in its browser… this usually takes a few minutes for a full menu.',
   'menu.reading.kicker': 'Reading',
   'menu.reading.title': 'Reading your {platform} menu',
