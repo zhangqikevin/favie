@@ -18,7 +18,7 @@ The [hard fact] is ONE concrete contradiction taken from the order itself, for e
 - "The ticket lists 1× Beef Chow Fun; the customer reports a missing Chicken Chow Fun that was never ordered."
 - "The order held 3 items in one sealed bag; a missing item would have left the seal broken."
 - "The charge ($18.40) exceeds the item price ($12.95)."
-- "The customer's own photo shows the item they claim is missing."
+- "The customer's own photo shows the item they claim is missing." (ONLY when you have actually seen the photo's content in a screenshot you already took — never open, enlarge or analyse a photo to get this, and never describe a photo you have not seen.)
 - "The courier picked up at 1:07 pm, 10 minutes after the order was ready; the delay is the courier's."
 - "This customer has placed 2 orders at our store and reported an issue on both."
 Never invent a fact. If the order shows nothing usable, state the two checks and the exact items and quantities on the ticket.`
@@ -96,14 +96,14 @@ export const DEFAULT_DISPUTE_FAST_DOORDASH = `DOORDASH — scripted dispute of O
 OPEN THE ORDER PANEL
 A. If this line shows a URL, navigate to it and go to step C:  {detail_url}
 B. Otherwise: navigate to {list_url} ; act wait 3000 ; click the date-range button (text "Last 7 days" / "过去 7 天") ; click "Last 30 days" / "过去 30 天" ; click button "All transaction types" / "所有交易类型" ; click the checkbox item "Error charge" / "错误费用" ; click button "Apply" / "应用" ; act wait 3000 ; click selector  td a[href*="{order_id_lower}"]
-C. act wait 3000 ; ONE snapshot (mode "efficient"). From it read: the deadline ("Take action by …"), what was reported, the customer block (how many orders at this store), Picked up / Dropped off vs the assigned times, every ordered item with quantity, the charged item(s) with type, the customer's comment, whether a photo is attached, the error-charge total.
+C. act wait 3000 ; exactly ONE snapshot (mode "efficient") — this is your only look at the order. Whatever is not in it stays null in the report: do NOT scroll, do NOT take a second snapshot or a screenshot, do NOT hover or click anything in the panel, do NOT read other skills. A customer photo: record only that one is attached (customer_photo true); never try to open, enlarge or analyse it (no image tool) and never say what it shows. From the snapshot read: the deadline ("Take action by …"), what was reported, the customer block (how many orders at this store), Picked up / Dropped off vs the assigned times, every ordered item with quantity, the charged item(s) with type, the customer's comment, whether a photo is attached, the error-charge total.
    - No button "Dispute charge" / "争议收费" in the snapshot → do NOT continue: report the state you see ("filed" when it says Dispute pending / under review, "won" when approved, "lost" when denied, "expired" when the window ended) and go to step J.
 
-WRITE (no tool call)
+WRITE (no tool call — count the characters as you write; at most ONE exec to check the length, never several drafts)
 D. Choose the reason: "Item was prepared as requested" / 按要求准备的单品 · "Item was not picked up" / 单品未自取 · "Order was picked up late" / 订单自取迟到 · "Order was mishandled" / 订单处理不当 · "Other reason" / 其他原因. Then write the text:
    {writing_rules}
 
-FILL THE FORM
+FILL THE FORM (steps E–H: no screenshots and no snapshots in between; if a call errors do not try variants — go on, and if the form cannot be completed report status "open")
 E. click selector  button:has-text("Dispute charge")   (or button:has-text("争议收费"))
 F. click text "Choose an option" / "选择选项" ; click the text of the reason you chose. If several items were charged, repeat F for each selector that still reads "Choose an option".
 G. click selector  textarea[name="additional-notes"]  ; type the text.
