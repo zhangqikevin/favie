@@ -12,6 +12,17 @@ export function ManualRun({ restaurantId, running, platforms }: { restaurantId: 
   const [state, action, pending] = useActionState<ManualState, FormData>(runDisputesManual, undefined)
   const [platform, setPlatform] = useState(platforms[0]?.id ?? 'uber_eats')
   const [orderId, setOrderId] = useState('')
+  const has = (id: string) => platforms.some((p) => p.id === id)
+  // The choice survives the page's own refreshes and reloads (it used to fall back to the first platform).
+  useEffect(() => { try { const saved = localStorage.getItem('favie.disputes.platform'); if (saved && has(saved)) setPlatform(saved as typeof platform) } catch {} }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const choose = (id: typeof platform) => { setPlatform(id); try { localStorage.setItem('favie.disputes.platform', id) } catch {} }
+  // Order ids look different per platform: DoorDash 8 hex characters (8A5664B5), Uber Eats 5 (51D86). Follow them.
+  const onOrderId = (v: string) => {
+    setOrderId(v)
+    const id = v.trim().replace(/^#/, '')
+    if (/^[0-9a-f]{8}$/i.test(id) && has('doordash')) choose('doordash')
+    else if (/^[0-9a-f]{5}$/i.test(id) && has('uber_eats')) choose('uber_eats')
+  }
   useEffect(() => {
     if (!running && !state?.ok) return
     const id = setInterval(() => router.refresh(), 8000)
@@ -23,7 +34,7 @@ export function ManualRun({ restaurantId, running, platforms }: { restaurantId: 
       {platforms.length > 1 && (
         <div role="radiogroup" className="flex rounded-full bg-ink-100 p-0.5 text-xs font-semibold">
           {platforms.map((p) => (
-            <button key={p.id} type="button" role="radio" aria-checked={platform === p.id} disabled={busy} onClick={() => setPlatform(p.id)}
+            <button key={p.id} type="button" role="radio" aria-checked={platform === p.id} disabled={busy} onClick={() => choose(p.id)}
               className={`rounded-full px-3 py-1.5 transition-colors ${platform === p.id ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-900'}`}>{p.label}</button>
           ))}
         </div>
@@ -42,7 +53,7 @@ export function ManualRun({ restaurantId, running, platforms }: { restaurantId: 
         <input type="hidden" name="mode" value="process" />
         <button type="submit" disabled={busy} className="btn-primary !py-2 text-sm" title={t('disp.manual.processHint')}>{t('disp.manual.process')}</button>
       </form>
-      <input id="disputes-order-id" value={orderId} onChange={(e) => setOrderId(e.target.value)} disabled={busy} placeholder={t('disp.manual.orderPh')} title={t('disp.manual.orderHint')} aria-label={t('disp.manual.orderHint')}
+      <input id="disputes-order-id" value={orderId} onChange={(e) => onOrderId(e.target.value)} disabled={busy} placeholder={t('disp.manual.orderPh')} title={t('disp.manual.orderHint')} aria-label={t('disp.manual.orderHint')}
         spellCheck={false} autoCapitalize="characters" className="input !w-44 !py-2 font-mono text-xs uppercase placeholder:normal-case placeholder:font-sans" />
       {running ? <span className="text-sm text-ink-500">{t('disp.manual.running')}</span>
         : state?.ok ? <span className="text-sm text-emerald-700">{t('disp.manual.queued')}</span>

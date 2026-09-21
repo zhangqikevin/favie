@@ -3,7 +3,7 @@ import { db, schema } from '@/lib/db/client'
 import { zoowork, logged } from './client'
 import { streamTurn } from './streamTurn'
 import { collectRun, localDate } from './collect'
-import { releaseHandoffBrowsers } from './handoff'
+import { releaseHandoffBrowsers, releaseAgentBrowsers, releaseBrowser } from './handoff'
 import { billingOk } from '@/server/billing/gate'
 import { enqueueDisputesCheck } from '@/server/jobs/enqueue'
 import type { Platform } from '@/lib/db/schema'
@@ -139,6 +139,7 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
 
   const zc = zoowork()
   await releaseHandoffBrowsers(restaurantId, agent.zooworkAgentId, agent.id)
+  await releaseAgentBrowsers(agent.id, agent.zooworkAgentId)
   const session = await logged('createSession.disputes', agent.id, { platform, date: today, attempts: base.attempts }, () =>
     zc.createSession(agent.zooworkAgentId!, {
       initial_events: [{ type: 'user.message', content: message }],
@@ -175,7 +176,11 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
     await db.update(schema.agentRuns).set({ status: 'interrupted', updatedAt: new Date() }).where(eq(schema.agentRuns.id, run!.id))
     await record({ ...base, status: 'failed', error: (e as Error).message.slice(0, 500), runId: run!.id })
     throw e
-  } finally { clearTimeout(timer) }
+  } finally {
+    clearTimeout(timer)
+    // Whatever happened, do not leave the profile locked for the next run (no-op when the agent closed it itself).
+    await releaseBrowser(agent.zooworkAgentId, session.session_id, agent.id).catch(() => {})
+  }
   if (!res.outcome) {
     await zc.postEvents(agent.zooworkAgentId, session.session_id, [{ type: 'user.interrupt' }]).catch(() => {})
     await db.update(schema.agentRuns).set({ status: 'timed_out', updatedAt: new Date() }).where(eq(schema.agentRuns.id, run!.id))

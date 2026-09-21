@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { zoowork, logged } from './client'
 import { streamTurn } from './streamTurn'
@@ -106,6 +106,24 @@ export async function releaseHandoffBrowsers(restaurantId: string, zooworkAgentI
     await releaseBrowser(zooworkAgentId, c.handoffSessionId, restaurantAgentId)
   }
   return seen.size
+}
+
+/**
+ * A restaurant has ONE browser profile; a run that ends without `session close` keeps it locked and every later
+ * run fails with browser_locked (seen 2026-09-21: a 17-minute DoorDash check finished its turn with the browser
+ * open). Close whatever this agent's recent finished runs left behind. Cheap for sessions that did close: one
+ * event read each, no model turn.
+ */
+export async function releaseAgentBrowsers(restaurantAgentId: string, zooworkAgentId: string, exceptSessionId?: string) {
+  const recent = await db.select({ sessionId: schema.agentRuns.zooworkSessionId, status: schema.agentRuns.status }).from(schema.agentRuns)
+    .where(and(eq(schema.agentRuns.restaurantAgentId, restaurantAgentId), sql`${schema.agentRuns.createdAt} > now() - interval '6 hours'`))
+    .orderBy(desc(schema.agentRuns.createdAt)).limit(6)
+  let released = 0
+  for (const r of recent) {
+    if (r.sessionId === exceptSessionId || r.status === 'running' || r.status === 'discovered') continue
+    await releaseBrowser(zooworkAgentId, r.sessionId, restaurantAgentId); released++
+  }
+  return released
 }
 
 const PROFILE_LOCKED = /profile[^"]{0,40}locked|409|PROXY_REQUEST_ERROR/i

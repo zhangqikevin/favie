@@ -40,7 +40,11 @@ export async function runDisputesManual(_prev: ManualState, fd: FormData): Promi
   const { getConnections, getPrimaryAgent } = await import('@/server/restaurants')
   const conns = await getConnections(r.id)
   const { DISPUTE_PLATFORMS } = await import('@/lib/zoowork/disputes')
-  const platform = String(fd.get('platform')) === 'doordash' ? 'doordash' : 'uber_eats'
+  let platform: 'uber_eats' | 'doordash' = String(fd.get('platform')) === 'doordash' ? 'doordash' : 'uber_eats'
+  // A DoorDash-shaped order id (8 hex) sent to Uber Eats, or the reverse (5 hex), is a slip of the selector: follow the id.
+  const connected = (p: 'uber_eats' | 'doordash') => conns.some((c) => c.platform === p && c.status === 'connected')
+  if (/^[0-9a-f]{8}$/i.test(orderRaw) && connected('doordash')) platform = 'doordash'
+  else if (/^[0-9a-f]{5}$/i.test(orderRaw) && connected('uber_eats')) platform = 'uber_eats'
   if (!DISPUTE_PLATFORMS.includes(platform) || !conns.some((c) => c.platform === platform && c.status === 'connected')) return { error: 'not_connected' }
   const agent = await getPrimaryAgent(r.id)
   if (!agent || agent.agentStatus !== 'ready') return { error: 'agent_not_ready' }
