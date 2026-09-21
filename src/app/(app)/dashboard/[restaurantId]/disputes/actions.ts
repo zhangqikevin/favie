@@ -36,7 +36,9 @@ export async function runDisputesManual(_prev: ManualState, fd: FormData): Promi
   if (!r) return { error: 'not_found' }
   const { getConnections, getPrimaryAgent } = await import('@/server/restaurants')
   const conns = await getConnections(r.id)
-  if (!conns.some((c) => c.platform === 'uber_eats' && c.status === 'connected')) return { error: 'not_connected' }
+  const { DISPUTE_PLATFORMS } = await import('@/lib/zoowork/disputes')
+  const platform = String(fd.get('platform')) === 'doordash' ? 'doordash' : 'uber_eats'
+  if (!DISPUTE_PLATFORMS.includes(platform) || !conns.some((c) => c.platform === platform && c.status === 'connected')) return { error: 'not_connected' }
   const agent = await getPrimaryAgent(r.id)
   if (!agent || agent.agentStatus !== 'ready') return { error: 'agent_not_ready' }
   const { connectionInProgress } = await import('@/lib/zoowork/disputes')
@@ -46,7 +48,7 @@ export async function runDisputesManual(_prev: ManualState, fd: FormData): Promi
     .where(and(eq(schema.agentRuns.restaurantAgentId, agent.id), eq(schema.agentRuns.status, 'running'))).limit(1)
   if (inflight) return { error: 'inflight' }
   const { enqueueDisputesManual } = await import('@/server/jobs/enqueue')
-  try { await enqueueDisputesManual(r.id, 'uber_eats', mode) } catch (e) { console.error('[disputes] enqueue failed', e); return { error: 'queue' } }
+  try { await enqueueDisputesManual(r.id, platform, mode) } catch (e) { console.error('[disputes] enqueue failed', e); return { error: 'queue' } }
   revalidatePath(`/dashboard/${r.id}/disputes`)
   return { ok: mode }
 }

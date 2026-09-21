@@ -94,7 +94,7 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
             <h2 className="font-display text-lg font-semibold">{t('disp.manual.title')}</h2>
             <p className="mt-1 text-sm text-ink-500">{t('disp.manual.desc')}</p>
           </div>
-          <ManualRun restaurantId={r.id} running={running} />
+          <ManualRun restaurantId={r.id} running={running} platforms={supported.map((p) => ({ id: p, label: PLATFORM_LABEL[p] }))} />
         </div>
         {manualRuns.length > 0 && (
           <ul className="mt-5 divide-y divide-ink-200/60 border-t border-ink-200/60">
@@ -108,6 +108,7 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
               const head = (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
                   <span className="text-sm tabular-nums text-ink-500">{startedAt.toLocaleString(intl, { timeZone: r.timezone, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className="rounded-full bg-ink-100 px-2 py-0.5 text-xs font-medium text-ink-600">{PLATFORM_LABEL[((run.summaryJson as { platforms?: { platform?: 'uber_eats' | 'doordash' }[] } | null)?.platforms?.[0]?.platform) ?? (ds[0]?.platform ?? 'uber_eats')]}</span>
                   <span className={`text-sm ${run.status === 'running' ? 'text-amber-700' : run.status === 'collected' ? 'text-ink-700' : 'text-red-700'}`}>{t(statusKey)}</span>
                   {run.status === 'collected' && <span className="text-sm text-ink-500">· {t('disp.manual.found', { n: ds.length, filed: ds.filter((d) => d.status === 'filed' && d.filedBy !== 'owner').length })}</span>}
                   {ds.length > 0 && <span className="ml-auto text-xs text-ink-400">{t('disp.row.details', { n: ds.length })}</span>}

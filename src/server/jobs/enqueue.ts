@@ -99,9 +99,10 @@ export async function enqueueOpsHandoff(opsId: string, op: 'start' | 'release') 
 }
 
 /** Disputes: run today's check for one restaurant × platform now (the hourly tick enqueues these at 08:00 local). */
-export async function enqueueDisputesCheck(restaurantId: string, platform: 'uber_eats' | 'doordash', date: string) {
+/** One job per restaurant: its platforms are checked one after the other (a restaurant has ONE agent browser). */
+export async function enqueueDisputesCheck(restaurantId: string, platforms: ('uber_eats' | 'doordash')[], date: string) {
   const b = await boss()
-  await b.send(JOBS.disputesCheck, { restaurantId, platform, date }, { singletonKey: `disputes:${restaurantId}:${platform}:${date}`, singletonSeconds: 3600, retryLimit: 0, expireInSeconds: 40 * 60 })
+  await b.send(JOBS.disputesCheck, { restaurantId, platforms, date }, { singletonKey: `disputes:${restaurantId}:${date}`, singletonSeconds: 3000, retryLimit: 0, expireInSeconds: 80 * 60 })
 }
 /** Disputes: owner/admin-triggered run right now — `check` reads only, `process` files appeals. Not part of the daily ledger. */
 export async function enqueueDisputesManual(restaurantId: string, platform: 'uber_eats' | 'doordash', mode: 'check' | 'process') {

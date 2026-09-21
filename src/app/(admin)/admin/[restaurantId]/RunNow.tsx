@@ -21,7 +21,7 @@ export function RunDisputesNow({ restaurantId }: { restaurantId: string }) {
     <form action={action} className="card flex flex-wrap items-center gap-3 p-5">
       <input type="hidden" name="restaurantId" value={restaurantId} />
       <button type="submit" disabled={pending} className="btn-primary !py-2.5 text-sm">{pending ? 'Queuing…' : 'Run the disputes check now'}</button>
-      <span className="text-sm text-ink-500">Uber Eats only. The agent records decisions on earlier appeals and files a dispute on every charged order issue of the last 30 days — real submissions on the owner's account.</span>
+      <span className="text-sm text-ink-500">Every connected platform, one after the other. The agent records decisions on earlier appeals and files a dispute on every charged order issue of the last 30 days — real submissions on the owner's account.</span>
       {state?.ok && <span className="text-sm text-emerald-700">{state.ok}</span>}
       {state?.error && <span className="text-sm text-red-700">{state.error}</span>}
     </form>

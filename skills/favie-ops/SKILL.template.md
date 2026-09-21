@@ -24,7 +24,7 @@ The backend's message starts with a keyword. Jump straight to that section:
 | `FAVIE_MENU_DESCRIBE` | "Menu Clinic" — write bilingual dish descriptions; no browser | **No.** Text only |
 | `FAVIE_MENU_IMAGE` | "Menu Clinic" — generate ONE dish photo with `image_generate`, publish it, reply with a `favie-menu-image` block; no browser | **No.** image_generate only |
 | `FAVIE_MENU_PHOTOS <platform>` | "Menu Clinic" — one `web_fetch` of the public storefront, reply with a `favie-menu-photos` block | **No.** web_fetch only |
-| `FAVIE_DISPUTES <platform>` | "Disputes" — read the charged order issues of the last 30 days, record decisions, dispute every new one, summary `mode: "disputes"` | Yes |
+| `FAVIE_DISPUTES <platform>` | "Disputes" — the message carries the platform procedure: read the charged orders of the last 30 days, record decisions, dispute every new one, summary `mode: "disputes"` | Yes |
 | anything else (the daily cron message) | Mode `daily` | Yes |
 
 ## Hard rules
@@ -270,85 +270,26 @@ write `description_en` and `description_zh` as two separate fields. Reply with e
 
 ## Disputes (FAVIE_DISPUTES) — the daily error-charge appeal
 
-**FAVIE_DISPUTES <platform>** — runs once a day at 08:00 local, separately from the daily routine. The
-message lists the appeals still awaiting a decision and the orders already settled. Goal: get every
-charge the platform deducted for a customer-reported order issue reversed. Dispute **every** charged
-issue — no picking. The owner has switched this on knowingly; it is independent of `actions_enabled`
-(file disputes even when `actions_enabled` is false; that switch is about ads and promotions).
+**FAVIE_DISPUTES <platform>** — runs once a day at 08:00 local, separately from the daily routine (and on
+demand). Goal: get every charge the platform deducted for a customer-reported order issue reversed —
+Uber Eats "charged order issues", DoorDash "error charges". Dispute **every** open charge, no picking. The
+owner has switched this on knowingly; it is independent of `actions_enabled` (file disputes even when
+`actions_enabled` is false; that switch is about ads and promotions).
 
-Portal labels below are given as Chinese / English because the account may show either language.
+**The complete portal procedure is in the task message**, between `=== PROCEDURE ===` and
+`=== END OF PROCEDURE ===`: which page to open, which filters, how a charge's state reads, which reason to
+pick, how to write the dispute text, how to confirm the submission. Favie maintains it per platform and it
+may change between runs — follow the message exactly, not your memory of an earlier run. The message also
+lists the appeals still awaiting a decision and the orders already settled, and says whether the run is
+READ-ONLY (look and report, press nothing) or a processing run.
 
-### Uber Eats Manager
-
-1. Step 0 + restore the login. If the account shows several stores, switch to the store named in the
-   message (match `store_external_id`, then the name) **before** opening any list, and work on that
-   store only.
-2. Open the filtered list directly — do not build the filters by clicking. After the store is selected,
-   navigate to
-   `https://merchants.ubereats.com/manager/orders?dateRange=last_30_days&orderIssuesV2=ORDER_ACCURACY_ISSUE%2CMISSING_CUSTOMIZATIONS%2CWRONG_CUSTOMIZATIONS%2CMISSING_ITEMS%2CWRONG_ORDER%2CWRONG_ITEMS%2CORDER_WITH_FTQ%2CTASTE_QUALITY_ISSUES%2CINADEQUATE_QUANTITY`
-   (if the current URL carries a `restaurantUUID=` parameter, keep it in the new URL). Wait 4 seconds, then ONE
-   snapshot with `mode: "efficient"` (never `full` with more than 15000 chars — big snapshots make every step
-   slow). Check the sidebar still shows this store and the chips read **最近 30 天 / Last 30 days** and
-   **订单问题 / Order issue (9)**; if the filters did not apply, open the **订单问题** chip once and tick every
-   box, then Apply. The **问题 / Issue** column tells the state of each row: **已收费问题 / Charged issue**
-   (a red `-US$x.xx` under the subtotal is the charge) = to dispute; **优步已退款 / Refunded by Uber** = not
-   charged, skip; **异议已通过审核 / Dispute accepted** and **异议被拒绝 / Dispute rejected** = results of
-   earlier appeals — record them (step 3), never re-dispute. Count the charged rows → `disputes_found`.
-   Element refs go stale whenever a panel opens or the list re-renders: after any click that changes the
-   page, snapshot again before the next click, and prefer text selectors (`label:has-text("…")`,
-   `button:has-text("提交")`) over old refs. A click that errors is not retried blindly — snapshot first.
-   **Speed rules for this task** (a failed click costs 30 s by default, a screenshot costs a model turn):
-   pass `timeoutMs: 8000` on every `act` click so a miss fails fast; use `snapshot` (efficient) to see the
-   page — take a `screenshot` only once, right before pressing Submit; never take both for the same state;
-   count the 400 characters yourself while writing (one `exec` with python is fine, two is not); after
-   typing the text do not re-read the whole page — snapshot the panel, verify, submit.
-3. For every order in the message's "awaiting a decision" list, find it in the list (search by order
-   id) and record the outcome: accepted → `status: "won"`, `recovered_cents` = the reversed amount,
-   `decision_text` = the wording shown; rejected → `"lost"`; still under review → `"filed"` again.
-4. For every other charged-issue order that is not in the "already settled" list, open the order
-   detail page by **searching its order id** (never by editing the URL or guessing a `/dispute` link).
-   Read and remember: the items and customizations ordered (`items_total`), which items the customer
-   reported missing / wrong (`items_disputed`), the customer's note (`customer_note`), whether the
-   customer attached a photo (`customer_photo`), new or returning customer (`customer_type`), the
-   charged amount (`amount_cents`), the order date. If the page already shows the order as disputed
-   (争议中 / under review) report it as `filed` with `filed_by: "owner"` and move on.
-5. Click **争议 / Dispute**. A panel slides out from the side — **wait for it to finish rendering**
-   and snapshot again before touching anything in it. Choose the reason that fits best:
-   **顾客出错了 / Customer made a mistake** (the item was in the bag / on the receipt), **顾客提供的证据有误 /
-   Customer's evidence is wrong** (photo or claim contradicts the order), **退款金额不正确 / Refund amount
-   is incorrect** (charged more than the item's price), otherwise **其他 / Other**. Put the option's
-   English name in `reason_category`.
-6. Write the dispute text in **English, at most 400 characters** (count before you type; the field
-   truncates or rejects longer text), assertive, no apologies, no hedging. Use this frame and adapt the
-   bracketed fact to the order:
-
-   > This deduction is invalid. Every order at our store passes two checks: before packing, each item
-   > and customization is verified against the ticket; before courier handoff, the item count is
-   > rechecked and the bag is sealed. This order passed both checks. [hard fact] Please reverse this
-   > charge in full.
-
-   The **[hard fact]** must be one concrete contradiction from the order itself, for example: "The
-   ticket lists 1× Beef Chow Fun and the customer reports a missing Chicken Chow Fun that was never
-   ordered." / "The bag held 3 items in 1 sealed bag; a missing item would have left the seal broken."
-   / "The charge ($18.40) exceeds the item price ($12.95)." / "The customer's photo shows the item
-   they claim is missing." Never invent facts and never mention Favie or an AI. You write the store's
-   packing standards yourself as above — the owner does not supply them.
-7. Type the text, snapshot, and **re-read the panel before pressing 提交 / Submit**: right reason,
-   text complete and under 400 characters, right order id in the panel header. Press Submit **once**.
-8. Success = the confirmation **您的异议已提交 / Your dispute has been submitted**. If a rating /
-   feedback prompt follows, dismiss it — do not rate. If the confirmation does not appear, snapshot,
-   check whether the order now shows as disputed; if not, report the order as `open` with the error in
-   `reason` — do not submit a second time.
-9. Report the order as `status: "filed"`, `filed_by: "favie"`, `submitted_text` = exactly what you sent,
-   `reason` = one sentence for the owner (their language) on why the charge is wrong.
-10. Budget: about 12 tool calls per order. If the list is long, file the newest orders first and report
-    the rest as `open` (they stay in the 30-day window for tomorrow). Close the browser. Summary block
-    with `mode: "disputes"`.
-
-### DoorDash Merchant Portal
-
-Not specified yet. When you receive `FAVIE_DISPUTES doordash`, do not log in; reply with a summary
-whose platform entry has `login: "skipped"` and an `errors` entry `"doordash disputes not supported yet"`.
+What never changes:
+- Step 0 (context, login label) + restore the login; work only on the store named in the message.
+- Never submit the same dispute twice. If a submission is not confirmed, report the order as `open`.
+- Never invent facts, never mention Favie or an AI in dispute text, never upload files, never rate couriers or customers.
+- Close the browser, then reply with the summary block: `mode: "disputes"`, one `disputes` entry per order you
+  looked at, `disputes_found` on the platform entry, archive fields filled (`reason_category`, `submitted_text`,
+  `customer_note`, `customer_photo`, `items_total`, `items_disputed`, `customer_type`, `filed_by`, `decision_text`, `deadline`).
 
 ## Mode `verify`
 

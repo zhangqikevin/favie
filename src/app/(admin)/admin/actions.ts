@@ -58,10 +58,14 @@ export async function runDisputesNow(_prev: AdminState, fd: FormData): Promise<A
   const { localDate } = await import('@/lib/zoowork/collect')
   const today = localDate(new Date(), r.timezone)
   // A 'done' row for today would make the job a no-op; drop it so the check really re-runs.
-  await db.delete(schema.disputeChecks).where(and(eq(schema.disputeChecks.restaurantId, restaurantId), eq(schema.disputeChecks.date, today), eq(schema.disputeChecks.platform, 'uber_eats')))
-  await enqueueDisputesCheck(restaurantId, 'uber_eats', today)
+  const { DISPUTE_PLATFORMS } = await import('@/lib/zoowork/disputes')
+  const conns = await db.select().from(schema.platformConnections).where(eq(schema.platformConnections.restaurantId, restaurantId))
+  const platforms = conns.filter((c) => c.status === 'connected' && DISPUTE_PLATFORMS.includes(c.platform)).map((c) => c.platform)
+  if (!platforms.length) return { error: 'No connected platform to check.' }
+  await db.delete(schema.disputeChecks).where(and(eq(schema.disputeChecks.restaurantId, restaurantId), eq(schema.disputeChecks.date, today)))
+  await enqueueDisputesCheck(restaurantId, platforms, today)
   revalidatePath(`/admin/${restaurantId}`)
-  return { ok: `Queued the Uber Eats disputes check for ${today}. It shows up under Recent runs (kind "disputes") and on the owner's Disputes page.` }
+  return { ok: `Queued the disputes check (${platforms.join(' + ')}) for ${today}. It shows up under Recent runs (kind "disputes") and on the owner's Disputes page.` }
 }
 
 export async function setDailyPaused(fd: FormData) {
@@ -171,6 +175,29 @@ export async function resetMenuPrompt(fd: FormData) {
   const key = MENU_PROMPT_KEYS[which]
   if (key) await deleteSetting(key)
   revalidatePath('/admin/menu-prompts')
+}
+
+// ---- Dispute prompts (portal procedures per platform + shared writing rules) ----
+const DISPUTE_PROMPT_KEYS = { rules: SETTING_KEYS.disputesWritingRules, uber_eats: SETTING_KEYS.disputesPromptUberEats, doordash: SETTING_KEYS.disputesPromptDoordash } as const
+
+export async function saveDisputePrompt(_prev: AdminState, fd: FormData): Promise<AdminState> {
+  const user = await requireAdmin()
+  const which = String(fd.get('which')) as keyof typeof DISPUTE_PROMPT_KEYS
+  const key = DISPUTE_PROMPT_KEYS[which]
+  if (!key) return { error: 'unknown prompt' }
+  const body = String(fd.get('prompt') ?? '').replace(/\r\n/g, '\n').trim()
+  if (body.length < 200) return { error: 'The prompt is too short to be a procedure.' }
+  if (which !== 'rules' && !body.includes('{writing_rules}')) return { error: 'A platform procedure must contain {writing_rules} so the shared text rules are inserted.' }
+  await setSetting(key, body, { userId: user.id })
+  revalidatePath('/admin/dispute-prompts')
+  return { ok: 'Saved. The next disputes check uses it.' }
+}
+
+export async function resetDisputePrompt(fd: FormData) {
+  await requireAdmin()
+  const key = DISPUTE_PROMPT_KEYS[String(fd.get('which')) as keyof typeof DISPUTE_PROMPT_KEYS]
+  if (key) await deleteSetting(key)
+  revalidatePath('/admin/dispute-prompts')
 }
 
 // ---- Firecrawl (Menu Clinic storefront reads) ----

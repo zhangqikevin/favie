@@ -103,12 +103,15 @@ await boss.work<{ opsId: string; op: 'start' | 'release' }>(JOBS.opsHandoff, { b
 await boss.work(JOBS.opsHandoffSweep, { batchSize: 1 }, async () => { const n = await releaseOpsHandoffs(); if (n) console.log('[opsHandoff] auto-released', n) })
 // Disputes: hourly tick decides who is due (08:00 local, retries until 20:00); checks run in parallel across restaurants.
 await boss.work(JOBS.disputesTick, { batchSize: 1 }, async () => { const n = await disputesTick(); if (n) console.log('[disputes] queued', n) })
-await boss.work<{ restaurantId: string; platform: 'uber_eats' | 'doordash'; date: string }>(JOBS.disputesCheck, { batchSize: 3, pollingIntervalSeconds: 1 }, async (jobs) => {
+await boss.work<{ restaurantId: string; platform?: 'uber_eats' | 'doordash'; platforms?: ('uber_eats' | 'doordash')[]; date: string }>(JOBS.disputesCheck, { batchSize: 3, pollingIntervalSeconds: 1 }, async (jobs) => {
   await Promise.all(jobs.map(async (job) => {
-    console.log('[disputesCheck]', job.data.restaurantId, job.data.platform, job.data.date)
-    try { await runDisputesCheck(job.data.restaurantId, job.data.platform, job.data.date) } catch (e) {
-      if (e instanceof InflightError) { console.log('[disputesCheck] agent busy, next tick retries'); return }
-      console.error('[disputesCheck] failed', (e as Error).message)
+    // Restaurants run in parallel; one restaurant's platforms run one after the other (a single agent browser).
+    for (const platform of job.data.platforms ?? (job.data.platform ? [job.data.platform] : [])) {
+      console.log('[disputesCheck]', job.data.restaurantId, platform, job.data.date)
+      try { await runDisputesCheck(job.data.restaurantId, platform, job.data.date) } catch (e) {
+        if (e instanceof InflightError) { console.log('[disputesCheck] agent busy, next tick retries'); continue }
+        console.error('[disputesCheck] failed', (e as Error).message)
+      }
     }
   }))
 })

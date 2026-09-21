@@ -13,6 +13,9 @@ export const SETTING_KEYS = {
   zoodataPlatformKey: 'zoodata_platform_key',  // Zoodata PLATFORM key for the menu-scrape tool (not a restaurant's data key)
   zoodataMenuMcpUrl: 'zoodata_menu_mcp_url',
   zoodataMenuTool: 'zoodata_menu_tool',
+  disputesPromptUberEats: 'disputes_prompt_uber_eats',   // portal procedure for FAVIE_DISPUTES uber_eats
+  disputesPromptDoordash: 'disputes_prompt_doordash',    // portal procedure for FAVIE_DISPUTES doordash
+  disputesWritingRules: 'disputes_writing_rules',        // how the dispute text is written (shared)
 } as const
 type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS]
 

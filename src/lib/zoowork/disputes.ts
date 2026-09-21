@@ -7,9 +7,10 @@ import { releaseHandoffBrowsers } from './handoff'
 import { billingOk } from '@/server/billing/gate'
 import { enqueueDisputesCheck } from '@/server/jobs/enqueue'
 import type { Platform } from '@/lib/db/schema'
+import { renderDisputesPrompt } from '@/lib/disputes/prompts'
 
-/** Platforms whose dispute flow the skill implements today. DoorDash follows once its portal steps are specified. */
-export const DISPUTE_PLATFORMS: Platform[] = ['uber_eats']
+/** Platforms with a dispute procedure (the procedures themselves are edited in /admin/dispute-prompts). */
+export const DISPUTE_PLATFORMS: Platform[] = ['uber_eats', 'doordash']
 export const DISPUTE_CHECK_HOUR = 8       // local time the daily check runs
 const DISPUTE_CHECK_LAST_HOUR = 20         // no first attempts / retries after this local hour
 const MAX_ATTEMPTS_PER_DAY = 3
@@ -29,6 +30,7 @@ export function connectionInProgress(conns: { status: string; handoffStartedAt: 
 }
 
 /** Literal reply contract — the model drifts into prose/YAML or the `message` tool without it (seen 2026-09-16). */
+export const disputesReplyFormat = (platform: Platform) => DISPUTES_REPLY_FORMAT.replace('"platform":"uber_eats"', `"platform":"${platform}"`)
 export const DISPUTES_REPLY_FORMAT = 'REPLY FORMAT (mandatory): write the report as your final reply text — never through the `message` or `sessions_yield` tools — and END it with exactly one fenced JSON block like this, filled in (JSON, not YAML; keys exactly as shown; one entry per order you looked at):\n```favie-summary\n{"favie_summary_version":1,"mode":"disputes","run_date":"YYYY-MM-DD","aborted_early":false,"platforms":[{"platform":"uber_eats","login":"ok","store_visible":true,"store_name":"<store name>","store_external_id":"<uuid or null>","stores":[],"disputes_found":1,"disputes":[{"order_id":"51D86","order_date":"2026-09-02","kind":"missing_item","amount_cents":1102,"recovered_cents":null,"status":"filed","reason":"<one sentence for the owner>","evidence":null,"deadline":null,"reason_category":"Customer made a mistake","submitted_text":"<exact text you submitted, or null>","customer_note":"<what the customer reported>","customer_photo":false,"items_total":3,"items_disputed":"1 customization missing","customer_type":"returning","filed_by":"favie","decision_text":null}],"actions":[],"observations":["History page URL: <the URL of the filtered order list, with its query string>"],"errors":[]}]}\n```'
 const NUDGE = 'You stopped without the report. Reply NOW with the favie-summary fenced JSON block described in the task (mode "disputes", one entry per order you looked at) — as plain reply text, not via the message tool. If the browser is still open, close it first with one browser call.'
 
@@ -102,19 +104,26 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
   const money = (c: number | null) => (c == null ? '?' : `$${(c / 100).toFixed(2)}`)
   const list = (rows: typeof known) => rows.length ? rows.map((d) => `  - ${d.orderExternalId} (${d.orderDate ?? '?'}, ${money(d.amountCents)}, ${d.status}${d.filedBy === 'owner' ? ', filed by owner' : ''})`).join('\n') : '  (none)'
 
+  const storeName = conn.storeName ?? restaurant.name
+  const procedure = await renderDisputesPrompt(platform, { name: storeName, id: conn.storeExternalId ?? null })
   const message = [
-    `FAVIE_DISPUTES ${platform}. Use the favie-ops skill section "Disputes (FAVIE_DISPUTES)".`,
-    `Today is ${today} (${restaurant.timezone}). Store: "${conn.storeName ?? restaurant.name}"${conn.storeExternalId ? ` (store id ${conn.storeExternalId})` : ''}. If the account has several stores, switch to this one first and work only on it.`,
-    'Fetch the context URL from AGENTS.md, restore the saved login profile, then:',
-    '1. Record the decision on every appeal below that is still awaiting a result (accepted → "won" with recovered_cents, rejected → "lost", still under review → "filed"):',
+    `FAVIE_DISPUTES ${platform}. The complete procedure for this platform is in this message — follow it exactly; the favie-ops skill only adds the hard rules and the summary contract.`,
+    `Today is ${today} (${restaurant.timezone}). Store: "${storeName}"${conn.storeExternalId ? ` (store id ${conn.storeExternalId})` : ''}. Work on this store only.`,
+    'Fetch the context URL from AGENTS.md (login label), restore the saved login profile, then work through A, B, C:',
+    'A. Appeals still awaiting a decision — record the outcome of each (accepted → "won" with recovered_cents, rejected → "lost", still under review → "filed"):',
     list(awaiting),
-    '2. Orders already settled — do not open them again unless they show a new decision:',
+    'B. Orders already settled — do not open them again unless they show a new decision:',
     list(settled),
     mode === 'process'
-      ? '3. Every other charged order issue in the last 30 days: open it, dispute it (≤ 400 characters, English, assertive, one hard fact from the order itself), confirm the submission, and report it as "filed" with the exact submitted_text. Report a charged issue that was already disputed before you saw it as "filed" with filed_by "owner".'
-      : '3. READ-ONLY RUN: do NOT click 争议 / Dispute and do NOT submit anything on any order. For every other charged order issue in the last 30 days open the detail page, read the archive fields (items, customer note, photo, amount, date) and report it as status "open" with `reason` = the argument you WOULD make (one sentence, owner\'s language). A charged issue that is already under dispute → "filed" with filed_by "owner".',
-    'Change nothing else on the platform. Close the browser. End with the favie-summary block, mode "disputes", one entry per order you looked at in `disputes`, and `disputes_found` = the number of charged order issues visible in the 30-day list.',
-    DISPUTES_REPLY_FORMAT,
+      ? 'C. Every other charge in the last 30 days: open it, dispute it as the procedure says, confirm the submission, and report it as "filed" with the exact submitted_text. A charge that was already disputed before you saw it → "filed" with filed_by "owner".'
+      : 'C. READ-ONLY RUN: do NOT press the dispute button and do NOT submit anything on any order. For every other charge in the last 30 days open the detail, read the archive fields (items, customer note, photo, amount, date, deadline) and report it as status "open" with `reason` = the argument you WOULD make (one sentence, owner\'s language). A charge that is already under dispute → "filed" with filed_by "owner".',
+    '',
+    '=== PROCEDURE ===',
+    procedure,
+    '=== END OF PROCEDURE ===',
+    '',
+    'Change nothing else on the platform. Close the browser. End with the favie-summary block, mode "disputes", one entry per order you looked at in `disputes`, and `disputes_found` = the number of charged orders visible in the 30-day list.',
+    disputesReplyFormat(platform),
   ].join('\n')
 
   const zc = zoowork()
@@ -216,6 +225,7 @@ export async function disputesTick(now = new Date()) {
     // Someone is connecting a platform right now: the browser is theirs. Try again next hour.
     if (connectionInProgress(allConns)) continue
     const conns = allConns.filter((c) => c.status === 'connected' && DISPUTE_PLATFORMS.includes(c.platform))
+    const due: Platform[] = []
     for (const c of conns) {
       const [chk] = await db.select().from(schema.disputeChecks)
         .where(and(eq(schema.disputeChecks.restaurantId, r.id), eq(schema.disputeChecks.platform, c.platform), eq(schema.disputeChecks.date, today))).limit(1)
@@ -228,9 +238,9 @@ export async function disputesTick(now = new Date()) {
       }
       if (chk && (chk.status !== 'failed' || chk.attempts >= MAX_ATTEMPTS_PER_DAY)) continue
       if (chk?.error === 'running' && Date.now() - chk.updatedAt.getTime() < RUN_BUDGET_MS) continue
-      await enqueueDisputesCheck(r.id, c.platform, today)
-      queued++
+      due.push(c.platform)
     }
+    if (due.length) { await enqueueDisputesCheck(r.id, due, today); queued += due.length }
   }
   return queued
 }
