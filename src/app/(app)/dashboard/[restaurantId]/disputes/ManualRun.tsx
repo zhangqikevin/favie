@@ -11,6 +11,7 @@ export function ManualRun({ restaurantId, running, platforms }: { restaurantId: 
   const router = useRouter()
   const [state, action, pending] = useActionState<ManualState, FormData>(runDisputesManual, undefined)
   const [platform, setPlatform] = useState(platforms[0]?.id ?? 'uber_eats')
+  const [orderId, setOrderId] = useState('')
   useEffect(() => {
     if (!running && !state?.ok) return
     const id = setInterval(() => router.refresh(), 8000)
@@ -30,15 +31,19 @@ export function ManualRun({ restaurantId, running, platforms }: { restaurantId: 
       <form action={action}>
         <input type="hidden" name="restaurantId" value={restaurantId} />
         <input type="hidden" name="platform" value={platform} />
+        <input type="hidden" name="orderId" value={orderId} />
         <input type="hidden" name="mode" value="check" />
         <button type="submit" disabled={busy} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink-900 shadow-sm ring-1 ring-ink-200 hover:bg-ink-50 disabled:opacity-50" title={t('disp.manual.checkHint')}>{t('disp.manual.check')}</button>
       </form>
       <form action={action}>
         <input type="hidden" name="restaurantId" value={restaurantId} />
         <input type="hidden" name="platform" value={platform} />
+        <input type="hidden" name="orderId" value={orderId} />
         <input type="hidden" name="mode" value="process" />
         <button type="submit" disabled={busy} className="btn-primary !py-2 text-sm" title={t('disp.manual.processHint')}>{t('disp.manual.process')}</button>
       </form>
+      <input id="disputes-order-id" value={orderId} onChange={(e) => setOrderId(e.target.value)} disabled={busy} placeholder={t('disp.manual.orderPh')} title={t('disp.manual.orderHint')} aria-label={t('disp.manual.orderHint')}
+        spellCheck={false} autoCapitalize="characters" className="input !w-44 !py-2 font-mono text-xs uppercase placeholder:normal-case placeholder:font-sans" />
       {running ? <span className="text-sm text-ink-500">{t('disp.manual.running')}</span>
         : state?.ok ? <span className="text-sm text-emerald-700">{t('disp.manual.queued')}</span>
         : state?.error ? <span className="text-sm text-red-700">{t(`disp.manual.err.${state.error}` as DictKey)}</span> : null}

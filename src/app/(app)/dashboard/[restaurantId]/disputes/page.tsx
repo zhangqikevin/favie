@@ -109,6 +109,7 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
                   <span className="text-sm tabular-nums text-ink-500">{startedAt.toLocaleString(intl, { timeZone: r.timezone, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                   <span className="rounded-full bg-ink-100 px-2 py-0.5 text-xs font-medium text-ink-600">{PLATFORM_LABEL[runPlatform(run.channel, run.summaryJson, ds[0]?.platform)]}</span>
+                  {run.channel?.split(':')[2] && <span className="rounded-full bg-amber-50 px-2 py-0.5 font-mono text-xs text-amber-800">#{run.channel.split(':')[2]}</span>}
                   <span className={`text-sm ${run.status === 'running' ? 'text-amber-700' : run.status === 'collected' ? 'text-ink-700' : 'text-red-700'}`}>{t(statusKey)}</span>
                   {run.status === 'collected' && <span className="text-sm text-ink-500">· {t('disp.manual.found', { n: ds.length, filed: ds.filter((d) => d.status === 'filed' && d.filedBy !== 'owner').length })}</span>}
                   {ds.length > 0 && <span className="ml-auto text-xs text-ink-400">{t('disp.row.details', { n: ds.length })}</span>}

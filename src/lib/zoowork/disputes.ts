@@ -55,11 +55,14 @@ export type DisputesRunOpts = {
   mode?: 'check' | 'process'
   /** Owner/admin-triggered: recorded as an agent run only, never as the day's `dispute_checks` row. */
   manual?: boolean
+  /** Debugging aid (manual runs): handle this one order and nothing else. */
+  orderId?: string | null
 }
 
 export async function runDisputesCheck(restaurantId: string, platform: Platform, date?: string, opts: DisputesRunOpts = {}) {
   const mode = opts.mode ?? 'process'
   const manual = opts.manual ?? false
+  const onlyOrder = manual && opts.orderId ? opts.orderId.trim().toUpperCase() : null
   const [restaurant] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1)
   if (!restaurant) throw new Error('restaurant not found')
   const today = date ?? localDate(new Date(), restaurant.timezone)
@@ -109,6 +112,13 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
   const message = [
     `FAVIE_DISPUTES ${platform}. The complete procedure for this platform is in this message — follow it exactly; the favie-ops skill only adds the hard rules and the summary contract.`,
     `Today is ${today} (${restaurant.timezone}). Store: "${storeName}"${conn.storeExternalId ? ` (store id ${conn.storeExternalId})` : ''}. Work on this store only.`,
+    ...(onlyOrder ? [
+      'Fetch the context URL from AGENTS.md (login label), restore the saved login profile, then:',
+      `DEBUG RUN — ONE ORDER ONLY: order id ${onlyOrder}. Open the list as the procedure says, find this order (Uber Eats: search the order id; DoorDash: apply the Error charge filter and click this order id; if it is not in the last 30 days, widen the date range once). Do not open, read or report any other order. Skip steps about other orders; report disputes_found = 1 (0 if the order does not exist or carries no charge — say so in \`errors\`).`,
+      mode === 'process'
+        ? `If the charge on ${onlyOrder} is still open, dispute it exactly as the procedure says, confirm the submission, and report it as "filed" with the exact submitted_text. If it was already disputed or decided, report that state and change nothing.`
+        : `READ-ONLY: do NOT press the dispute button and do NOT submit anything. Read the archive fields of ${onlyOrder} and report its current state ("open" with \`reason\` = the argument you WOULD make, or filed / won / lost / expired as the page shows).`,
+    ] : [
     'Fetch the context URL from AGENTS.md (login label), restore the saved login profile, then work through A, B, C:',
     'A. Appeals still awaiting a decision — record the outcome of each (accepted → "won" with recovered_cents, rejected → "lost", still under review → "filed"):',
     list(awaiting),
@@ -117,6 +127,7 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
     mode === 'process'
       ? 'C. Every other charge in the last 30 days: open it, dispute it as the procedure says, confirm the submission, and report it as "filed" with the exact submitted_text. A charge that was already disputed before you saw it → "filed" with filed_by "owner".'
       : 'C. READ-ONLY RUN: do NOT press the dispute button and do NOT submit anything on any order. For every other charge in the last 30 days open the detail, read the archive fields (items, customer note, photo, amount, date, deadline) and report it as status "open" with `reason` = the argument you WOULD make (one sentence, owner\'s language). A charge that is already under dispute → "filed" with filed_by "owner".',
+    ]),
     '',
     '=== PROCEDURE ===',
     procedure,
@@ -131,11 +142,11 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
   const session = await logged('createSession.disputes', agent.id, { platform, date: today, attempts: base.attempts }, () =>
     zc.createSession(agent.zooworkAgentId!, {
       initial_events: [{ type: 'user.message', content: message }],
-      metadata: { kind: 'disputes', restaurant_id: restaurantId, platform, date: today, mode, manual },
+      metadata: { kind: 'disputes', restaurant_id: restaurantId, platform, date: today, mode, manual, order_id: onlyOrder },
     }, `disputes-${restaurantId}-${platform}-${today}-${manual ? `m${Date.now()}` : base.attempts}`))
   const [run] = await db.insert(schema.agentRuns).values({
     restaurantId, restaurantAgentId: agent.id, zooworkAgentId: agent.zooworkAgentId, zooworkSessionId: session.session_id,
-    sessionKey: session.session_key ?? null, channel: manual ? `api-manual:${platform}` : 'api', kind: 'disputes', status: 'running', runDate: today, startedAt: new Date(),
+    sessionKey: session.session_key ?? null, channel: manual ? `api-manual:${platform}${onlyOrder ? `:${onlyOrder}` : ''}` : 'api', kind: 'disputes', status: 'running', runDate: today, startedAt: new Date(),
   }).returning()
   await record({ ...base, status: 'failed', error: 'running', runId: run!.id })
 

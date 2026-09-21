@@ -115,10 +115,10 @@ await boss.work<{ restaurantId: string; platform?: 'uber_eats' | 'doordash'; pla
     }
   }))
 })
-await boss.work<{ restaurantId: string; platform: 'uber_eats' | 'doordash'; mode: 'check' | 'process' }>(JOBS.disputesManual, { batchSize: 3, pollingIntervalSeconds: 0.5 }, async (jobs) => {
+await boss.work<{ restaurantId: string; platform: 'uber_eats' | 'doordash'; mode: 'check' | 'process'; orderId?: string | null }>(JOBS.disputesManual, { batchSize: 3, pollingIntervalSeconds: 0.5 }, async (jobs) => {
   await Promise.all(jobs.map(async (job) => {
-    console.log('[disputesManual]', job.data.mode, job.data.restaurantId, job.data.platform)
-    try { await runDisputesCheck(job.data.restaurantId, job.data.platform, undefined, { mode: job.data.mode, manual: true }) } catch (e) { console.error('[disputesManual] failed', (e as Error).message) }
+    console.log('[disputesManual]', job.data.mode, job.data.restaurantId, job.data.platform, job.data.orderId ?? 'all orders')
+    try { await runDisputesCheck(job.data.restaurantId, job.data.platform, undefined, { mode: job.data.mode, manual: true, orderId: job.data.orderId ?? null }) } catch (e) { console.error('[disputesManual] failed', (e as Error).message) }
   }))
 })
 await boss.work<{ restaurantAgentId: string }>(JOBS.decommissionAgent, { batchSize: 1 }, async ([job]) => { await decommissionAgent(job.data.restaurantAgentId) })

@@ -105,7 +105,7 @@ export async function enqueueDisputesCheck(restaurantId: string, platforms: ('ub
   await b.send(JOBS.disputesCheck, { restaurantId, platforms, date }, { singletonKey: `disputes:${restaurantId}:${date}`, singletonSeconds: 3000, retryLimit: 0, expireInSeconds: 80 * 60 })
 }
 /** Disputes: owner/admin-triggered run right now — `check` reads only, `process` files appeals. Not part of the daily ledger. */
-export async function enqueueDisputesManual(restaurantId: string, platform: 'uber_eats' | 'doordash', mode: 'check' | 'process') {
+export async function enqueueDisputesManual(restaurantId: string, platform: 'uber_eats' | 'doordash', mode: 'check' | 'process', orderId?: string | null) {
   const b = await boss()
-  await b.send(JOBS.disputesManual, { restaurantId, platform, mode }, { singletonKey: `disputes-manual:${restaurantId}:${platform}`, singletonSeconds: 60, retryLimit: 0, expireInSeconds: 40 * 60 })
+  await b.send(JOBS.disputesManual, { restaurantId, platform, mode, orderId: orderId ?? null }, { singletonKey: `disputes-manual:${restaurantId}:${platform}:${orderId ?? 'all'}`, singletonSeconds: 60, retryLimit: 0, expireInSeconds: 40 * 60 })
 }

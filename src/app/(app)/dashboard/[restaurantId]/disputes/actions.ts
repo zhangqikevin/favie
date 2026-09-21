@@ -32,6 +32,9 @@ export async function runDisputesManual(_prev: ManualState, fd: FormData): Promi
   const user = await requireUser()
   const restaurantId = String(fd.get('restaurantId') ?? '')
   const mode = String(fd.get('mode')) === 'process' ? 'process' : 'check'
+  const orderRaw = String(fd.get('orderId') ?? '').trim().replace(/^#/, '')
+  if (orderRaw && !/^[A-Za-z0-9-]{4,40}$/.test(orderRaw)) return { error: 'bad_order' }
+  const orderId = orderRaw || null
   const r = await getRestaurantForUser(restaurantId, user.id)
   if (!r) return { error: 'not_found' }
   const { getConnections, getPrimaryAgent } = await import('@/server/restaurants')
@@ -48,7 +51,7 @@ export async function runDisputesManual(_prev: ManualState, fd: FormData): Promi
     .where(and(eq(schema.agentRuns.restaurantAgentId, agent.id), eq(schema.agentRuns.status, 'running'))).limit(1)
   if (inflight) return { error: 'inflight' }
   const { enqueueDisputesManual } = await import('@/server/jobs/enqueue')
-  try { await enqueueDisputesManual(r.id, platform, mode) } catch (e) { console.error('[disputes] enqueue failed', e); return { error: 'queue' } }
+  try { await enqueueDisputesManual(r.id, platform, mode, orderId) } catch (e) { console.error('[disputes] enqueue failed', e); return { error: 'queue' } }
   revalidatePath(`/dashboard/${r.id}/disputes`)
   return { ok: mode }
 }
