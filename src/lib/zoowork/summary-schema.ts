@@ -21,7 +21,7 @@ export const FavieStore = z.object({
 export const FavieDispute = z.object({
   order_id: z.string().min(1),
   order_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-  kind: z.enum(['missing_item', 'wrong_item', 'late', 'refund', 'error_charge', 'other']).default('other'),
+  kind: z.enum(['missing_item', 'wrong_item', 'late', 'refund', 'error_charge', 'other']).default('other').catch('other'), // an unknown label must not void the report
   amount_cents: z.number().int().nullable().optional(),
   recovered_cents: z.number().int().nullable().optional(),
   status: z.enum(['open', 'filed', 'won', 'lost', 'expired', 'skipped']),
@@ -35,8 +35,8 @@ export const FavieDispute = z.object({
   customer_photo: z.boolean().nullable().optional(),
   items_total: z.number().int().nullable().optional(),
   items_disputed: z.string().nullable().optional(),    // which items the customer reported
-  customer_type: z.enum(['new', 'returning']).nullable().optional(),
-  filed_by: z.enum(['favie', 'owner']).nullable().optional(), // owner = already disputed before Favie saw it
+  customer_type: z.enum(['new', 'returning']).nullable().optional().catch(null), // agents write "unknown" / "valued" when the page does not say
+  filed_by: z.enum(['favie', 'owner']).nullable().optional().catch(null), // owner = already disputed before Favie saw it
   decision_text: z.string().nullable().optional(),     // the platform's decision wording, when one appeared
   detail_url: z.string().nullable().optional(),        // the order's own page in the portal (DoorDash panel URL) — lets a later run open it directly
 })
