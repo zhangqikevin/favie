@@ -36,34 +36,44 @@ export async function provisionAgent(restaurantAgentId: string) {
     db.update(schema.restaurantAgents).set({ ...values, updatedAt: new Date() }).where(eq(schema.restaurantAgents.id, agent.id))
 
   try {
-    // Capability token (rotatable). Only the hash is stored; the plaintext lives in the persona.
-    let ctxToken: string | undefined
-    if (!agent.ctxTokenHash) {
-      ctxToken = newToken()
-      await set({ ctxTokenHash: sha256(ctxToken), ctxTokenRotatedAt: new Date() })
-    }
-
     let zooworkAgentId = agent.zooworkAgentId
     if (!zooworkAgentId) {
       await set({ agentStatus: 'creating' })
-      const model = await resolveModel()
-      const ctxUrl = `${appUrl()}/api/agent/ctx/${ctxToken!}`
-      const input = {
-        resource: {
-          name: `favie-${agent.kind}-${restaurant.id}`,
-          model: { primary: model },
-          labels: { app: 'favie', env: env(), restaurant_id: restaurant.id, kind: agent.kind },
-          sandbox: { scope: 'agent' as const },
-          // Observed 2026-09-08: this section is accepted and makes the global browser-ops skill eligible.
-          browser: { enabled: true },
-          persona: { docs: [{ name: 'AGENTS.md', content: buildPersona(restaurant, ctxUrl) }] },
-          ...(process.env.FAVIE_OPS_SKILL_ID ? { skills: [{ skill_id: process.env.FAVIE_OPS_SKILL_ID }] } : {}),
-        },
+      // A create can succeed on ZooWork while the gateway answers 502 (2026-09-21: the retries then sent a
+      // different body under the same idempotency key and got 409 forever). Adopt what is already there.
+      const existing = await zc.listAgents({ labels: { app: 'favie', restaurant_id: restaurant.id, kind: agent.kind } }).catch(() => [])
+      const orphan = existing[0]
+      if (orphan) {
+        const docs = ((orphan.declared?.persona as { docs?: { content?: string }[] } | undefined)?.docs ?? [])
+        const token = docs.map((d) => /\/api\/agent\/ctx\/([A-Za-z0-9_-]+)/.exec(d.content ?? '')?.[1]).find(Boolean)
+        if (token) await set({ ctxTokenHash: sha256(token) }) // the token this agent really holds
+        zooworkAgentId = orphan.agent_id
+        console.log('[provision] adopted existing agent', zooworkAgentId, 'for', restaurant.id)
+      } else {
+        // Capability token (rotatable). Only the hash is stored; the plaintext lives in the persona — so every
+        // create attempt mints a new one, and the idempotency key follows it (same key = same body).
+        const ctxToken = newToken()
+        const tokenHash = sha256(ctxToken)
+        await set({ ctxTokenHash: tokenHash, ctxTokenRotatedAt: new Date() })
+        const model = await resolveModel()
+        const ctxUrl = `${appUrl()}/api/agent/ctx/${ctxToken}`
+        const input = {
+          resource: {
+            name: `favie-${agent.kind}-${restaurant.id}`,
+            model: { primary: model },
+            labels: { app: 'favie', env: env(), restaurant_id: restaurant.id, kind: agent.kind },
+            sandbox: { scope: 'agent' as const },
+            // Observed 2026-09-08: this section is accepted and makes the global browser-ops skill eligible.
+            browser: { enabled: true },
+            persona: { docs: [{ name: 'AGENTS.md', content: buildPersona(restaurant, ctxUrl) }] },
+            ...(process.env.FAVIE_OPS_SKILL_ID ? { skills: [{ skill_id: process.env.FAVIE_OPS_SKILL_ID }] } : {}),
+          },
+        }
+        // NOTE: never reuse an idempotency key of a deleted agent (gateway answers 502).
+        const created = await logged('createAgent', agent.id, { ...input, resource: { ...input.resource, persona: '[redacted]' } }, () =>
+          zc.createAgent(input as Parameters<typeof zc.createAgent>[0], `favie-${agent.kind}-${restaurant.id}-${agent.id.slice(0, 8)}-${tokenHash.slice(0, 8)}`))
+        zooworkAgentId = created.agent_id
       }
-      // NOTE: never reuse an idempotency key of a deleted agent (gateway answers 502).
-      const created = await logged('createAgent', agent.id, { ...input, resource: { ...input.resource, persona: '[redacted]' } }, () =>
-        zc.createAgent(input as Parameters<typeof zc.createAgent>[0], `favie-${agent.kind}-${restaurant.id}-${agent.id.slice(0, 8)}`))
-      zooworkAgentId = created.agent_id
       await set({ zooworkAgentId, agentStatus: 'created' })
     }
 
