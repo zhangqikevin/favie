@@ -24,6 +24,7 @@ The backend's message starts with a keyword. Jump straight to that section:
 | `FAVIE_MENU_DESCRIBE` | "Menu Clinic" — write bilingual dish descriptions; no browser | **No.** Text only |
 | `FAVIE_MENU_IMAGE` | "Menu Clinic" — generate ONE dish photo with `image_generate`, publish it, reply with a `favie-menu-image` block; no browser | **No.** image_generate only |
 | `FAVIE_MENU_PHOTOS <platform>` | "Menu Clinic" — one `web_fetch` of the public storefront, reply with a `favie-menu-photos` block | **No.** web_fetch only |
+| `FAVIE_DISPUTES_FAST <platform>` | "Disputes" — scripted dispute of ONE order, started from Favie's test panel. The message carries the store, the login label, the owner's language and a fixed sequence of browser calls between `=== SCRIPT ===` markers: do exactly those calls. Its limits (how many snapshots / screenshots, no scrolling, no exec) are real rules from the backend, not suggestions | **No.** Do not fetch the context, do not read other skills — start with the browser call the message names |
 | `FAVIE_DISPUTES <platform>` | "Disputes" — the message carries the platform procedure: read the charged orders of the last 30 days, record decisions, dispute every new one, summary `mode: "disputes"` | Yes |
 | anything else (the daily cron message) | Mode `daily` | Yes |
 

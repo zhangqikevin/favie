@@ -24,6 +24,8 @@ The backend's message starts with a keyword. Jump straight to that section:
 | `FAVIE_MENU_DESCRIBE` | "Menu Clinic" — write bilingual dish descriptions; no browser | **No.** Text only |
 | `FAVIE_MENU_IMAGE` | "Menu Clinic" — generate ONE dish photo with `image_generate`, publish it, reply with a `favie-menu-image` block; no browser | **No.** image_generate only |
 | `FAVIE_MENU_PHOTOS <platform>` | "Menu Clinic" — one `web_fetch` of the public storefront, reply with a `favie-menu-photos` block | **No.** web_fetch only |
+| `FAVIE_DISPUTES_FAST <platform>` | "Disputes" — scripted dispute of ONE order, started from Favie's test panel. The message carries the store, the login label, the owner's language and a fixed sequence of browser calls between `=== SCRIPT ===` markers: do exactly those calls. Its limits (how many snapshots / screenshots, no scrolling, no exec) are real rules from the backend, not suggestions | **No.** Do not fetch the context, do not read other skills — start with the browser call the message names |
+| `FAVIE_DISPUTES <platform>` | "Disputes" — the message carries the platform procedure: read the charged orders of the last 30 days, record decisions, dispute every new one, summary `mode: "disputes"` | Yes |
 | anything else (the daily cron message) | Mode `daily` | Yes |
 
 ## Hard rules
@@ -34,8 +36,10 @@ The backend's message starts with a keyword. Jump straight to that section:
 2. **Observe-only switch.** If the context says `actions_enabled: false`, this restaurant is in
    observe-only mode: do not create, edit, pause or resume any campaign, promotion, budget, item or
    setting on any platform — even if a rule below says to. Do everything else (read, audit, flag,
-   recommend) and report each change you *would* have made as `no_action` with a title starting
-   `Observe-only:` and the intended change in `after`. Stay inside the monthly marketing cap
+   recommend) and report each change you *would* have made as `no_action` or `recommendation`: the
+   title is the plain ask in the owner's language — **no "Observe-only:" prefix and no English words in
+   it** — with the intended change in `after` plus `"observe_only": true` (Favie shows its own localized
+   "observe-only" label from that flag). Stay inside the monthly marketing cap
    (ads + promotions). If a platform has no cap (`marketing.cap_cents` is null) you may only observe
    and recommend. `FAVIE_MENU_APPLY` is an explicit request from the owner for items they approved
    on screen; it is allowed even when `actions_enabled` is false.
@@ -118,9 +122,12 @@ and costs time).
 3. If the merchant dashboard / store list is visible → you are logged in. Continue.
 4. If a login or verification form is visible → do NOT type anything. Report `login: "failed"`,
    `login_failure_reason: "not_logged_in"`, `needs_attention: true`, and move to the next platform.
-5. Locate the store: match `store_external_id` first, then `store_name`. If the context has no store
-   yet (`store_name` is null), do not act on any store — list them all in `stores` instead. Several
-   stores and the chosen one is missing → `store_visible: false`.
+5. Locate the store: match `store_external_id` first, then `store_name`. Use the platform entry's own
+   `store_name` — the same restaurant is often listed under a different name on Uber Eats and on
+   DoorDash, and `restaurant.name` is just the name of whichever store was connected first. If the context has no store yet
+   (`store_name` is null), do not act on any store — list them all in `stores` instead. Several
+   stores and the chosen one is missing → `store_visible: false`. Accounts with many stores: always
+   switch to the chosen store before reading or changing anything, and never touch the others.
 
 ## Connecting a platform (handoff) — onboarding only
 
@@ -142,11 +149,19 @@ no bearing here — this platform is being connected right now, that is the whol
 2. If the merchant dashboard / store list is visible: immediately `browser action:"session" op:"save_login"`.
    The profile is shared by all platforms, so this also keeps any platform the owner connected earlier.
 3. **List the stores this account can see — quickly.** Open the store / location switcher or
-   business selector ONCE and read the list from a single snapshot: exact store name plus the store
-   id when the list or the current URL shows one (DoorDash `store_id`, Uber Eats store UUID). Do
-   not open each store, do not hunt for addresses (leave `address` null), do not scroll through
-   dashboards. Budget: at most 8 tool calls for this step. Put the stores in the summary's `stores`
-   array; the owner picks one. Record `role_seen` only if it is already on screen. Change nothing.
+   business selector ONCE and read the list from a single snapshot: exact store names. Do not open
+   each store, do not hunt for addresses (leave `address` null), do not scroll through dashboards.
+   Budget: at most 8 tool calls for this step. Put the stores in the summary's `stores` array; the
+   owner picks one. Record `role_seen` only if it is already on screen. Change nothing.
+   **Store id** — Favie builds the public store page from it, so it must be the *store* id:
+   Uber Eats = the UUID in the portal URL path (`/manager/home/<uuid>`, `/manager/menumaker/<uuid>`) —
+   but in an account with several stores the `restaurantUUID=` query parameter and the home-page uuid can
+   belong to the account's default store, not the one selected in the sidebar. Report a uuid only when the
+   page it comes from is clearly this store's (the menu maker after selecting it), otherwise leave it null;
+   DoorDash = the `store_id=` query parameter of the portal URL (open Menu Manager or Orders once if
+   the current URL has none). The number in DoorDash's store switcher is usually the *business* id —
+   never report it as `store_external_id`. Put the id in `store_external_id` and in the selected
+   store's `external_id`.
 4. If a login form is still visible: report `login: "failed"`, `login_failure_reason: "not_logged_in"`. Type nothing.
 5. Close the browser session and end with the summary block (`mode: "verify"`).
 
@@ -254,6 +269,29 @@ write `description_en` and `description_zh` as two separate fields. Reply with e
 ```
 ````
 
+## Disputes (FAVIE_DISPUTES) — the daily error-charge appeal
+
+**FAVIE_DISPUTES <platform>** — runs once a day at 08:00 local, separately from the daily routine (and on
+demand). Goal: get every charge the platform deducted for a customer-reported order issue reversed —
+Uber Eats "charged order issues", DoorDash "error charges". Dispute **every** open charge, no picking. The
+owner has switched this on knowingly; it is independent of `actions_enabled` (file disputes even when
+`actions_enabled` is false; that switch is about ads and promotions).
+
+**The complete portal procedure is in the task message**, between `=== PROCEDURE ===` and
+`=== END OF PROCEDURE ===`: which page to open, which filters, how a charge's state reads, which reason to
+pick, how to write the dispute text, how to confirm the submission. Favie maintains it per platform and it
+may change between runs — follow the message exactly, not your memory of an earlier run. The message also
+lists the appeals still awaiting a decision and the orders already settled, and says whether the run is
+READ-ONLY (look and report, press nothing) or a processing run.
+
+What never changes:
+- Step 0 (context, login label) + restore the login; work only on the store named in the message.
+- Never submit the same dispute twice. If a submission is not confirmed, report the order as `open`.
+- Never invent facts, never mention Favie or an AI in dispute text, never upload files, never rate couriers or customers.
+- Close the browser, then reply with the summary block: `mode: "disputes"`, one `disputes` entry per order you
+  looked at, `disputes_found` on the platform entry, archive fields filled (`reason_category`, `submitted_text`,
+  `customer_note`, `customer_photo`, `items_total`, `items_disputed`, `customer_type`, `filed_by`, `decision_text`, `deadline`).
+
 ## Mode `verify`
 
 Restore the login, locate the store, record `role_seen` if visible, change nothing. Report
@@ -358,9 +396,11 @@ Decide at most **two** changes per platform from §3–§4, biggest expected lif
 ads / promotions split for the coming week from what converted. Write one `observations` line per
 platform with the week-over-week numbers — the owner reads it as the weekly report.
 
-### 6. Reviews and disputes
-New 1–2 star review or open dispute → `review_flagged`, `needs_attention: true`, quote the complaint in
-the reason. Do not reply. Repeated complaints about one item → `recommendation`.
+### 6. Reviews and charge patterns (every day)
+Error charges and refund disputes are handled by a separate daily task (`FAVIE_DISPUTES`) — do not
+open the order-issues views or file disputes in the daily routine, and leave `disputes` empty here.
+Reviews: new 1–2 star review → `review_flagged`, `needs_attention: true`, quote the complaint in the
+reason. Do not reply. Repeated complaints about one item → `recommendation`.
 
 ### 7. Recommendations (things only the owner can do)
 `recommendation` actions, `needs_attention: false`, at most three per platform per week. Each one:
@@ -377,7 +417,10 @@ Nothing changed on a platform → one `no_action` whose reason lists the numbers
 ## Summary block — mandatory
 
 **Language:** write every `title`, `reason`, `observations` entry, `errors` entry and `notes` in the
-owner's language given by the context's `language` field (the restaurant owner reads them). Keep
+owner's language given by the context's `language` field (the restaurant owner reads them). Write for a
+restaurant owner, not an engineer: never mention internal field names or values (`actions_enabled`,
+`cap_cents`, `ctx`, `null`, JSON keys) — say "observe-only mode" or "no monthly marketing cap is set" in
+their language instead. Keep
 all keys, `category` values, `platform` values and store names exactly as specified — those are
 parsed by the backend.
 
@@ -419,6 +462,19 @@ Your final message must END with exactly one fenced block and nothing after it:
           "needs_attention": false
         }
       ],
+      "disputes": [
+        {
+          "order_id": "A1B2C3",
+          "order_date": "2026-09-07",
+          "kind": "missing_item",
+          "amount_cents": 1450,
+          "recovered_cents": null,
+          "status": "filed",
+          "reason": "Receipt lists 2× Pork Dumplings; order marked ready 18:42 and picked up 18:46 complete. Customer claims one order missing.",
+          "evidence": "Order receipt and handoff timestamps from the order page",
+          "deadline": "2026-09-21"
+        }
+      ],
       "observations": ["Promotion 'Free delivery over $25' ends Sep 10"],
       "errors": []
     }
@@ -430,5 +486,13 @@ Your final message must END with exactly one fenced block and nothing after it:
 
 Allowed `category` values: `ad_budget_changed`, `ad_campaign_paused`, `ad_campaign_resumed`,
 `promo_changed`, `item_availability_flagged`, `store_status_checked`, `store_offline_flagged`,
-`review_flagged`, `issue_flagged`, `no_action`, `login_failed`, `store_not_visible`.
+`review_flagged`, `issue_flagged`, `no_action`, `login_failed`, `store_not_visible`, `recommendation`.
 `reason` is required on every action. Money is integer cents. Use `null`, never guesses.
+`disputes` (may be empty): one entry per refund / error charge you looked at — `order_id`, `order_date`,
+`kind` (`missing_item` | `wrong_item` | `late` | `refund` | `error_charge` | `other`), `amount_cents`,
+`recovered_cents`, `status` (`open` | `filed` | `won` | `lost` | `expired` | `skipped`), `reason`,
+`evidence`, `deadline`. In `FAVIE_DISPUTES` also fill the archive fields: `reason_category`,
+`submitted_text` (verbatim), `customer_note`, `customer_photo`, `items_total`, `items_disputed`,
+`customer_type` (`new` | `returning`), `filed_by` (`favie` | `owner`), `decision_text`; and set
+`disputes_found` on the platform entry. `mode` is `"disputes"` for that task. Do not add `dispute_*`
+actions yourself — Favie derives them from this list.

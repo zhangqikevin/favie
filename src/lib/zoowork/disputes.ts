@@ -147,10 +147,12 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
     const prior = known.find((d) => d.orderExternalId.toUpperCase() === onlyOrder)
     const detailUrl = (prior?.raw as { detail_url?: string | null } | null)?.detail_url ?? null
     const label = await resolveLoginLabel(restaurantId)
+    const [owner] = await db.select({ locale: schema.users.locale }).from(schema.users).where(eq(schema.users.id, restaurant.ownerUserId)).limit(1)
+    const ownerLanguage = ({ en: 'English', 'zh-CN': 'Simplified Chinese (简体中文)', 'zh-TW': 'Traditional Chinese (繁體中文)', es: 'Spanish (Español)', ja: 'Japanese (日本語)' } as Record<string, string>)[owner?.locale ?? 'en'] ?? 'English'
     const script = await renderDisputesFastPrompt(platform, { name: storeName, id: conn.storeExternalId ?? null }, { id: onlyOrder, detailUrl: detailUrl && /^https:\/\//.test(detailUrl) ? detailUrl : null })
     taskMessage = [
-      `FAVIE_DISPUTES ${platform} — FAST scripted run. Do NOT read the skill file and do NOT fetch the context URL: everything you need is here. Follow the script literally; the favie-ops hard rules still apply (never type credentials, never solve a CAPTCHA, never submit twice).`,
-      `Today is ${today} (${restaurant.timezone}). Store: "${storeName}"${conn.storeExternalId ? ` (store id ${conn.storeExternalId})` : ''}. Owner's language for \`reason\`: the language of earlier reports for this store.`,
+      `FAVIE_DISPUTES_FAST ${platform} — scripted single-order run from the Favie backend (see "FAVIE_DISPUTES_FAST" in the favie-ops skill: no Step 0, no context fetch — this message carries the store, the login label and the language). Follow the script literally; its limits on snapshots, screenshots and scrolling are real rules, and the favie-ops hard rules still apply (never type credentials, never solve a CAPTCHA, never submit twice).`,
+      `Today is ${today} (${restaurant.timezone}). Store: "${storeName}"${conn.storeExternalId ? ` (store id ${conn.storeExternalId})` : ''}. Owner's language for \`title\` / \`reason\` / observations: ${ownerLanguage}. The dispute text itself is always English.`,
       `First call: browser action "session" op "restart" with loginLabel "${label}" and egressCountry "US". If a login form shows instead of the portal, stop: login "failed", reason "not_logged_in".`,
       '',
       '=== SCRIPT ===',
