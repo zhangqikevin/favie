@@ -135,7 +135,7 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
     }, `disputes-${restaurantId}-${platform}-${today}-${manual ? `m${Date.now()}` : base.attempts}`))
   const [run] = await db.insert(schema.agentRuns).values({
     restaurantId, restaurantAgentId: agent.id, zooworkAgentId: agent.zooworkAgentId, zooworkSessionId: session.session_id,
-    sessionKey: session.session_key ?? null, channel: manual ? 'api-manual' : 'api', kind: 'disputes', status: 'running', runDate: today, startedAt: new Date(),
+    sessionKey: session.session_key ?? null, channel: manual ? `api-manual:${platform}` : 'api', kind: 'disputes', status: 'running', runDate: today, startedAt: new Date(),
   }).returning()
   await record({ ...base, status: 'failed', error: 'running', runId: run!.id })
 

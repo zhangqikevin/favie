@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, like } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import { db, schema } from '@/lib/db/client'
 import { requireUser } from '@/server/auth'
@@ -24,7 +24,7 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
   const intl = INTL_TAG[locale]
   const connsP = getConnections(r.id)
   const manualP = db.select().from(schema.agentRuns)
-    .where(and(eq(schema.agentRuns.restaurantId, r.id), eq(schema.agentRuns.kind, 'disputes'), eq(schema.agentRuns.channel, 'api-manual')))
+    .where(and(eq(schema.agentRuns.restaurantId, r.id), eq(schema.agentRuns.kind, 'disputes'), like(schema.agentRuns.channel, 'api-manual%')))
     .orderBy(desc(schema.agentRuns.createdAt)).limit(8)
   const conns = await connsP
   const connected = conns.filter((c) => c.status === 'connected').map((c) => c.platform)
@@ -108,7 +108,7 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
               const head = (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
                   <span className="text-sm tabular-nums text-ink-500">{startedAt.toLocaleString(intl, { timeZone: r.timezone, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                  <span className="rounded-full bg-ink-100 px-2 py-0.5 text-xs font-medium text-ink-600">{PLATFORM_LABEL[((run.summaryJson as { platforms?: { platform?: 'uber_eats' | 'doordash' }[] } | null)?.platforms?.[0]?.platform) ?? (ds[0]?.platform ?? 'uber_eats')]}</span>
+                  <span className="rounded-full bg-ink-100 px-2 py-0.5 text-xs font-medium text-ink-600">{PLATFORM_LABEL[runPlatform(run.channel, run.summaryJson, ds[0]?.platform)]}</span>
                   <span className={`text-sm ${run.status === 'running' ? 'text-amber-700' : run.status === 'collected' ? 'text-ink-700' : 'text-red-700'}`}>{t(statusKey)}</span>
                   {run.status === 'collected' && <span className="text-sm text-ink-500">· {t('disp.manual.found', { n: ds.length, filed: ds.filter((d) => d.status === 'filed' && d.filedBy !== 'owner').length })}</span>}
                   {ds.length > 0 && <span className="ml-auto text-xs text-ink-400">{t('disp.row.details', { n: ds.length })}</span>}
@@ -156,6 +156,14 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
       </section>
     </div>
   )
+}
+
+/** Which platform a manual run was for: tagged on the run itself (known while it is still running), else from its report. */
+function runPlatform(channel: string | null, summary: unknown, fallback?: 'uber_eats' | 'doordash'): 'uber_eats' | 'doordash' {
+  const tagged = channel?.split(':')[1]
+  if (tagged === 'doordash' || tagged === 'uber_eats') return tagged
+  const reported = (summary as { platforms?: { platform?: string }[] } | null)?.platforms?.[0]?.platform
+  return reported === 'doordash' || reported === 'uber_eats' ? reported : fallback ?? 'uber_eats'
 }
 
 function Stat({ label, value, sub, accent = false }: { label: string; value: string; sub: string; accent?: boolean }) {
