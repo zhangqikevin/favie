@@ -130,6 +130,8 @@ body {
   padding-left: 1.1rem;
   padding-right: 1.1rem;
 }
+/* The pill shape is for single-line fields. A multi-line box with a 9999px radius curls into a capsule and clips its first lines. */
+.app-shell textarea.input, .app-shell select.input[multiple] { border-radius: 1rem; padding-top: 0.85rem; padding-bottom: 0.85rem; }
 .app-shell .btn { border-radius: 9999px; }
 .app-shell .btn-primary { background: var(--color-ink-900); color: var(--app-bg); }
 .app-shell .btn-primary:hover { background: color-mix(in srgb, var(--color-ink-900) 88%, var(--color-ink-500)); }
