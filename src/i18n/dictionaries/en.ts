@@ -24,7 +24,7 @@ const en = {
 
   // ---- landing
   'hero.badge': 'Built for US restaurants on Uber Eats & DoorDash',
-  'hero.title.pre': 'More delivery orders, more profit. ',
+  'hero.title.pre': 'More delivery orders, more\u00A0profit. ',
   'hero.title.highlight': 'Favie does it for you.',
   'hero.subtitle': 'Favie runs your Uber Eats and DoorDash every day: a menu that sells, ads and promos that pay back, and every disputed order fought for you.',
   'hero.cta': 'Get started — $299/mo',

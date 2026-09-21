@@ -23,7 +23,7 @@ const es: Dictionary = {
   'nav.faq': 'Preguntas',
 
   'hero.badge': 'Para restaurantes de EE. UU. en Uber Eats y DoorDash',
-  'hero.title.pre': 'Más pedidos de delivery, más ganancia. ',
+  'hero.title.pre': 'Más pedidos de delivery, más\u00A0ganancia. ',
   'hero.title.highlight': 'Favie lo hace por ti.',
   'hero.subtitle': 'La IA de Favie gestiona tu Uber Eats y DoorDash cada día: un menú que vende, anuncios y promociones que se recuperan, y cada pedido en disputa defendido por ti.',
   'hero.cta': 'Empezar — $299/mes',
