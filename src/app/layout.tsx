@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { getT } from '@/i18n/server'
 import { LocaleProvider } from '@/i18n/client'
+import { fontVariables } from './fonts'
 
 export const metadata: Metadata = {
   title: 'Favie — AI that runs your Uber Eats & DoorDash',
@@ -26,15 +27,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { locale, dict } = await getT()
   return (
-    <html lang={locale}>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700;800&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang={locale} className={fontVariables}>
       <body className="min-h-screen font-sans"><LocaleProvider locale={locale} dict={dict}>{children}</LocaleProvider></body>
     </html>
   )

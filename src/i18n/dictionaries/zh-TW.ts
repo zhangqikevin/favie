@@ -604,7 +604,6 @@ const zhTW: Dictionary = {
   'disp.row.results': '審核結果：通過 {won}，拒絕 {lost}',
   'disp.row.running': '檢查進行中…',
   'disp.row.failed': '檢查未完成，今天稍後會自動重試',
-  'disp.row.aiDown': 'Favie 的 AI 服務暫時無法使用，本次未檢查，會自動重試',
   'disp.row.skipped.off': '已關閉，未檢查',
   'disp.row.skipped.notConnected': '平台未連接',
   'disp.row.details': '{n} 筆訂單',

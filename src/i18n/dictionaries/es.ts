@@ -604,7 +604,6 @@ const es: Dictionary = {
   'disp.row.results': 'decisiones: {won} aceptadas, {lost} rechazadas',
   'disp.row.running': 'Revisión en curso…',
   'disp.row.failed': 'La revisión no terminó; Favie lo reintenta hoy más tarde',
-  'disp.row.aiDown': 'El servicio de IA de Favie no estaba disponible: no se revisó; Favie lo reintenta automáticamente',
   'disp.row.skipped.off': 'Desactivado, sin revisar',
   'disp.row.skipped.notConnected': 'Plataforma no conectada',
   'disp.row.details': '{n} pedidos',

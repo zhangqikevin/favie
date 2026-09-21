@@ -604,7 +604,6 @@ const zhCN: Dictionary = {
   'disp.row.results': '审核结果：通过 {won}，拒绝 {lost}',
   'disp.row.running': '检查进行中…',
   'disp.row.failed': '检查未完成，今天稍后会自动重试',
-  'disp.row.aiDown': 'Favie 的 AI 服务暂时不可用，本次未检查，会自动重试',
   'disp.row.skipped.off': '已关闭，未检查',
   'disp.row.skipped.notConnected': '平台未连接',
   'disp.row.details': '{n} 笔订单',

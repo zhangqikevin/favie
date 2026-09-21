@@ -609,7 +609,6 @@ const en = {
   'disp.row.results': 'decisions: {won} accepted, {lost} rejected',
   'disp.row.running': 'Check in progress…',
   'disp.row.failed': 'Check did not finish — Favie retries later today',
-  'disp.row.aiDown': "Favie's AI service was unavailable — not checked; Favie retries automatically",
   'disp.row.skipped.off': 'Switched off, not checked',
   'disp.row.skipped.notConnected': 'Platform not connected',
   'disp.row.details': '{n} orders',
