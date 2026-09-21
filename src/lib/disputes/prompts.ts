@@ -82,9 +82,62 @@ export const DEFAULT_DISPUTE_PROMPT_DOORDASH = `DOORDASH MERCHANT PORTAL — err
    - ONLY when you chose 其他原因 / Other reason: a second box 争议原因 / Dispute reason (placeholder "请描述您为何对此费用提出争议 / Describe why you're disputing this charge") appears right under the selector = the textarea that is NOT [name="additional-notes"] (textarea:not([name="additional-notes"])). Type the SAME text into it as well — both boxes must carry the text.
    After typing, snapshot once and check BOTH boxes show the text. Never press Escape while the form is open (it discards everything you typed). Never click 选择文件 / Choose file and do not upload anything.
 8. Snapshot and re-read the form: right order id in the title, a reason selected for every item, the text complete in the box(es), 总退款金额 / Total refund amount equal to the charge. Press 提交以供审查 / Submit for review ONCE — selector button:has-text("Submit for review") or button:has-text("提交以供审查"). Success = a confirmation with a 关闭 / Close button (click it), and the panel then reads 争议待处理 / Dispute pending · 争议在审查中 / Dispute under review with no 争议收费 button. If that does not happen, snapshot; if the 争议收费 button is still there with no error shown, report the order as "open" with what you saw in reason — never submit a second time.
-9. Report the order as status "filed", filed_by "favie", submitted_text = exactly what you typed, reason = one sentence for the owner (their language), deadline = the "take action by" date, kind = "missing_item" / "wrong_item" / "error_charge". Close the panel (✕ or Escape) before opening the next order.
+9. Report the order as status "filed", filed_by "favie", submitted_text = exactly what you typed, reason = one sentence for the owner (their language), deadline = the "take action by" date, kind = "missing_item" / "wrong_item" / "error_charge", detail_url = the panel URL of the order (report detail_url for every order you open, whatever its state). Close the panel (✕ or Escape) before opening the next order.
 
 Speed: element refs go stale when the panel or the form opens — snapshot again after any click that changes the page, and prefer text selectors (button:has-text("争议收费"), button:has-text("提交以供审查")). Pass timeoutMs 8000 on every click. Use snapshots, not screenshots (one screenshot right before submitting). About 14 tool calls per order; if there are many, the ones with the nearest deadline first, and report the rest as "open".`
+
+/**
+ * FAST (scripted) single-order runs: no skill read, no context fetch, no exploring — the message carries the
+ * login label and a fixed sequence of calls with exact selectors. Placeholders: {order_id} {order_id_lower}
+ * {detail_url} (empty when unknown) {list_url} {store_name} {store_id} {writing_rules}
+ */
+export const DEFAULT_DISPUTE_FAST_DOORDASH = `DOORDASH — scripted dispute of ONE order: {order_id}. Do exactly these calls, in this order. No extra snapshots, no screenshots except where stated, no scrolling, never press Escape, never click 选择文件 / Choose file. Every click passes timeoutMs 8000. Labels are English / Chinese — use whichever the page shows.
+
+OPEN THE ORDER PANEL
+A. If this line shows a URL, navigate to it and go to step C:  {detail_url}
+B. Otherwise: navigate to {list_url} ; act wait 3000 ; click the date-range button (text "Last 7 days" / "过去 7 天") ; click "Last 30 days" / "过去 30 天" ; click button "All transaction types" / "所有交易类型" ; click the checkbox item "Error charge" / "错误费用" ; click button "Apply" / "应用" ; act wait 3000 ; click selector  td a[href*="{order_id_lower}"]
+C. act wait 3000 ; ONE snapshot (mode "efficient"). From it read: the deadline ("Take action by …"), what was reported, the customer block (how many orders at this store), Picked up / Dropped off vs the assigned times, every ordered item with quantity, the charged item(s) with type, the customer's comment, whether a photo is attached, the error-charge total.
+   - No button "Dispute charge" / "争议收费" in the snapshot → do NOT continue: report the state you see ("filed" when it says Dispute pending / under review, "won" when approved, "lost" when denied, "expired" when the window ended) and go to step J.
+
+WRITE (no tool call)
+D. Choose the reason: "Item was prepared as requested" / 按要求准备的单品 · "Item was not picked up" / 单品未自取 · "Order was picked up late" / 订单自取迟到 · "Order was mishandled" / 订单处理不当 · "Other reason" / 其他原因. Then write the text:
+   {writing_rules}
+
+FILL THE FORM
+E. click selector  button:has-text("Dispute charge")   (or button:has-text("争议收费"))
+F. click text "Choose an option" / "选择选项" ; click the text of the reason you chose. If several items were charged, repeat F for each selector that still reads "Choose an option".
+G. click selector  textarea[name="additional-notes"]  ; type the text.
+H. ONLY when the reason is "Other reason": click selector  textarea:not([name="additional-notes"])  ; type the SAME text.
+I. ONE snapshot (mode "efficient"): the order id in the form title is {order_id}, a reason is selected for every item, the text is in the box(es). Then click selector  button:has-text("Submit for review")   (or button:has-text("提交以供审查")) — ONCE. act wait 3000 ; ONE snapshot: success = a confirmation with "Close" / "关闭" (click it) or the panel reading "Dispute pending" / "争议待处理". If neither, report status "open" with what you saw — never submit again.
+J. browser session close. Reply with the summary block (mode "disputes", this one order, submitted_text = exactly what you typed, detail_url = the panel URL).`
+
+export const DEFAULT_DISPUTE_FAST_UBER_EATS = `UBER EATS — scripted dispute of ONE order: {order_id}. Do exactly these calls, in this order. No extra snapshots, no screenshots except where stated, never press Escape. Every click passes timeoutMs 8000. Labels are English / Chinese — use whichever the page shows.
+
+OPEN THE ORDER
+A. navigate to {list_url} ; act wait 4000. If the sidebar does not show "{store_name}", switch to it in the store switcher first, then navigate to the same URL again.
+B. click the search box ("Search by customer name or order ID" / "搜索顾客姓名或订单编号") ; type {order_id} ; press Enter ; act wait 3000 ; click the row whose order id is {order_id}.
+C. act wait 3000 ; ONE snapshot (mode "efficient"). Read: items and customizations ordered, what the customer reported, the customer's note, whether a photo is attached, new or returning customer, the charged amount.
+   - The issue reads "Refunded by Uber" / 优步已退款 → not charged: report "skipped" and go to step I. It reads "Dispute accepted" / 异议已通过审核 → "won"; "Dispute rejected" / 异议被拒绝 → "lost"; already under review → "filed". In all these cases go to step I without touching anything.
+
+WRITE (no tool call)
+D. Choose the reason: "Customer made a mistake" / 顾客出错了 · "Customer's evidence is wrong" / 顾客提供的证据有误 · "Refund amount is incorrect" / 退款金额不正确 · "Other" / 其他. Then write the text:
+   {writing_rules}
+
+FILL THE FORM
+E. click button "Dispute" / "争议" ; act wait 2500 (a panel slides in — it must finish rendering).
+F. click the text of the reason you chose.
+G. click selector  textarea  ; type the text.
+H. ONE snapshot (mode "efficient"): right order id, reason selected, text complete. Then click button "Submit" / "提交" — ONCE. act wait 3000 ; ONE snapshot: success = "Your dispute has been submitted" / 您的异议已提交. Dismiss a rating prompt without rating. If there is no confirmation, report status "open" with what you saw — never submit again.
+I. browser session close. Reply with the summary block (mode "disputes", this one order, submitted_text = exactly what you typed).`
+
+export const DEFAULT_DISPUTE_FAST: Record<Platform, string> = { uber_eats: DEFAULT_DISPUTE_FAST_UBER_EATS, doordash: DEFAULT_DISPUTE_FAST_DOORDASH }
+const FAST_KEY: Record<Platform, keyof typeof SETTING_KEYS> = { uber_eats: 'disputesFastUberEats', doordash: 'disputesFastDoordash' }
+
+export async function renderDisputesFastPrompt(platform: Platform, store: { name: string; id: string | null }, order: { id: string; detailUrl: string | null }) {
+  const [procedure, rules] = await Promise.all([getSetting(SETTING_KEYS[FAST_KEY[platform]]), getSetting(SETTING_KEYS.disputesWritingRules)])
+  return fillDisputesPrompt(procedure?.value ?? DEFAULT_DISPUTE_FAST[platform], rules?.value ?? DEFAULT_DISPUTE_WRITING_RULES, platform, store)
+    .replaceAll('{order_id_lower}', order.id.toLowerCase()).replaceAll('{order_id}', order.id).replaceAll('{detail_url}', order.detailUrl ?? '(none — use step B)')
+}
 
 const KEY: Record<Platform, keyof typeof SETTING_KEYS> = { uber_eats: 'disputesPromptUberEats', doordash: 'disputesPromptDoordash' }
 export const DEFAULT_DISPUTE_PROMPT: Record<Platform, string> = { uber_eats: DEFAULT_DISPUTE_PROMPT_UBER_EATS, doordash: DEFAULT_DISPUTE_PROMPT_DOORDASH }

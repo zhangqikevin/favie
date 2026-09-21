@@ -1,9 +1,9 @@
 import { getSetting, SETTING_KEYS } from '@/server/settings'
-import { DEFAULT_DISPUTE_PROMPT_UBER_EATS, DEFAULT_DISPUTE_PROMPT_DOORDASH, DEFAULT_DISPUTE_WRITING_RULES, fillDisputesPrompt } from '@/lib/disputes/prompts'
+import { DEFAULT_DISPUTE_PROMPT_UBER_EATS, DEFAULT_DISPUTE_PROMPT_DOORDASH, DEFAULT_DISPUTE_WRITING_RULES, DEFAULT_DISPUTE_FAST_UBER_EATS, DEFAULT_DISPUTE_FAST_DOORDASH, fillDisputesPrompt } from '@/lib/disputes/prompts'
 import { DisputePromptEditor } from './DisputePromptEditor'
 
 export default async function AdminDisputePrompts() {
-  const [ue, dd, rules] = await Promise.all([getSetting(SETTING_KEYS.disputesPromptUberEats), getSetting(SETTING_KEYS.disputesPromptDoordash), getSetting(SETTING_KEYS.disputesWritingRules)])
+  const [ue, dd, rules, fue, fdd] = await Promise.all([getSetting(SETTING_KEYS.disputesPromptUberEats), getSetting(SETTING_KEYS.disputesPromptDoordash), getSetting(SETTING_KEYS.disputesWritingRules), getSetting(SETTING_KEYS.disputesFastUberEats), getSetting(SETTING_KEYS.disputesFastDoordash)])
   const rulesText = rules?.value ?? DEFAULT_DISPUTE_WRITING_RULES
   const sampleUe = fillDisputesPrompt(ue?.value ?? DEFAULT_DISPUTE_PROMPT_UBER_EATS, rulesText, 'uber_eats', { name: 'Jun Bistro', id: '59d27fe6-10e9-5ebb-836c-458e6a85b13b' })
   const sampleDd = fillDisputesPrompt(dd?.value ?? DEFAULT_DISPUTE_PROMPT_DOORDASH, rulesText, 'doordash', { name: 'Jun Bistro', id: '27513912' })
@@ -29,6 +29,19 @@ export default async function AdminDisputePrompts() {
       <DisputePromptEditor which="doordash" title="DoorDash — error charges"
         help="Financials → Transactions?store_id=… → last 30 days → transaction type 'Error charge'; order panel → 'Dispute charge' → reason per item + additional notes (500 chars; 'Other reason' needs the same text in both boxes). Must contain {writing_rules}."
         value={dd?.value ?? null} defaultValue={DEFAULT_DISPUTE_PROMPT_DOORDASH} updatedAt={dd?.updatedAt.toISOString() ?? null} preview={sampleDd} />
+
+      <div>
+        <h2 className="font-display text-xl font-bold tracking-tight">Fast (scripted) single-order runs</h2>
+        <p className="mt-1 max-w-3xl text-sm text-ink-500">Used by the "Fast process" button on a restaurant's Disputes page: one order id, no skill read, no context fetch, a fixed sequence of calls with exact selectors. Extra placeholders: <code>{'{order_id}'}</code> <code>{'{order_id_lower}'}</code> <code>{'{detail_url}'}</code>.</p>
+      </div>
+
+      <DisputePromptEditor which="fast_doordash" title="DoorDash — fast script"
+        help="Opens the order panel directly when an earlier run reported its URL, otherwise through the filtered list; selectors for the dispute button, reason, the two text boxes and Submit. Must contain {writing_rules}."
+        value={fdd?.value ?? null} defaultValue={DEFAULT_DISPUTE_FAST_DOORDASH} updatedAt={fdd?.updatedAt.toISOString() ?? null} />
+
+      <DisputePromptEditor which="fast_uber_eats" title="Uber Eats — fast script"
+        help="Filtered History list → search the order id → Dispute → reason → text → Submit. Not yet exercised on a real open charge. Must contain {writing_rules}."
+        value={fue?.value ?? null} defaultValue={DEFAULT_DISPUTE_FAST_UBER_EATS} updatedAt={fue?.updatedAt.toISOString() ?? null} />
     </section>
   )
 }

@@ -178,7 +178,7 @@ export async function resetMenuPrompt(fd: FormData) {
 }
 
 // ---- Dispute prompts (portal procedures per platform + shared writing rules) ----
-const DISPUTE_PROMPT_KEYS = { rules: SETTING_KEYS.disputesWritingRules, uber_eats: SETTING_KEYS.disputesPromptUberEats, doordash: SETTING_KEYS.disputesPromptDoordash } as const
+const DISPUTE_PROMPT_KEYS = { rules: SETTING_KEYS.disputesWritingRules, uber_eats: SETTING_KEYS.disputesPromptUberEats, doordash: SETTING_KEYS.disputesPromptDoordash, fast_uber_eats: SETTING_KEYS.disputesFastUberEats, fast_doordash: SETTING_KEYS.disputesFastDoordash } as const
 
 export async function saveDisputePrompt(_prev: AdminState, fd: FormData): Promise<AdminState> {
   const user = await requireAdmin()

@@ -15,7 +15,9 @@ export const SETTING_KEYS = {
   zoodataMenuTool: 'zoodata_menu_tool',
   disputesPromptUberEats: 'disputes_prompt_uber_eats',   // portal procedure for FAVIE_DISPUTES uber_eats
   disputesPromptDoordash: 'disputes_prompt_doordash',    // portal procedure for FAVIE_DISPUTES doordash
-  disputesWritingRules: 'disputes_writing_rules',        // how the dispute text is written (shared)
+  disputesWritingRules: 'disputes_writing_rules',
+  disputesFastUberEats: 'disputes_fast_uber_eats',       // scripted single-order run (test panel "fast")
+  disputesFastDoordash: 'disputes_fast_doordash',        // how the dispute text is written (shared)
 } as const
 type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS]
 

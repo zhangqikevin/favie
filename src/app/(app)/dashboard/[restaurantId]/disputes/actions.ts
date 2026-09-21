@@ -31,10 +31,12 @@ export type ManualState = { ok?: string; error?: string } | undefined
 export async function runDisputesManual(_prev: ManualState, fd: FormData): Promise<ManualState> {
   const user = await requireUser()
   const restaurantId = String(fd.get('restaurantId') ?? '')
-  const mode = String(fd.get('mode')) === 'process' ? 'process' : 'check'
+  const rawMode = String(fd.get('mode'))
+  const mode = rawMode === 'process' ? 'process' : rawMode === 'fast' ? 'fast' : 'check'
   const orderRaw = String(fd.get('orderId') ?? '').trim().replace(/^#/, '')
   if (orderRaw && !/^[A-Za-z0-9-]{4,40}$/.test(orderRaw)) return { error: 'bad_order' }
   const orderId = orderRaw || null
+  if (mode === 'fast' && !orderId) return { error: 'need_order' }
   const r = await getRestaurantForUser(restaurantId, user.id)
   if (!r) return { error: 'not_found' }
   const { getConnections, getPrimaryAgent } = await import('@/server/restaurants')

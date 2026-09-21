@@ -3,11 +3,11 @@ import { db, schema } from '@/lib/db/client'
 import { zoowork, logged } from './client'
 import { streamTurn } from './streamTurn'
 import { collectRun, localDate } from './collect'
-import { releaseHandoffBrowsers, releaseAgentBrowsers, releaseBrowser } from './handoff'
+import { releaseHandoffBrowsers, releaseAgentBrowsers, releaseBrowser, resolveLoginLabel } from './handoff'
 import { billingOk } from '@/server/billing/gate'
 import { enqueueDisputesCheck } from '@/server/jobs/enqueue'
 import type { Platform } from '@/lib/db/schema'
-import { renderDisputesPrompt } from '@/lib/disputes/prompts'
+import { renderDisputesPrompt, renderDisputesFastPrompt } from '@/lib/disputes/prompts'
 
 /** Platforms with a dispute procedure (the procedures themselves are edited in /admin/dispute-prompts). */
 export const DISPUTE_PLATFORMS: Platform[] = ['uber_eats', 'doordash']
@@ -51,8 +51,11 @@ async function upsertCheck(values: CheckRow) {
  * hourly tick retries.
  */
 export type DisputesRunOpts = {
-  /** `check` = read-only: list charged issues and record decisions, file nothing. `process` = file every new one. */
-  mode?: 'check' | 'process'
+  /**
+   * `check` = read-only: list charged issues and record decisions, file nothing. `process` = file every new one.
+   * `fast` = scripted dispute of ONE order (needs `orderId`): no skill read, no context fetch, fixed calls with exact selectors.
+   */
+  mode?: 'check' | 'process' | 'fast'
   /** Owner/admin-triggered: recorded as an agent run only, never as the day's `dispute_checks` row. */
   manual?: boolean
   /** Debugging aid (manual runs): handle this one order and nothing else. */
@@ -63,6 +66,7 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
   const mode = opts.mode ?? 'process'
   const manual = opts.manual ?? false
   const onlyOrder = manual && opts.orderId ? opts.orderId.trim().toUpperCase() : null
+  if (mode === 'fast' && !onlyOrder) throw new Error('fast mode needs an order id')
   const [restaurant] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1)
   if (!restaurant) throw new Error('restaurant not found')
   const today = date ?? localDate(new Date(), restaurant.timezone)
@@ -137,17 +141,36 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
     disputesReplyFormat(platform),
   ].join('\n')
 
+  let taskMessage = message
+  if (mode === 'fast' && onlyOrder) {
+    // The order's own page, when an earlier run reported it: the fast script then skips the list and its filters.
+    const prior = known.find((d) => d.orderExternalId.toUpperCase() === onlyOrder)
+    const detailUrl = (prior?.raw as { detail_url?: string | null } | null)?.detail_url ?? null
+    const label = await resolveLoginLabel(restaurantId)
+    const script = await renderDisputesFastPrompt(platform, { name: storeName, id: conn.storeExternalId ?? null }, { id: onlyOrder, detailUrl: detailUrl && /^https:\/\//.test(detailUrl) ? detailUrl : null })
+    taskMessage = [
+      `FAVIE_DISPUTES ${platform} — FAST scripted run. Do NOT read the skill file and do NOT fetch the context URL: everything you need is here. Follow the script literally; the favie-ops hard rules still apply (never type credentials, never solve a CAPTCHA, never submit twice).`,
+      `Today is ${today} (${restaurant.timezone}). Store: "${storeName}"${conn.storeExternalId ? ` (store id ${conn.storeExternalId})` : ''}. Owner's language for \`reason\`: the language of earlier reports for this store.`,
+      `First call: browser action "session" op "restart" with loginLabel "${label}" and egressCountry "US". If a login form shows instead of the portal, stop: login "failed", reason "not_logged_in".`,
+      '',
+      '=== SCRIPT ===',
+      script,
+      '=== END OF SCRIPT ===',
+      '',
+      disputesReplyFormat(platform),
+    ].join('\n')
+  }
   const zc = zoowork()
   await releaseHandoffBrowsers(restaurantId, agent.zooworkAgentId, agent.id)
   await releaseAgentBrowsers(agent.id, agent.zooworkAgentId)
   const session = await logged('createSession.disputes', agent.id, { platform, date: today, attempts: base.attempts }, () =>
     zc.createSession(agent.zooworkAgentId!, {
-      initial_events: [{ type: 'user.message', content: message }],
+      initial_events: [{ type: 'user.message', content: taskMessage }],
       metadata: { kind: 'disputes', restaurant_id: restaurantId, platform, date: today, mode, manual, order_id: onlyOrder },
     }, `disputes-${restaurantId}-${platform}-${today}-${manual ? `m${Date.now()}` : base.attempts}`))
   const [run] = await db.insert(schema.agentRuns).values({
     restaurantId, restaurantAgentId: agent.id, zooworkAgentId: agent.zooworkAgentId, zooworkSessionId: session.session_id,
-    sessionKey: session.session_key ?? null, channel: manual ? `api-manual:${platform}${onlyOrder ? `:${onlyOrder}` : ''}` : 'api', kind: 'disputes', status: 'running', runDate: today, startedAt: new Date(),
+    sessionKey: session.session_key ?? null, channel: manual ? `api-manual:${platform}${onlyOrder ? `:${onlyOrder}` : ''}${mode === 'fast' ? ':fast' : ''}` : 'api', kind: 'disputes', status: 'running', runDate: today, startedAt: new Date(),
   }).returning()
   await record({ ...base, status: 'failed', error: 'running', runId: run!.id })
 

@@ -4,7 +4,7 @@ import { saveDisputePrompt, resetDisputePrompt, type AdminState } from '../actio
 
 /** One editable prompt: read-only until the edit switch is on; Save stores it, Reset returns to the built-in default. */
 export function DisputePromptEditor({ which, title, help, value, defaultValue, updatedAt, preview, footnote }: {
-  which: 'rules' | 'uber_eats' | 'doordash'
+  which: 'rules' | 'uber_eats' | 'doordash' | 'fast_uber_eats' | 'fast_doordash'
   title: string
   help: string
   value: string | null

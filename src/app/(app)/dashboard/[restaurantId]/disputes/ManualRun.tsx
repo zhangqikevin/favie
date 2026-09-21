@@ -55,6 +55,13 @@ export function ManualRun({ restaurantId, running, platforms }: { restaurantId: 
       </form>
       <input id="disputes-order-id" value={orderId} onChange={(e) => onOrderId(e.target.value)} disabled={busy} placeholder={t('disp.manual.orderPh')} title={t('disp.manual.orderHint')} aria-label={t('disp.manual.orderHint')}
         spellCheck={false} autoCapitalize="characters" className="input !w-44 !py-2 font-mono text-xs uppercase placeholder:normal-case placeholder:font-sans" />
+      <form action={action}>
+        <input type="hidden" name="restaurantId" value={restaurantId} />
+        <input type="hidden" name="platform" value={platform} />
+        <input type="hidden" name="orderId" value={orderId} />
+        <input type="hidden" name="mode" value="fast" />
+        <button type="submit" disabled={busy || !orderId.trim()} className="rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50" title={t('disp.manual.fastHint')}>{t('disp.manual.fast')}</button>
+      </form>
       {running ? <span className="text-sm text-ink-500">{t('disp.manual.running')}</span>
         : state?.ok ? <span className="text-sm text-emerald-700">{t('disp.manual.queued')}</span>
         : state?.error ? <span className="text-sm text-red-700">{t(`disp.manual.err.${state.error}` as DictKey)}</span> : null}

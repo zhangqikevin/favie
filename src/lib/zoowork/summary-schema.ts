@@ -38,6 +38,7 @@ export const FavieDispute = z.object({
   customer_type: z.enum(['new', 'returning']).nullable().optional(),
   filed_by: z.enum(['favie', 'owner']).nullable().optional(), // owner = already disputed before Favie saw it
   decision_text: z.string().nullable().optional(),     // the platform's decision wording, when one appeared
+  detail_url: z.string().nullable().optional(),        // the order's own page in the portal (DoorDash panel URL) — lets a later run open it directly
 })
 export type FavieDispute = z.infer<typeof FavieDispute>
 
