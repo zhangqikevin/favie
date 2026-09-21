@@ -24,8 +24,8 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
   const intl = INTL_TAG[locale]
   const connsP = getConnections(r.id)
   const manualP = db.select().from(schema.agentRuns)
-    .where(and(eq(schema.agentRuns.restaurantId, r.id), eq(schema.agentRuns.kind, 'disputes')))
-    .orderBy(desc(schema.agentRuns.createdAt)).limit(24)
+    .where(and(eq(schema.agentRuns.restaurantId, r.id), eq(schema.agentRuns.kind, 'disputes'), eq(schema.agentRuns.channel, 'api-manual')))
+    .orderBy(desc(schema.agentRuns.createdAt)).limit(8)
   const conns = await connsP
   const connected = conns.filter((c) => c.status === 'connected').map((c) => c.platform)
   const supported = connected.filter((p) => DISPUTE_PLATFORMS.includes(p))
@@ -104,7 +104,7 @@ export default async function DisputesPage({ params }: { params: Promise<{ resta
               const summary = run.summaryJson as { notes?: string | null; platforms?: { observations?: string[]; errors?: string[]; login?: string; login_failure_reason?: string | null }[] } | null
               // Only problems are shown here (login failed, agent errors); the agent's observations and notes are for /admin.
               const notes = (summary?.platforms?.flatMap((p) => [...(p.errors ?? []), p.login && p.login !== 'ok' ? `login ${p.login}: ${p.login_failure_reason ?? ''}` : '']) ?? []).filter(Boolean)
-              const statusKey = (run.status === 'running' ? 'disp.manual.st.running' : run.status === 'collected' ? 'disp.manual.st.done' : run.status === 'parse_failed' ? 'disp.manual.st.unparsed' : run.status === 'timed_out' ? 'disp.manual.st.timedOut' : run.status === 'finished' ? 'disp.manual.st.finishing' : 'disp.manual.st.failed') as DictKey
+              const statusKey = (run.status === 'running' ? 'disp.manual.st.running' : run.status === 'collected' ? 'disp.manual.st.done' : run.status === 'parse_failed' && run.summaryParseError?.startsWith('agent error') ? 'disp.row.aiDown' : run.status === 'parse_failed' ? 'disp.manual.st.unparsed' : run.status === 'timed_out' ? 'disp.manual.st.timedOut' : run.status === 'finished' ? 'disp.manual.st.finishing' : 'disp.manual.st.failed') as DictKey
               const head = (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
                   <span className="text-sm tabular-nums text-ink-500">{startedAt.toLocaleString(intl, { timeZone: r.timezone, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
@@ -173,7 +173,7 @@ function CheckRow({ c, disputes, t, fmtDate }: { c: Check; disputes: Dispute[]; 
   const platform = PLATFORM_LABEL[c.platform]
   let line: string
   let tone = 'text-ink-700'
-  if (c.status === 'failed') { line = c.error === 'running' ? t('disp.row.running') : t('disp.row.failed'); tone = 'text-amber-700' }
+  if (c.status === 'failed') { line = c.error === 'running' ? t('disp.row.running') : c.error === 'ai_credits_exhausted' || c.error === 'ai_service_error' ? t('disp.row.aiDown') : t('disp.row.failed'); tone = 'text-amber-700' }
   else if (c.status === 'skipped') { line = c.error === 'disputes_disabled' ? t('disp.row.skipped.off') : c.error === 'not_connected' ? t('disp.row.skipped.notConnected') : t('disp.soon', { platforms: platform }); tone = 'text-ink-500' }
   else if (c.found === 0 && c.won === 0 && c.lost === 0) line = t('disp.row.none')
   else line = t('disp.row.summary', { found: c.found, filed: c.filed, amount: money(c.recoveredCents) })

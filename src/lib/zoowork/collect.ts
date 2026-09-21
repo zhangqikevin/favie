@@ -139,6 +139,11 @@ export async function collectRun(run: typeof schema.agentRuns.$inferSelect, time
     await insertAction(run, runDate, 'none', 'interrupted', t('sys.interrupted.t'), t('sys.interrupted.r'), true, { sysKey: 'interrupted', sysVars: {} })
     return
   }
+  // The run died before the model answered (seen: 402 insufficient credits from the model gateway). Record the
+  // real cause instead of "no summary block" so the owner page, the ledger and /admin can say what happened.
+  const agentError = [...events].reverse().find((e) => inRun(e) && e.eventType === 'agent.error')
+  const agentErrorText = agentError ? String((agentError.payload as { errorMessage?: string })?.errorMessage ?? 'agent error').slice(0, 300) : null
+  if ('error' in parsed && outcome === 'failed' && agentErrorText) parsed = { error: `agent error: ${agentErrorText}` }
   if ('error' in parsed) {
     // A daily run that succeeded but ended with no report (the model sometimes closes the browser and stops
     // with zero output — Jun Bistro 2026-09-17): ask once, in the same session, for the block. The session

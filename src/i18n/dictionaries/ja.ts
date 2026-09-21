@@ -604,6 +604,7 @@ const ja: Dictionary = {
   'disp.row.results': '審査結果：承認 {won}、却下 {lost}',
   'disp.row.running': 'チェック中…',
   'disp.row.failed': 'チェックが完了しませんでした。本日中に自動で再試行します',
+  'disp.row.aiDown': 'Favie の AI サービスが一時的に利用できず、チェックできませんでした。自動で再試行します',
   'disp.row.skipped.off': 'オフのため未チェック',
   'disp.row.skipped.notConnected': 'プラットフォーム未接続',
   'disp.row.details': '{n} 件の注文',

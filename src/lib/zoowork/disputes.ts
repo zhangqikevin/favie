@@ -126,7 +126,7 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
     }, `disputes-${restaurantId}-${platform}-${today}-${manual ? `m${Date.now()}` : base.attempts}`))
   const [run] = await db.insert(schema.agentRuns).values({
     restaurantId, restaurantAgentId: agent.id, zooworkAgentId: agent.zooworkAgentId, zooworkSessionId: session.session_id,
-    sessionKey: session.session_key ?? null, channel: 'api', kind: 'disputes', status: 'running', runDate: today, startedAt: new Date(),
+    sessionKey: session.session_key ?? null, channel: manual ? 'api-manual' : 'api', kind: 'disputes', status: 'running', runDate: today, startedAt: new Date(),
   }).returning()
   await record({ ...base, status: 'failed', error: 'running', runId: run!.id })
 
@@ -141,7 +141,7 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
     })
     // The model sometimes ends the turn with the findings in prose or in a `message` tool call and no
     // fenced block. The session is still alive: ask for the block, up to twice, before giving up.
-    for (let nudge = 0; res.outcome && !/```favie-summary/.test(res.text) && nudge < 2; nudge++) {
+    for (let nudge = 0; res.outcome === 'succeeded' && !/```favie-summary/.test(res.text) && nudge < 2; nudge++) {
       const prior = await zc.listAllEvents(agent.zooworkAgentId, session.session_id)
       const afterSeq = prior.reduce((m, e) => Math.max(m, e.seq), -1)
       await zc.postEvents(agent.zooworkAgentId, session.session_id, [{ type: 'user.message', content: NUDGE, idempotency_key: `disputes-nudge-${run!.id}-${nudge}` }])
@@ -167,7 +167,9 @@ export async function runDisputesCheck(restaurantId: string, platform: Platform,
   await collectRun(fresh!, restaurant.timezone)
   const [done] = await db.select().from(schema.agentRuns).where(eq(schema.agentRuns.id, run!.id)).limit(1)
   if (done?.status !== 'collected') {
-    await record({ ...base, status: 'failed', error: done?.status === 'parse_failed' ? 'The agent did not return a readable report.' : (done?.status ?? 'unknown'), runId: run!.id })
+    const cause = done?.summaryParseError ?? ''
+    const error = /insufficient_credits|\b402\b/.test(cause) ? 'ai_credits_exhausted' : cause.startsWith('agent error') ? 'ai_service_error' : done?.status === 'parse_failed' ? 'The agent did not return a readable report.' : (done?.status ?? 'unknown')
+    await record({ ...base, status: 'failed', error, runId: run!.id })
     return null
   }
   const summary = done.summaryJson as { platforms?: { platform: string; login?: string; login_failure_reason?: string | null; disputes_found?: number | null; disputes?: { status: string }[] }[]; aborted_early?: boolean; abort_reason?: string | null } | null

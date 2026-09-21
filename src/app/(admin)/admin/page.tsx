@@ -19,8 +19,22 @@ export default async function AdminCustomers() {
     .leftJoin(schema.users, eq(schema.users.id, schema.restaurants.ownerUserId))
     .orderBy(desc(schema.restaurants.createdAt))
 
+  // Every agent run dies at its first model call when the ZooWork organization is out of credits; nothing else tells us.
+  const [credit] = await db.select({
+    n: sql<number>`count(*)`, since: sql<Date | null>`min(${schema.agentRuns.createdAt})`, last: sql<Date | null>`max(${schema.agentRuns.createdAt})`,
+  }).from(schema.agentRuns).where(sql`${schema.agentRuns.createdAt} > now() - interval '48 hours' and ${schema.agentRuns.summaryParseError} like '%insufficient_credits%'`)
+  const [okSince] = await db.select({ n: sql<number>`count(*)` }).from(schema.agentRuns)
+    .where(sql`${schema.agentRuns.status} = 'collected' and ${schema.agentRuns.createdAt} > coalesce(${credit?.last ?? null}::timestamptz, now())`)
+  const creditsOut = Number(credit?.n ?? 0) > 0 && Number(okSince?.n ?? 0) === 0
+
   return (
     <section>
+      {creditsOut && (
+        <div className="mb-5 rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-800 ring-1 ring-red-200">
+          <p className="font-semibold">ZooWork credits are exhausted — agents are not running.</p>
+          <p className="mt-1">{Number(credit!.n)} runs failed with <code>402 insufficient_credits</code> in the last 48 hours (latest {credit!.last ? new Date(credit!.last).toLocaleString('en-US') : '—'}). Daily operations, dispute checks and Menu Clinic AI all stop until the organization balance is topped up in the ZooWork console. Dispute checks retry hourly (3 per day); daily runs resume at the next morning.</p>
+        </div>
+      )}
       <h1 className="font-display text-2xl font-bold tracking-tight">Customers</h1>
       <p className="mt-1 max-w-3xl text-sm text-ink-500">Each customer has one agent running the <Link href="/admin/prompt" className="text-brand-700 hover:underline">operating prompt</Link>. New restaurants start in <b>observe-only</b>: the agent reads, flags and recommends but changes nothing until you switch on "Agent changes" here. Open one to pause its daily cron, run the routine now, or read its recent runs.</p>
       <div className="card mt-5 overflow-hidden">
