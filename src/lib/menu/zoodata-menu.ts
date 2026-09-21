@@ -60,6 +60,20 @@ export async function readStorefrontViaZoodata(cfg: Cfg, platform: 'doordash' | 
     })
   }
   const rootObj = root as Record<string, unknown>
+  // SAFETY: this must be ONE store's menu page. A tool that answers with a catalog across stores — like
+  // `restaurant_v2_menu_items`, which ignores the url and returns every item of every store the platform
+  // key can see — must never be ingested: on 2026-09-21 that put 1,797 dishes of other restaurants into one
+  // restaurant's Menu Clinic. Refuse catalogs (several stores, or no descriptions and no photos at all),
+  // so the caller falls back to Firecrawl / the agent browser.
+  const flatProbe = pick(rootObj, 'items', 'products')
+  if (Array.isArray(flatProbe)) {
+    const rows = flatProbe as Record<string, unknown>[]
+    const stores = new Set(rows.map((x) => String(pick(x, 'storeId', 'store_id', 'restaurantId', 'restaurant_id', 'platformStoreId') ?? '')).filter(Boolean))
+    const rich = rows.some((x) => pick(x, 'description', 'itemDescription', 'imageUrl', 'image_url', 'image', 'photoUrl', 'photo') != null)
+    if (stores.size > 1) throw new Error(`zoodata menu ${cfg.tool}: the answer spans ${stores.size} stores — this tool is a catalog, not a store-page reader; refusing to ingest`)
+    if (rows.length > 0 && !rich) throw new Error(`zoodata menu ${cfg.tool}: no descriptions or photos in the answer — not a store-page reader; refusing to ingest`)
+    if (rows.length > 800) throw new Error(`zoodata menu ${cfg.tool}: ${rows.length} items is not one store's menu; refusing to ingest`)
+  }
   const cats = pick(rootObj, 'categories', 'sections', 'menu')
   if (Array.isArray(cats)) for (const c of cats as Record<string, unknown>[]) {
     const cname = str(pick(c, 'name', 'title', 'category'))
